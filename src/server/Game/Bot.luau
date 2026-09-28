@@ -1,5 +1,6 @@
 --!strict
--- A simple bot: buys what it can afford while keeping a cash reserve, and bids up to face value.
+-- A simple bot: buys what it can afford while keeping a cash reserve, bids up to face value, and
+-- leaves jail as soon as it can spare the fine.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
@@ -18,6 +19,13 @@ function Bot.chooseAction(state: Types.GameState, botId: string): Types.Action?
 	local me = Engine.getPlayer(state, botId) :: Types.Player
 
 	if state.phase == "Roll" then
+		if me.inJail then
+			if #me.jailCards > 0 then
+				return { type = "UseJailCard" }
+			elseif me.money - Engine.JAIL_FINE >= Bot.CASH_RESERVE then
+				return { type = "PayJailFine" }
+			end
+		end
 		return { type = "Roll" }
 	elseif state.phase == "BuyDecision" then
 		local price = Tiles.at(me.position).price :: number

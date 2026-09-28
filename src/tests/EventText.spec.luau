@@ -21,6 +21,17 @@ tests["describes the events players care about"] = function()
 		{ { type = "AuctionEnded", position = 6, winner = "p2", amount = 30 }, "Bot 1 won Oriental Avenue for $30" },
 		{ { type = "AuctionEnded", position = 6, winner = nil, amount = 0 }, "Nobody bought Oriental Avenue" },
 		{ { type = "PlayerReplaced", player = "p1" }, "Ana left; a bot takes over" },
+		{ { type = "SentToJail", player = "p1", reason = "GoToJail" }, "Ana went to jail" },
+		{ { type = "SentToJail", player = "p1", reason = "Card" }, "Ana went to jail" },
+		{ { type = "SentToJail", player = "p1", reason = "Doubles" }, "Ana rolled doubles three times and went to jail" },
+		{ { type = "LeftJail", player = "p1", reason = "Doubles" }, "Ana rolled doubles and got out of jail" },
+		{ { type = "LeftJail", player = "p1", reason = "Fine" }, "Ana paid $50 and got out of jail" },
+		{ { type = "LeftJail", player = "p1", reason = "Card" }, "Ana used a Get Out of Jail Free card" },
+		{
+			{ type = "CardDrawn", player = "p1", deck = "CommunityChest", card = "chest.doctor" },
+			"Ana drew Community Chest: Doctor's fee. Pay $50.",
+		},
+		{ { type = "Paid", from = "p1", to = "p2", amount = 50, reason = "Card" }, "Ana paid $50 to Bot 1" },
 	}
 	for _, case in cases :: { any } do
 		Expect.equal(EventText.describe(case[1], NAMES), case[2], case[1].type)
@@ -33,6 +44,9 @@ tests["skips events that have no log line"] = function()
 		{ type = "OfferedPurchase", player = "p1", position = 6 },
 		{ type = "Paid", from = "p1", to = nil, amount = 100, reason = "Purchase" },
 		{ type = "Paid", from = "p1", to = nil, amount = 30, reason = "Auction" },
+		{ type = "Paid", from = "p1", to = nil, amount = 50, reason = "JailFine" },
+		{ type = "Paid", from = nil, to = "p1", amount = 50, reason = "Card" },
+		{ type = "CardDrawn", player = "p1", deck = "Chance", card = "no.such.card" },
 		{ type = "Mystery" },
 	} :: { any } do
 		Expect.equal(EventText.describe(event, NAMES), nil, event.type)

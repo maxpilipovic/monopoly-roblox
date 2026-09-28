@@ -46,6 +46,17 @@ tests["auction view names who bids next"] = function()
 	Expect.equal(auction.currentBidder, "p2")
 end
 
+tests["players show jail status and how many jail cards they hold"] = function()
+	local state = GameFixtures.newGame(2)
+	local p1 = Engine.getPlayer(state, "p1") :: any
+	p1.inJail = true
+	p1.jailCards = { "chance.jailFree", "chest.jailFree" }
+	local view = Snapshot.fromState(state).players[1]
+	Expect.equal(view.inJail, true, "inJail")
+	Expect.equal(view.jailCards, 2, "jailCards")
+	Expect.equal(Snapshot.fromState(state).players[2].inJail, false, "p2")
+end
+
 tests["snapshot shares no tables with the game state"] = function()
 	local state = GameFixtures.newGame(2, { { 2, 4 } })
 	Engine.act(state, "p1", { type = "Roll" })

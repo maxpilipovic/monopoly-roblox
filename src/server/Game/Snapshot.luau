@@ -18,6 +18,8 @@ function Snapshot.fromState(state: Types.GameState): Protocol.Snapshot
 			money = player.money,
 			position = player.position,
 			bankrupt = player.bankrupt,
+			inJail = player.inJail,
+			jailCards = #player.jailCards,
 			seat = seat,
 		})
 	end

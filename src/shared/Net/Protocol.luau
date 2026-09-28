@@ -8,6 +8,8 @@ export type PlayerView = {
 	money: number,
 	position: number,
 	bankrupt: boolean,
+	inJail: boolean,
+	jailCards: number, -- Get Out of Jail Free cards held
 	seat: number, -- 1-based turn order; also picks the token spot and color
 }
 

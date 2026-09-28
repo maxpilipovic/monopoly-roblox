@@ -49,6 +49,18 @@ tests["bot ends its turn"] = function()
 	Expect.equal(Bot.chooseAction(state, "p1").type, "EndTurn")
 end
 
+tests["a jailed bot uses its card, else pays if it can spare it, else rolls"] = function()
+	local state = GameFixtures.newGame(2)
+	local me = Engine.getPlayer(state, "p1") :: any
+	me.inJail = true
+	me.jailCards = { "chance.jailFree" }
+	Expect.equal(Bot.chooseAction(state, "p1").type, "UseJailCard", "has a card")
+	me.jailCards = {}
+	Expect.equal(Bot.chooseAction(state, "p1").type, "PayJailFine", "rich")
+	me.money = Bot.CASH_RESERVE + 49
+	Expect.equal(Bot.chooseAction(state, "p1").type, "Roll", "poor")
+end
+
 tests["an all-bot game keeps making legal moves"] = function()
 	local random = Random.new(1234)
 	local state = Engine.new({
@@ -58,12 +70,20 @@ tests["an all-bot game keeps making legal moves"] = function()
 		{ id = "b4", name = "B4", isBot = true },
 	}, function()
 		return random:NextInteger(1, 6), random:NextInteger(1, 6)
+	end, function(ids)
+		for i = #ids, 2, -1 do
+			local j = random:NextInteger(1, i)
+			ids[i], ids[j] = ids[j], ids[i]
+		end
 	end)
-	for step = 1, 1000 do
+	for step = 1, 2000 do
 		local actor = assert(Engine.actingPlayer(state), `no acting player at step {step}`)
 		local action = assert(Bot.chooseAction(state, actor), `bot {actor} had no action in {state.phase}`)
 		local ok, err = Engine.act(state, actor, action)
 		assert(ok, `step {step}: {actor} {action.type} rejected: {err}`)
+	end
+	for _, eventType in { "SentToJail", "LeftJail", "CardDrawn" } do
+		assert(#GameFixtures.eventsOfType(state, eventType) > 0, `no {eventType} in 2000 steps`)
 	end
 end
 

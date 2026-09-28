@@ -58,6 +58,23 @@ tests["auction offers affordable bid steps and pass to the bidder only"] = funct
 	Expect.equal(HudModel.status(snapshot, "p1"), "Auction: Oriental Avenue — high bid $20 (Player 1)")
 end
 
+tests["jail buttons follow what the player can do"] = function()
+	Expect.equal(HudModel.JAIL_FINE, Engine.JAIL_FINE, "fine matches the engine")
+	local state = GameFixtures.newGame(2)
+	local p1 = Engine.getPlayer(state, "p1") :: any
+	p1.inJail = true
+	local snapshot = Snapshot.fromState(state)
+	Expect.equal(labels(HudModel.buttons(snapshot, "p1")), "Try for doubles|Pay $50 fine")
+	Expect.equal(HudModel.status(snapshot, "p1"), "Your turn — you're in jail")
+
+	p1.jailCards = { "chance.jailFree" }
+	p1.money = 40
+	local buttons = HudModel.buttons(Snapshot.fromState(state), "p1")
+	Expect.equal(labels(buttons), "Try for doubles|Use jail card", "broke, with a card")
+	Expect.equal(buttons[1].action.type, "Roll")
+	Expect.equal(buttons[2].action.type, "UseJailCard")
+end
+
 tests["names maps ids to display names"] = function()
 	local names = HudModel.names(Snapshot.fromState(GameFixtures.newGame(2)))
 	Expect.equal(names.p1, "Player 1")
