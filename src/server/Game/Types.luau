@@ -12,6 +12,7 @@ export type Player = {
 	bankrupt: boolean,
 	inJail: boolean,
 	jailAttempts: number, -- failed doubles rolls during this jail stay
+	jailCards: { string }, -- ids of held Get Out of Jail Free cards
 }
 
 export type Ownership = {
@@ -32,9 +33,11 @@ export type Auction = {
 -- { type = "Moved", player = "p1", from = 38, to = 3, passedGo = true, style = "Walk" }.
 export type Event = { [string]: any }
 
-export type Action = { [string]: any } -- { type = "Roll" | "Buy" | "Decline" | "Bid" | "PassBid" | "EndTurn" | "PayJailFine", amount = number? }
+export type Action = { [string]: any } -- { type = "Roll" | "Buy" | "Decline" | "Bid" | "PassBid" | "EndTurn" | "PayJailFine" | "UseJailCard", amount = number? }
 
 export type DiceRoller = () -> (number, number)
+
+export type Shuffler = (ids: { string }) -> () -- shuffles in place
 
 export type GameState = {
 	players: { Player },
@@ -44,6 +47,7 @@ export type GameState = {
 	lastRoll: { number }?,
 	doublesCount: number, -- doubles rolled so far this turn
 	rollAgain: boolean, -- the move being resolved earned another roll
+	decks: { [string]: { string } }, -- card ids per deck; index 1 is the top
 	auction: Auction?,
 	events: { Event },
 	rollDice: DiceRoller,

@@ -4,6 +4,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
+local Cards = require(ReplicatedStorage.Shared.Board.Cards)
 local Rent = require(script.Parent.Rent)
 local Types = require(script.Parent.Types)
 
@@ -88,7 +89,101 @@ local function leaveJail(state: GameState, player: Player, reason: string)
 	emit(state, { type = "LeftJail", player = player.id, reason = reason })
 end
 
-local function resolveLanding(state: GameState, player: Player)
+local resolveLanding: (state: GameState, player: Player, rentRule: string?) -> ()
+
+local function nearestAhead(from: number, kind: string): number
+	for step = 1, Tiles.COUNT do
+		local position = (from + step) % Tiles.COUNT
+		if Tiles.at(position).kind == kind then
+			return position
+		end
+	end
+	error(`no {kind} tile on the board`)
+end
+
+local function repairCost(state: GameState, player: Player, effect: Cards.Effect): number
+	local cost = 0
+	for _, ownership in state.properties do
+		if ownership.owner == player.id then
+			cost += if ownership.houses == 5
+				then effect.perHotel :: number
+				else ownership.houses * (effect.perHouse :: number)
+		end
+	end
+	return cost
+end
+
+local function applyCard(state: GameState, player: Player, effect: Cards.Effect)
+	local kind = effect.kind
+	if kind == "Collect" then
+		transfer(state, nil, player.id, effect.amount :: number, "Card")
+	elseif kind == "Pay" then
+		transfer(state, player.id, nil, effect.amount :: number, "Card")
+	elseif kind == "PayEachPlayer" or kind == "CollectFromEachPlayer" then
+		for _, other in state.players do
+			if other ~= player and not other.bankrupt then
+				if kind == "PayEachPlayer" then
+					transfer(state, player.id, other.id, effect.amount :: number, "Card")
+				else
+					transfer(state, other.id, player.id, effect.amount :: number, "Card")
+				end
+			end
+		end
+	elseif kind == "Repairs" then
+		local cost = repairCost(state, player, effect)
+		if cost > 0 then
+			transfer(state, player.id, nil, cost, "Card")
+		end
+	elseif kind == "GoToJail" then
+		sendToJail(state, player, "Card")
+		return
+	elseif kind == "AdvanceTo" then
+		moveTo(state, player, effect.position :: number, "Walk")
+		resolveLanding(state, player)
+		return
+	elseif kind == "AdvanceToNearest" then
+		local tileKind = effect.tileKind :: string
+		moveTo(state, player, nearestAhead(player.position, tileKind), "Walk")
+		resolveLanding(state, player, if tileKind == "Railroad" then "DoubleRailroad" else "UtilityTenTimes")
+		return
+	elseif kind == "GoBack" then
+		moveTo(state, player, (player.position - (effect.spaces :: number)) % Tiles.COUNT, "Back")
+		resolveLanding(state, player)
+		return
+	end
+	-- JailFree needs nothing more: drawCard already handed the card to the player.
+	finishMove(state)
+end
+
+local function drawCard(state: GameState, player: Player, deck: string)
+	local cards = state.decks[deck]
+	local id = table.remove(cards, 1) :: string
+	emit(state, { type = "CardDrawn", player = player.id, deck = deck, card = id })
+	local card = Cards.byId[id]
+	if card.effect.kind == "JailFree" then
+		table.insert(player.jailCards, id) -- returns to the deck when used
+	else
+		table.insert(cards, id)
+	end
+	applyCard(state, player, card.effect)
+end
+
+-- rentRule comes from the "nearest Railroad/Utility" cards.
+local function rentOwed(state: GameState, player: Player, position: number, rentRule: string?): number
+	if rentRule == "UtilityTenTimes" then
+		if (state.properties[position] :: Types.Ownership).mortgaged then
+			return 0
+		end
+		local a, b = state.rollDice()
+		emit(state, { type = "Rolled", player = player.id, dice = { a, b }, forCard = true })
+		return (a + b) * 10
+	end
+	local roll = state.lastRoll :: { number }
+	local rent = Rent.calculate(state, position, roll[1] + roll[2])
+	return if rentRule == "DoubleRailroad" then rent * 2 else rent
+end
+
+function resolveLanding(state: GameState, player: Player, rentRule: string?)
 	local tile = Tiles.at(player.position)
 
 	if PURCHASABLE[tile.kind] then
@@ -99,14 +194,16 @@ local function resolveLanding(state: GameState, player: Player)
 			return
 		end
 		if ownership.owner ~= player.id then
-			local roll = state.lastRoll :: { number }
-			local rent = Rent.calculate(state, tile.position, roll[1] + roll[2])
+			local rent = rentOwed(state, player, tile.position, rentRule)
 			if rent > 0 then
 				transfer(state, player.id, ownership.owner, rent, "Rent")
 			end
 		end
 	elseif tile.kind == "Tax" then
 		transfer(state, player.id, nil, tile.amount :: number, "Tax")
+	elseif tile.kind == "Chance" or tile.kind == "CommunityChest" then
+		drawCard(state, player, tile.kind)
+		return
 	elseif tile.kind == "GoToJail" then
 		sendToJail(state, player, "GoToJail")
 		return
@@ -156,6 +253,16 @@ local function payJailFine(state: GameState, player: Player): (boolean, string?)
 	end
 	transfer(state, player.id, nil, Engine.JAIL_FINE, "JailFine")
 	leaveJail(state, player, "Fine")
+	return true
+end
+
+local function useJailCard(state: GameState, player: Player): (boolean, string?)
+	local id = table.remove(player.jailCards, 1)
+	if not id then
+		return false, "no Get Out of Jail Free card"
+	end
+	table.insert(state.decks[Cards.byId[id].deck], id)
+	leaveJail(state, player, "Card")
 	return true
 end
 
@@ -259,7 +366,7 @@ local function endTurn(state: GameState)
 	emit(state, { type = "TurnStarted", player = Engine.currentPlayer(state).id })
 end
 
-function Engine.new(players: { PlayerInfo }, rollDice: Types.DiceRoller): GameState
+function Engine.new(players: { PlayerInfo }, rollDice: Types.DiceRoller, shuffle: Types.Shuffler?): GameState
 	assert(
 		#players >= Engine.MIN_PLAYERS and #players <= Engine.MAX_PLAYERS,
 		`a game needs {Engine.MIN_PLAYERS}-{Engine.MAX_PLAYERS} players, got {#players}`
@@ -279,7 +386,17 @@ function Engine.new(players: { PlayerInfo }, rollDice: Types.DiceRoller): GameSt
 			bankrupt = false,
 			inJail = false,
 			jailAttempts = 0,
+			jailCards = {},
 		})
+	end
+
+	local decks = {}
+	for _, deck in Cards.DECKS do
+		local ids = Cards.idsFor(deck)
+		if shuffle then
+			shuffle(ids)
+		end
+		decks[deck] = ids
 	end
 
 	local state: GameState = {
@@ -290,6 +407,7 @@ function Engine.new(players: { PlayerInfo }, rollDice: Types.DiceRoller): GameSt
 		lastRoll = nil,
 		doublesCount = 0,
 		rollAgain = false,
+		decks = decks,
 		auction = nil,
 		events = {},
 		rollDice = rollDice,
@@ -336,6 +454,8 @@ function Engine.act(state: GameState, playerId: string, action: Types.Action): (
 		return true
 	elseif action.type == "PayJailFine" and state.phase == "Roll" and player.inJail then
 		return payJailFine(state, player)
+	elseif action.type == "UseJailCard" and state.phase == "Roll" and player.inJail then
+		return useJailCard(state, player)
 	elseif action.type == "EndTurn" and state.phase == "EndTurn" then
 		endTurn(state)
 		return true

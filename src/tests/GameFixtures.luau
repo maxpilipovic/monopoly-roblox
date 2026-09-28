@@ -2,6 +2,7 @@
 local ServerScriptService = game:GetService("ServerScriptService")
 local Types = require(ServerScriptService.Server.Game.Types)
 local Engine = require(ServerScriptService.Server.Game.Engine)
+local Cards = require(game:GetService("ReplicatedStorage").Shared.Board.Cards)
 
 local GameFixtures = {}
 
@@ -28,7 +29,7 @@ end
 function GameFixtures.bareState(playerCount: number): Types.GameState
 	local players = {}
 	for i = 1, playerCount do
-		table.insert(players, { id = `p{i}`, name = `Player {i}`, isBot = false, money = 1500, position = 0, bankrupt = false, inJail = false, jailAttempts = 0 })
+		table.insert(players, { id = `p{i}`, name = `Player {i}`, isBot = false, money = 1500, position = 0, bankrupt = false, inJail = false, jailAttempts = 0, jailCards = {} })
 	end
 	return {
 		players = players,
@@ -38,6 +39,7 @@ function GameFixtures.bareState(playerCount: number): Types.GameState
 		lastRoll = nil,
 		doublesCount = 0,
 		rollAgain = false,
+		decks = { Chance = Cards.idsFor("Chance"), CommunityChest = Cards.idsFor("CommunityChest") },
 		auction = nil,
 		events = {},
 		rollDice = GameFixtures.scriptedDice({}),
@@ -46,6 +48,17 @@ end
 
 function GameFixtures.own(state: Types.GameState, owner: string, position: number, houses: number?)
 	state.properties[position] = { owner = owner, houses = houses or 0, mortgaged = false }
+end
+
+-- Puts these card ids on top of the deck, first id drawn first.
+function GameFixtures.stackDeck(state: Types.GameState, deck: string, ids: { string })
+	local cards = state.decks[deck]
+	for i = #ids, 1, -1 do
+		local index = table.find(cards, ids[i])
+		assert(index, `{ids[i]} is not in the {deck} deck`)
+		table.remove(cards, index)
+		table.insert(cards, 1, ids[i])
+	end
 end
 
 function GameFixtures.eventsOfType(state: Types.GameState, eventType: string): { Types.Event }

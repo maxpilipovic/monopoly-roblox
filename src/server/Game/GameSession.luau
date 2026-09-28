@@ -17,7 +17,7 @@ export type Session = {
 
 local GameSession = {}
 
-function GameSession.new(humans: { Human }, seats: number, rollDice: Types.DiceRoller): Session
+function GameSession.new(humans: { Human }, seats: number, rollDice: Types.DiceRoller, shuffle: Types.Shuffler?): Session
 	local playing = math.min(#humans, Engine.MAX_PLAYERS)
 	if seats ~= seats then -- NaN
 		seats = Engine.MIN_PLAYERS
@@ -34,7 +34,7 @@ function GameSession.new(humans: { Human }, seats: number, rollDice: Types.DiceR
 		table.insert(infos, { id = `bot{botNumber}`, name = `Bot {botNumber}`, isBot = true })
 	end
 
-	return { state = Engine.new(infos, rollDice), eventCursor = 0 }
+	return { state = Engine.new(infos, rollDice, shuffle), eventCursor = 0 }
 end
 
 function GameSession.act(session: Session, playerId: string, action: any): (boolean, string?)

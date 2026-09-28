@@ -21,6 +21,13 @@ local function rollDice(): (number, number)
 	return random:NextInteger(1, 6), random:NextInteger(1, 6)
 end
 
+local function shuffle(ids: { string })
+	for i = #ids, 2, -1 do
+		local j = random:NextInteger(1, i)
+		ids[i], ids[j] = ids[j], ids[i]
+	end
+end
+
 local function currentUpdate(events: { any }): Protocol.Update
 	return {
 		snapshot = if session then Snapshot.fromState(session.state) else nil,
@@ -63,7 +70,7 @@ local function onLobbyRequest(_player: Player, request: any)
 	for _, player in Players:GetPlayers() do
 		table.insert(humans, { id = tostring(player.UserId), name = player.DisplayName })
 	end
-	session = GameSession.new(humans, request.seats, rollDice)
+	session = GameSession.new(humans, request.seats, rollDice, shuffle)
 	broadcast()
 	scheduleBots()
 end
