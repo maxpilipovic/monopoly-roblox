@@ -9,6 +9,12 @@
       }
     },
 
+    "ServerStorage": {
+      "Tests": {
+        "$path": "src/tests"
+      }
+    },
+
     "ServerScriptService": {
       "Server": {
         "$path": "src/server"
