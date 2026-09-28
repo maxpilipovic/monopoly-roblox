@@ -32,6 +32,12 @@ tests["describes the events players care about"] = function()
 			"Ana drew Community Chest: Doctor's fee. Pay $50.",
 		},
 		{ { type = "Paid", from = "p1", to = "p2", amount = 50, reason = "Card" }, "Ana paid $50 to Bot 1" },
+		{ { type = "Built", player = "p1", position = 1, amount = 50, hotel = false }, "Ana built a house on Mediterranean Avenue" },
+		{ { type = "Built", player = "p1", position = 1, amount = 50, hotel = true }, "Ana built a hotel on Mediterranean Avenue" },
+		{ { type = "BuildingSold", player = "p1", position = 3, amount = 25, hotel = false }, "Ana sold a house on Baltic Avenue" },
+		{ { type = "BuildingSold", player = "p1", position = 3, amount = 25, hotel = true }, "Ana sold a hotel on Baltic Avenue" },
+		{ { type = "Mortgaged", player = "p1", position = 5, amount = 100 }, "Ana mortgaged Reading Railroad for $100" },
+		{ { type = "Unmortgaged", player = "p1", position = 5, amount = 110 }, "Ana paid $110 to unmortgage Reading Railroad" },
 	}
 	for _, case in cases :: { any } do
 		Expect.equal(EventText.describe(case[1], NAMES), case[2], case[1].type)
@@ -47,6 +53,8 @@ tests["skips events that have no log line"] = function()
 		{ type = "Paid", from = "p1", to = nil, amount = 50, reason = "JailFine" },
 		{ type = "Paid", from = nil, to = "p1", amount = 50, reason = "Card" },
 		{ type = "CardDrawn", player = "p1", deck = "Chance", card = "no.such.card" },
+		{ type = "Paid", from = "p1", to = nil, amount = 50, reason = "Building" },
+		{ type = "Paid", from = nil, to = "p1", amount = 100, reason = "Mortgage" },
 		{ type = "Mystery" },
 	} :: { any } do
 		Expect.equal(EventText.describe(event, NAMES), nil, event.type)

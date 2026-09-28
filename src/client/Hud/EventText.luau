@@ -62,6 +62,14 @@ function EventText.describe(event: { [string]: any }, names: { [string]: string 
 			return nil
 		end
 		return `{name(event.player)} drew {Cards.DECK_TITLES[card.deck]}: {card.text}`
+	elseif kind == "Built" then
+		return `{name(event.player)} built a {if event.hotel then "hotel" else "house"} on {tileName(event.position)}`
+	elseif kind == "BuildingSold" then
+		return `{name(event.player)} sold a {if event.hotel then "hotel" else "house"} on {tileName(event.position)}`
+	elseif kind == "Mortgaged" then
+		return `{name(event.player)} mortgaged {tileName(event.position)} for ${event.amount}`
+	elseif kind == "Unmortgaged" then
+		return `{name(event.player)} paid ${event.amount} to unmortgage {tileName(event.position)}`
 	elseif kind == "PlayerReplaced" then
 		return `{name(event.player)} left; a bot takes over`
 	end

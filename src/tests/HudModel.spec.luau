@@ -75,6 +75,73 @@ tests["jail buttons follow what the player can do"] = function()
 	Expect.equal(buttons[2].action.type, "UseJailCard")
 end
 
+local function rowLabels(row): string
+	return labels(row.buttons)
+end
+
+tests["property rows list your deeds: streets, then railroads, then utilities"] = function()
+	local state = GameFixtures.newGame(2)
+	for _, position in { 12, 5, 3, 1 } do
+		GameFixtures.own(state, "p1", position)
+	end
+	GameFixtures.own(state, "p2", 6)
+	local rows = HudModel.propertyRows(Snapshot.fromState(state), "p1")
+	Expect.equal(#rows, 4, "only p1's deeds")
+	local order = {}
+	for _, row in rows do
+		table.insert(order, `{row.position}:{row.group}`)
+	end
+	Expect.equal(table.concat(order, ","), "1:Brown,3:Brown,5:Railroad,12:Utility")
+	Expect.equal(rows[1].name, "Mediterranean Avenue", "name")
+end
+
+tests["property rows offer the legal actions with prices on your turn"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.own(state, "p1", 1, 1)
+	GameFixtures.own(state, "p1", 3)
+	GameFixtures.own(state, "p1", 5)
+	state.properties[5].mortgaged = true
+	local rows = HudModel.propertyRows(Snapshot.fromState(state), "p1")
+	Expect.equal(rowLabels(rows[1]), "−🏠 +$25", "ahead: sell only")
+	Expect.equal(rowLabels(rows[2]), "+🏠 $50", "behind: build only")
+	Expect.equal(rowLabels(rows[3]), "Unmortgage $110", "mortgaged railroad")
+	Expect.equal(rows[2].buttons[1].action.type, "Build", "action type")
+	Expect.equal(rows[2].buttons[1].action.position, 3, "action position")
+
+	state.properties[1].houses = 0
+	rows = HudModel.propertyRows(Snapshot.fromState(state), "p1")
+	Expect.equal(rowLabels(rows[1]), "+🏠 $50|Mortgage +$30", "bare full set")
+end
+
+tests["property rows label hotels"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.own(state, "p1", 1, 4)
+	GameFixtures.own(state, "p1", 3, 5)
+	local rows = HudModel.propertyRows(Snapshot.fromState(state), "p1")
+	Expect.equal(rowLabels(rows[1]), "+🏨 $50", "build the hotel")
+	Expect.equal(rowLabels(rows[2]), "−🏨 +$25", "sell the hotel")
+	Expect.equal(HudModel.buildingText(rows[2]), "🏨", "hotel text")
+	Expect.equal(HudModel.buildingText(rows[1]), "🏠🏠🏠🏠", "houses text")
+end
+
+tests["property rows have no buttons off your turn or mid-decision"] = function()
+	local state = GameFixtures.newGame(2, { { 2, 4 } })
+	GameFixtures.own(state, "p1", 1)
+	GameFixtures.own(state, "p1", 3)
+	state.properties[3].mortgaged = true
+	Expect.equal(#HudModel.propertyRows(Snapshot.fromState(state), "p2"), 0, "p2 owns nothing")
+	Engine.act(state, "p1", { type = "Roll" }) -- BuyDecision on Oriental
+	for _, row in HudModel.propertyRows(Snapshot.fromState(state), "p1") do
+		Expect.equal(#row.buttons, 0, `row {row.position} during a buy decision`)
+	end
+	Expect.equal(HudModel.buildingText(HudModel.propertyRows(Snapshot.fromState(state), "p1")[2]), "MORTGAGED")
+	state.phase = "Roll"
+	state.currentIndex = 2
+	for _, row in HudModel.propertyRows(Snapshot.fromState(state), "p1") do
+		Expect.equal(#row.buttons, 0, `row {row.position} on p2's turn`)
+	end
+end
+
 tests["names maps ids to display names"] = function()
 	local names = HudModel.names(Snapshot.fromState(GameFixtures.newGame(2)))
 	Expect.equal(names.p1, "Player 1")

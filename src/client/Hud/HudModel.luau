@@ -4,6 +4,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
+local PropertyRules = require(ReplicatedStorage.Shared.Rules.PropertyRules)
 
 export type Button = {
 	label: string,
@@ -104,6 +105,101 @@ function HudModel.status(snapshot: Protocol.Snapshot, localId: string): string
 		return "Your turn"
 	end
 	return `Waiting for {names[snapshot.currentPlayer] or snapshot.currentPlayer}`
+end
+
+export type PropertyRow = {
+	position: number,
+	name: string,
+	group: string, -- color group, or "Railroad" / "Utility"
+	houses: number,
+	mortgaged: boolean,
+	buttons: { Button },
+}
+
+local KIND_ORDER = { Property = 1, Railroad = 2, Utility = 3 }
+
+local function rulesView(snapshot: Protocol.Snapshot): PropertyRules.View
+	local properties = {}
+	for _, property in snapshot.properties do
+		properties[property.position] = { owner = property.owner, houses = property.houses, mortgaged = property.mortgaged }
+	end
+	return { properties = properties, bankHouses = snapshot.bankHouses, bankHotels = snapshot.bankHotels }
+end
+
+-- The local player's deeds with the property actions they may take right now.
+function HudModel.propertyRows(snapshot: Protocol.Snapshot, localId: string): { PropertyRow }
+	local me = findPlayer(snapshot, localId)
+	if not me then
+		return {}
+	end
+	local canAct = snapshot.currentPlayer == localId
+		and snapshot.auction == nil
+		and (snapshot.phase == "Roll" or snapshot.phase == "EndTurn")
+	local view = rulesView(snapshot)
+
+	local rows = {}
+	for _, property in snapshot.properties do
+		if property.owner ~= localId then
+			continue
+		end
+		local position = property.position
+		local tile = Tiles.at(position)
+		local buttons = {}
+		if canAct then
+			if tile.kind == "Property" then
+				local price = PropertyRules.housePrice(position)
+				if PropertyRules.canBuild(view, localId, me.money, position) then
+					local icon = if property.houses == PropertyRules.HOUSES_PER_HOTEL then "🏨" else "🏠"
+					table.insert(buttons, { label = `+{icon} ${price}`, action = { type = "Build", position = position } })
+				end
+				if PropertyRules.canSell(view, localId, position) then
+					local icon = if property.houses == PropertyRules.HOTEL then "🏨" else "🏠"
+					table.insert(buttons, {
+						label = `−{icon} +${price // 2}`,
+						action = { type = "SellBuilding", position = position },
+					})
+				end
+			end
+			if PropertyRules.canMortgage(view, localId, position) then
+				table.insert(buttons, {
+					label = `Mortgage +${PropertyRules.mortgageValue(position)}`,
+					action = { type = "Mortgage", position = position },
+				})
+			end
+			if PropertyRules.canUnmortgage(view, localId, me.money, position) then
+				table.insert(buttons, {
+					label = `Unmortgage ${PropertyRules.unmortgageCost(position)}`,
+					action = { type = "Unmortgage", position = position },
+				})
+			end
+		end
+		table.insert(rows, {
+			position = position,
+			name = tile.name,
+			group = tile.group or tile.kind,
+			houses = property.houses,
+			mortgaged = property.mortgaged,
+			buttons = buttons,
+		})
+	end
+
+	table.sort(rows, function(a, b)
+		local kindA, kindB = KIND_ORDER[Tiles.at(a.position).kind], KIND_ORDER[Tiles.at(b.position).kind]
+		if kindA ~= kindB then
+			return kindA < kindB
+		end
+		return a.position < b.position
+	end)
+	return rows
+end
+
+function HudModel.buildingText(row: PropertyRow): string
+	if row.mortgaged then
+		return "MORTGAGED"
+	elseif row.houses == PropertyRules.HOTEL then
+		return "🏨"
+	end
+	return string.rep("🏠", row.houses)
 end
 
 return HudModel
