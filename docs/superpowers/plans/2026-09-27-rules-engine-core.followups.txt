@@ -1,0 +1,11 @@
+Task 1: Ruling: rojo serve had stopped; restarted it from this session (background) and user reconnected — cost if wrong: sync stops when the session ends.
+Task 2: Ruling: malformed-actions test calls act(nil) explicitly — a nil inside the plan's table literal would never be iterated, so nil was untested — cost if wrong: none.
+Final: Ruling: Important "events don't record phase changes" — not fixed in engine; the networking contract (playable-in-studio plan) sends events + a full snapshot including phase every update — cost if wrong: an events-only consumer would need PhaseChanged later.
+Final: Ruling: Important "GameState not sendable as-is" — covered by Snapshot.fromState in the playable-in-studio plan (array properties, no functions) — cost if wrong: none.
+Final: minor (deferred): no production dice roller yet (added in playable plan's GameService)
+Final: minor (deferred): string player ids vs numeric UserId — playable plan tostrings UserId
+Final: minor (deferred): events never trimmed / no seq number
+Final: minor (deferred): single message for all bad bids
+Final: minor (deferred): test gaps — bad-bid test doesn't assert state unchanged; no PassBid-out-of-order / EndTurn-in-BuyDecision / Decline-outside-BuyDecision tests; no engine-level railroad test; no Paid/Bought field assertions
+Final: minor (deferred): error string echoes client action.type
+Final: minor (deferred): endTurn with all players bankrupt lands on a bankrupt player — bankruptcy plan must set GameOver first
