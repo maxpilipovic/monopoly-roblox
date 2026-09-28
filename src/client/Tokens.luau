@@ -12,11 +12,14 @@ local HOP_TIME = 0.18
 local HOP_HEIGHT = 1.5
 local TOKEN_HEIGHT = 0.8
 
+type Move = { from: number, to: number, style: string? }
+
 type Token = {
 	part: BasePart,
 	seat: number,
 	position: number, -- the server's position for this player; tokens settle here once their moves finish
-	queue: { { from: number, to: number } },
+	inJail: boolean,
+	queue: { Move },
 	moving: boolean,
 }
 
@@ -32,9 +35,10 @@ function Tokens.new(parent: Instance): TokensView
 	return setmetatable({ folder = folder, tokens = {} }, Tokens)
 end
 
-local function standingCFrame(position: number, seat: number): CFrame
+local function standingCFrame(position: number, seat: number, jailed: boolean?): CFrame
+	local spot = if jailed then TokenLayout.jailSpot(seat) else TokenLayout.spot(position, seat)
 	-- Cylinders lie along X; rotate so the token stands upright.
-	return CFrame.new(TokenLayout.spot(position, seat) + Vector3.new(0, TOKEN_HEIGHT / 2, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+	return CFrame.new(spot + Vector3.new(0, TOKEN_HEIGHT / 2, 0)) * CFrame.Angles(0, 0, math.pi / 2)
 end
 
 local function makePart(seat: number, name: string, parent: Instance): BasePart
@@ -51,8 +55,7 @@ local function makePart(seat: number, name: string, parent: Instance): BasePart
 	return part
 end
 
-local function hop(token: Token, to: number)
-	local goal = standingCFrame(to, token.seat)
+local function hop(token: Token, goal: CFrame)
 	local up = TweenService:Create(token.part, TweenInfo.new(HOP_TIME / 2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		CFrame = token.part.CFrame:Lerp(goal, 0.5) + Vector3.new(0, HOP_HEIGHT, 0),
 	})
@@ -65,6 +68,20 @@ local function hop(token: Token, to: number)
 	down.Completed:Wait()
 end
 
+-- The tiles a token hops through to play out a Moved event.
+function Tokens.path(move: Move): { number }
+	if move.style == "ToJail" then
+		return { move.to }
+	end
+	local direction = if move.style == "Back" then -1 else 1
+	local steps = (direction * (move.to - move.from)) % Tiles.COUNT
+	local path = {}
+	for step = 1, steps do
+		table.insert(path, (move.from + direction * step) % Tiles.COUNT)
+	end
+	return path
+end
+
 -- Plays queued moves one after another, one hop per tile.
 local function runQueue(token: Token)
 	if token.moving then
@@ -73,16 +90,15 @@ local function runQueue(token: Token)
 	token.moving = true
 	task.spawn(function()
 		while #token.queue > 0 do
-			local move = table.remove(token.queue, 1) :: { from: number, to: number }
-			local steps = (move.to - move.from) % Tiles.COUNT
-			for step = 1, steps do
-				hop(token, (move.from + step) % Tiles.COUNT)
+			local move = table.remove(token.queue, 1) :: Move
+			for _, position in Tokens.path(move) do
+				hop(token, standingCFrame(position, token.seat, move.style == "ToJail"))
 			end
 		end
 		token.moving = false
 		-- Settle on the server's position, in case a change arrived without a move to animate.
 		if token.part.Parent then
-			token.part.CFrame = standingCFrame(token.position, token.seat)
+			token.part.CFrame = standingCFrame(token.position, token.seat, token.inJail)
 		end
 	end)
 end
@@ -109,10 +125,18 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 			if not token then
 				local part = makePart(player.seat, player.name, self.folder)
 				part.CFrame = standingCFrame(Tokens.startPosition(player, update.events), player.seat)
-				token = { part = part, seat = player.seat, position = player.position, queue = {}, moving = false }
+				token = {
+					part = part,
+					seat = player.seat,
+					position = player.position,
+					inJail = player.inJail,
+					queue = {},
+					moving = false,
+				}
 				self.tokens[player.id] = token
 			end
 			token.position = player.position
+			token.inJail = player.inJail
 			token.part.Transparency = if player.bankrupt then 0.7 else 0
 		end
 	end
@@ -127,7 +151,7 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 	for _, event in update.events do
 		local token = event.type == "Moved" and self.tokens[event.player]
 		if token then
-			table.insert(token.queue, { from = event.from, to = event.to })
+			table.insert(token.queue, { from = event.from, to = event.to, style = event.style })
 			runQueue(token)
 		end
 	end
@@ -135,7 +159,7 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 	-- Tokens with nothing to animate snap to where the server says they are.
 	for _, token in self.tokens do
 		if not token.moving then
-			token.part.CFrame = standingCFrame(token.position, token.seat)
+			token.part.CFrame = standingCFrame(token.position, token.seat, token.inJail)
 		end
 	end
 end

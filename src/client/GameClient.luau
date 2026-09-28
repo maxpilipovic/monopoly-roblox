@@ -4,6 +4,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Cards = require(ReplicatedStorage.Shared.Board.Cards)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local EventText = require(script.Parent.Hud.EventText)
 local HudModel = require(script.Parent.Hud.HudModel)
@@ -40,6 +41,9 @@ function GameClient.start()
 				local line = EventText.describe(event, names)
 				if line then
 					table.insert(lines, line)
+				end
+				if event.type == "CardDrawn" and Cards.byId[event.card] then
+					hud:showCard(event.deck, Cards.byId[event.card].text)
 				end
 			end
 			hud:log(lines)

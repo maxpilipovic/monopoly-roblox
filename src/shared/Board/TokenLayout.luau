@@ -7,6 +7,7 @@ local TokenLayout = {}
 
 TokenLayout.MAX_SEATS = 6
 TokenLayout.TOKEN_DIAMETER = 1.4
+TokenLayout.JAIL_POSITION = 10
 
 TokenLayout.SEAT_COLORS = table.freeze({
 	Color3.fromRGB(220, 50, 47), -- red
@@ -27,11 +28,34 @@ local SPOTS = {
 	Vector3.new(1.8, 0, 2.8),
 }
 
-function TokenLayout.spot(position: number, seat: number): Vector3
-	assert(seat % 1 == 0 and seat >= 1 and seat <= TokenLayout.MAX_SEATS, `invalid seat {seat}`)
+-- Inside the jail cell: the inner half of the Jail corner (-Z, toward the board centre),
+-- clear of the just-visiting spots on the outer half.
+local JAIL_SPOTS = {
+	Vector3.new(-2.2, 0, -2.0),
+	Vector3.new(0, 0, -2.0),
+	Vector3.new(2.2, 0, -2.0),
+	Vector3.new(-2.2, 0, -3.9),
+	Vector3.new(0, 0, -3.9),
+	Vector3.new(2.2, 0, -3.9),
+}
+
+local function tileTop(position: number): CFrame
 	local placement = Layout.getTilePlacement(position)
-	local tileTop = Layout.ORIGIN * placement.cframe * CFrame.new(0, placement.size.Y / 2, 0)
-	return tileTop:PointToWorldSpace(SPOTS[seat])
+	return Layout.ORIGIN * placement.cframe * CFrame.new(0, placement.size.Y / 2, 0)
+end
+
+local function checkSeat(seat: number)
+	assert(seat % 1 == 0 and seat >= 1 and seat <= TokenLayout.MAX_SEATS, `invalid seat {seat}`)
+end
+
+function TokenLayout.spot(position: number, seat: number): Vector3
+	checkSeat(seat)
+	return tileTop(position):PointToWorldSpace(SPOTS[seat])
+end
+
+function TokenLayout.jailSpot(seat: number): Vector3
+	checkSeat(seat)
+	return tileTop(TokenLayout.JAIL_POSITION):PointToWorldSpace(JAIL_SPOTS[seat])
 end
 
 return TokenLayout

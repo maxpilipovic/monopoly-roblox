@@ -1,7 +1,8 @@
 --!strict
--- The on-screen HUD: lobby panel, player list, status + action buttons, and event log.
+-- The on-screen HUD: lobby panel, player list, status + action buttons, event log, and drawn cards.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Cards = require(ReplicatedStorage.Shared.Board.Cards)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local TokenLayout = require(ReplicatedStorage.Shared.Board.TokenLayout)
 local HudModel = require(script.Parent.HudModel)
@@ -11,6 +12,12 @@ local FONT = Font.fromEnum(Enum.Font.GothamBold)
 local PANEL_COLOR = Color3.fromRGB(25, 27, 32)
 local BUTTON_COLOR = Color3.fromRGB(46, 160, 67)
 local TEXT_COLOR = Color3.new(1, 1, 1)
+local CARD_SECONDS = 5
+local CARD_COLORS = {
+	Chance = Color3.fromRGB(247, 148, 29),
+	CommunityChest = Color3.fromRGB(125, 190, 230),
+}
+local CARD_TEXT_COLOR = Color3.fromRGB(20, 20, 20)
 
 export type Callbacks = {
 	onAction: (action: { [string]: any }) -> (),
@@ -32,6 +39,10 @@ export type HudView = typeof(setmetatable(
 		buttonRow: Frame,
 		logLabel: TextLabel,
 		logLines: { string },
+		card: Frame,
+		cardTitle: TextLabel,
+		cardText: TextLabel,
+		cardShown: number,
 	},
 	HudView
 ))
@@ -121,6 +132,10 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		buttonRow = nil :: any,
 		logLabel = nil :: any,
 		logLines = {},
+		card = nil :: any,
+		cardTitle = nil :: any,
+		cardText = nil :: any,
+		cardShown = 0,
 	}, HudView)
 
 	local function changeSeats(delta: number)
@@ -163,7 +178,33 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 	self.logLabel.TextXAlignment = Enum.TextXAlignment.Left
 	self.logLabel.TextYAlignment = Enum.TextYAlignment.Bottom
 
+	-- Drawn card popup, under the top edge.
+	local card = panel("Card", UDim2.fromOffset(360, 130), UDim2.new(0.5, 0, 0, 12), Vector2.new(0.5, 0), gui)
+	card.BackgroundTransparency = 0
+	card.Visible = false
+	self.cardTitle = text("Title", card, UDim2.new(1, -16, 0, 30), 22)
+	self.cardTitle.Position = UDim2.fromOffset(8, 8)
+	self.cardTitle.TextColor3 = CARD_TEXT_COLOR
+	self.cardText = text("Text", card, UDim2.new(1, -16, 1, -48), 17)
+	self.cardText.Position = UDim2.fromOffset(8, 40)
+	self.cardText.TextColor3 = CARD_TEXT_COLOR
+	self.card = card
+
 	return self
+end
+
+function HudView.showCard(self: HudView, deck: string, body: string)
+	self.cardShown += 1
+	local shown = self.cardShown
+	self.card.BackgroundColor3 = CARD_COLORS[deck] or PANEL_COLOR
+	self.cardTitle.Text = Cards.DECK_TITLES[deck] or deck
+	self.cardText.Text = body
+	self.card.Visible = true
+	task.delay(CARD_SECONDS, function()
+		if self.cardShown == shown then
+			self.card.Visible = false
+		end
+	end)
 end
 
 function HudView.log(self: HudView, lines: { string })
@@ -180,6 +221,7 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 	self.lobby.Visible = snapshot == nil
 	self.playerList.Visible = snapshot ~= nil
 	self.buttonRow.Parent.Visible = snapshot ~= nil
+	self.card.Visible = self.card.Visible and snapshot ~= nil
 
 	for _, child in self.playerList:GetChildren() do
 		if child:IsA("TextLabel") then
@@ -204,7 +246,8 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		row.TextColor3 = TokenLayout.SEAT_COLORS[player.seat]
 		local marker = if player.id == snapshot.currentPlayer then "▶ " else "   "
 		local you = if player.id == localId then " (you)" else ""
-		row.Text = `{marker}{player.name}{you}   ${player.money}`
+		local jail = if player.inJail then " 🔒" else ""
+		row.Text = `{marker}{player.name}{you}{jail}   ${player.money}`
 	end
 
 	local roll = snapshot.lastRoll
