@@ -1,0 +1,18 @@
+Setup: Ruling: work on branch feat/jail-and-cards in the main checkout, no worktree — Rojo serves this directory into Studio, where the tests run — cost if wrong: none (branch isolates the work).
+Setup: Ruling: tests run in Studio via MCP; the runner's output is saved to <workspace>/studio-tests.txt and task-done checks that file for ", 0 failed" — the suite cannot run from a shell — cost if wrong: a stale file could be re-checked; each task overwrites it right before task-done.
+Task 3: Ruling: Studio twice missed a Rojo patch (edits made just before/around a playtest toggle); verified each edited file's last change in the Edit DM before running, and forced a resync with a no-op content change — cost if wrong: a stale test run; each run is now preceded by a sync check.
+Task 3: Ruling: extended all-bot test passed before the implementation (bots can always Roll in jail) — it is a coverage extension, the three new unit tests carried RED — cost if wrong: none.
+Task 4: Ruling: playtest drove the human's turns with a client-side autopilot firing the same GameAction remote the buttons fire (Start and Pay $50 fine were real clicks) — faster than clicking every turn; buttons' labels/actions are unit-tested — cost if wrong: a button-wiring bug for Roll/Decline/EndTurn would be missed (those buttons are unchanged since milestone 2).
+Task 4: Not observed in playtest: a "Go back 3" backward hop, the jump animation itself (only its end state), and the "Use jail card" button (the human never held a card). Covered by Tokens.spec path tests and HudModel.spec.
+Final: minor (deferred): utility-card extra roll logs as a normal "rolled a + b" (EventText ignores forCard)
+Final: minor (deferred): no warning before the forced third-roll fine (jailAttempts not in snapshot)
+Final: minor (deferred): "$50" hard-coded in the LeftJail log line
+Final: minor (deferred): ToJail animation is one 0.18 s hop across the board — reads as a teleport
+Final: minor (deferred): new token for a jailed player is created at the visiting spot (settle loop fixes it the same call)
+Final: minor (deferred): drawCard doesn't assert a non-empty deck (unreachable today)
+Final: Ruling: held Get Out of Jail Free card can't replace the forced third-roll fine — spec says "must pay $50"; the card can still be used before rolling — cost if wrong: a rules-edition preference, small change.
+Final: Ruling: bots use a jail card immediately, even late game — spec only needs legal moves; smarter bots later — cost if wrong: weaker bots.
+Final: Ruling: held jail cards on bankruptcy/leaving not handled — bankruptcy is milestone 4 — cost if wrong: M4 must return them to their decks.
+Final: Ruling: no old-client compatibility for nil inJail/jailCards — Roblox runs server and client from one build — cost if wrong: none.
+Final: Ruling: card popup stays 5 s; with the queue a backlog can form if cards come faster than every 5 s — cards are rare per move, so kept — cost if wrong: popups lag a few seconds behind in bursty moments.
+Final: Ruling: negative balances from cards/forced fine stand — spec allows debt until milestone 4 — cost if wrong: none.

@@ -37,13 +37,18 @@ function GameClient.start()
 		if update.snapshot then
 			local names = HudModel.names(update.snapshot)
 			local lines = {}
+			local now = os.clock()
+			local travel = {} -- per player: seconds of token movement so far in this update
 			for _, event in update.events do
 				local line = EventText.describe(event, names)
 				if line then
 					table.insert(lines, line)
 				end
-				if event.type == "CardDrawn" and Cards.byId[event.card] then
-					hud:showCard(event.deck, Cards.byId[event.card].text)
+				if event.type == "Moved" then
+					travel[event.player] = (travel[event.player] or 0) + Tokens.moveSeconds(event)
+				elseif event.type == "CardDrawn" and Cards.byId[event.card] then
+					-- Show the card once the token has reached the card tile.
+					hud:showCard(event.deck, Cards.byId[event.card].text, now + (travel[event.player] or 0))
 				end
 			end
 			hud:log(lines)

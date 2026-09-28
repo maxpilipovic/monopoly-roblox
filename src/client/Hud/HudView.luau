@@ -2,9 +2,11 @@
 -- The on-screen HUD: lobby panel, player list, status + action buttons, event log, and drawn cards.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local Cards = require(ReplicatedStorage.Shared.Board.Cards)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local TokenLayout = require(ReplicatedStorage.Shared.Board.TokenLayout)
+local CardQueue = require(script.Parent.CardQueue)
 local HudModel = require(script.Parent.HudModel)
 
 local LOG_LINES = 8
@@ -42,7 +44,7 @@ export type HudView = typeof(setmetatable(
 		card: Frame,
 		cardTitle: TextLabel,
 		cardText: TextLabel,
-		cardShown: number,
+		cards: CardQueue.Queue,
 	},
 	HudView
 ))
@@ -104,6 +106,16 @@ local function list(parent: Instance, direction: Enum.FillDirection, padding: nu
 	layout.Parent = parent
 end
 
+local function updateCard(self: HudView)
+	local card = CardQueue.current(self.cards, os.clock())
+	self.card.Visible = card ~= nil
+	if card then
+		self.card.BackgroundColor3 = CARD_COLORS[card.deck] or PANEL_COLOR
+		self.cardTitle.Text = Cards.DECK_TITLES[card.deck] or card.deck
+		self.cardText.Text = card.text
+	end
+end
+
 function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "MonopolyHud"
@@ -135,7 +147,7 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		card = nil :: any,
 		cardTitle = nil :: any,
 		cardText = nil :: any,
-		cardShown = 0,
+		cards = CardQueue.new(CARD_SECONDS),
 	}, HudView)
 
 	local function changeSeats(delta: number)
@@ -189,22 +201,16 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 	self.cardText.Position = UDim2.fromOffset(8, 40)
 	self.cardText.TextColor3 = CARD_TEXT_COLOR
 	self.card = card
+	RunService.Heartbeat:Connect(function()
+		updateCard(self)
+	end)
 
 	return self
 end
 
-function HudView.showCard(self: HudView, deck: string, body: string)
-	self.cardShown += 1
-	local shown = self.cardShown
-	self.card.BackgroundColor3 = CARD_COLORS[deck] or PANEL_COLOR
-	self.cardTitle.Text = Cards.DECK_TITLES[deck] or deck
-	self.cardText.Text = body
-	self.card.Visible = true
-	task.delay(CARD_SECONDS, function()
-		if self.cardShown == shown then
-			self.card.Visible = false
-		end
-	end)
+-- Queues a drawn card; it appears at `notBefore` (os.clock time) or after the cards ahead of it.
+function HudView.showCard(self: HudView, deck: string, body: string, notBefore: number)
+	CardQueue.push(self.cards, deck, body, notBefore)
 end
 
 function HudView.log(self: HudView, lines: { string })
@@ -221,7 +227,9 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 	self.lobby.Visible = snapshot == nil
 	self.playerList.Visible = snapshot ~= nil
 	self.buttonRow.Parent.Visible = snapshot ~= nil
-	self.card.Visible = self.card.Visible and snapshot ~= nil
+	if not snapshot then
+		table.clear(self.cards.items) -- back in the lobby: drop cards still waiting
+	end
 
 	for _, child in self.playerList:GetChildren() do
 		if child:IsA("TextLabel") then

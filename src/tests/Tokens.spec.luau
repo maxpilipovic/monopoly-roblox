@@ -30,6 +30,11 @@ tests["backward moves hop backward"] = function()
 	Expect.equal(table.concat(Tokens.path({ from = 1, to = 38, style = "Back" }), ","), "0,39,38")
 end
 
+tests["a move takes one hop time per tile"] = function()
+	Expect.near(Tokens.moveSeconds({ from = 0, to = 7, style = "Walk" }), 7 * Tokens.HOP_TIME)
+	Expect.near(Tokens.moveSeconds({ from = 36, to = 33, style = "Back" }), 3 * Tokens.HOP_TIME)
+end
+
 tests["going to jail is a single jump"] = function()
 	Expect.equal(table.concat(Tokens.path({ from = 30, to = 10, style = "ToJail" }), ","), "10")
 	Expect.equal(table.concat(Tokens.path({ from = 10, to = 10, style = "ToJail" }), ","), "10", "from just visiting")

@@ -8,7 +8,6 @@ local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local TokenLayout = require(ReplicatedStorage.Shared.Board.TokenLayout)
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 
-local HOP_TIME = 0.18
 local HOP_HEIGHT = 1.5
 local TOKEN_HEIGHT = 0.8
 
@@ -25,6 +24,9 @@ type Token = {
 
 local Tokens = {}
 Tokens.__index = Tokens
+
+Tokens.HOP_TIME = 0.18
+local HOP_TIME = Tokens.HOP_TIME
 
 export type TokensView = typeof(setmetatable({} :: { folder: Folder, tokens: { [string]: Token } }, Tokens))
 
@@ -80,6 +82,11 @@ function Tokens.path(move: Move): { number }
 		table.insert(path, (move.from + direction * step) % Tiles.COUNT)
 	end
 	return path
+end
+
+-- How long a Moved event takes to animate.
+function Tokens.moveSeconds(move: Move): number
+	return #Tokens.path(move) * HOP_TIME
 end
 
 -- Plays queued moves one after another, one hop per tile.
