@@ -1,0 +1,14 @@
+Setup: Ruling: work on branch feat/board-and-camera in the main checkout instead of a separate worktree — rojo serve syncs C:\dev\Monopoly into Studio, and the tests run in Studio — cost if wrong: none; branch still isolates from main.
+Setup: Ruling: task-done script can't run the tests (they run in Studio via MCP execute_luau); ledger lines are written by hand with the MCP runner output — cost if wrong: none.
+Task 1: Ruling: RED failure message was "Requested module experienced an error while loading" rather than naming the missing Board.Tiles — Roblox wraps errors from nested requires; the cause (Board folder empty) was confirmed via the game tree — cost if wrong: none.
+Task 1: Ruling: rojo serve had to be restarted by the user to pick up the new ServerStorage.Tests project node — cost if wrong: none.
+Task 3: Ruling: extracted a tilePart(board, position) helper in BoardBuilder.spec instead of repeating the FindFirstChild chain — same assertions — cost if wrong: none.
+Task 3: Ruling: screenshot showed labels rotated 90° (Top-face SurfaceGui up = part -X, not -Z). Plan said report rather than guess; evidence pinned the axis, so fixed: label AnchorPoint centre, size scaled (X/Z, Z/X), Rotation = 90. Verified by re-screenshot, no unit test (orientation is engine-defined, only observable visually) — cost if wrong: labels sideways again, visible immediately in playtest.
+Final: Ruling: Important "avatars spawn on/walk over the board" not fixed on this branch — belongs to the play-in-Studio milestone (tokens are the only presence: CharacterAutoLoads=false, camera handling reworked then) — cost if wrong: avatar visible on board until milestone 2.
+Final: minor (deferred): camera fit conservative (sphere) — board small on phones
+Final: minor (deferred): respawn camera fix depends on task.defer timing; also re-apply on CameraType change
+Final: minor (deferred): CurrentCamera captured once; FieldOfView change not handled
+Final: minor (deferred): Tile type mutable over frozen tables; group not typed against ColorGroups keys
+Final: minor (deferred): label text size varies per tile (add UITextSizeConstraint)
+Final: minor (deferred): TestRunner aborts if a spec returns a non-table
+Final: minor (deferred): StreamingEnabled could hide board parts from clients — set ModelStreamingMode Persistent or compute from Layout
