@@ -117,6 +117,69 @@ local function buy(state: GameState, player: Player): (boolean, string?)
 	return true
 end
 
+function Engine.currentBidder(state: GameState): string?
+	local auction = state.auction
+	return if auction then auction.bidders[auction.nextBidder] else nil
+end
+
+local function startAuction(state: GameState, position: number)
+	-- Everyone still in the game bids, starting with the player who declined.
+	local bidders = {}
+	for offset = 0, #state.players - 1 do
+		local player = state.players[(state.currentIndex - 1 + offset) % #state.players + 1]
+		if not player.bankrupt then
+			table.insert(bidders, player.id)
+		end
+	end
+	state.auction = { position = position, highBid = 0, highBidder = nil, bidders = bidders, nextBidder = 1 }
+	state.phase = "Auction"
+	emit(state, { type = "AuctionStarted", position = position, bidders = table.clone(bidders) })
+end
+
+local function endAuctionIfSettled(state: GameState)
+	local auction = state.auction :: Types.Auction
+	local settled = #auction.bidders == 0 or (#auction.bidders == 1 and auction.bidders[1] == auction.highBidder)
+	if not settled then
+		return
+	end
+
+	state.auction = nil
+	local winner = auction.highBidder
+	if winner then
+		transfer(state, winner, nil, auction.highBid, "Auction")
+		state.properties[auction.position] = { owner = winner, houses = 0, mortgaged = false }
+	end
+	emit(state, { type = "AuctionEnded", position = auction.position, winner = winner, amount = auction.highBid })
+	finishMove(state)
+end
+
+local function placeBid(state: GameState, player: Player, amount: any): (boolean, string?)
+	local auction = state.auction :: Types.Auction
+	-- amount ~= amount catches NaN; infinity fails the whole-number check (inf % 1 is NaN).
+	if typeof(amount) ~= "number" or amount ~= amount or amount % 1 ~= 0 or amount <= auction.highBid then
+		return false, `bid must be a whole number above {auction.highBid}`
+	end
+	if amount > player.money then
+		return false, "not enough money"
+	end
+	auction.highBid = amount
+	auction.highBidder = player.id
+	emit(state, { type = "BidPlaced", player = player.id, amount = amount })
+	auction.nextBidder = auction.nextBidder % #auction.bidders + 1
+	endAuctionIfSettled(state)
+	return true
+end
+
+local function passBid(state: GameState, player: Player)
+	local auction = state.auction :: Types.Auction
+	table.remove(auction.bidders, auction.nextBidder)
+	emit(state, { type = "BidPassed", player = player.id })
+	if auction.nextBidder > #auction.bidders then
+		auction.nextBidder = 1
+	end
+	endAuctionIfSettled(state)
+end
+
 local function endTurn(state: GameState)
 	state.lastRoll = nil
 	for _ = 1, #state.players do
@@ -176,6 +239,18 @@ function Engine.act(state: GameState, playerId: string, action: Types.Action): (
 		return false, "not in this game"
 	end
 
+	if state.phase == "Auction" then
+		if Engine.currentBidder(state) ~= playerId then
+			return false, "not your turn to bid"
+		elseif action.type == "Bid" then
+			return placeBid(state, player, action.amount)
+		elseif action.type == "PassBid" then
+			passBid(state, player)
+			return true
+		end
+		return false, "an auction is in progress"
+	end
+
 	if Engine.currentPlayer(state).id ~= playerId then
 		return false, "not your turn"
 	end
@@ -185,6 +260,9 @@ function Engine.act(state: GameState, playerId: string, action: Types.Action): (
 		return true
 	elseif action.type == "Buy" and state.phase == "BuyDecision" then
 		return buy(state, player)
+	elseif action.type == "Decline" and state.phase == "BuyDecision" then
+		startAuction(state, player.position)
+		return true
 	elseif action.type == "EndTurn" and state.phase == "EndTurn" then
 		endTurn(state)
 		return true
