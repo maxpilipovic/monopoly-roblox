@@ -35,6 +35,8 @@ export type Snapshot = {
 	properties: { PropertyView },
 	auction: AuctionView?,
 	lastRoll: { number }?,
+	bankHouses: number,
+	bankHotels: number,
 }
 
 export type Update = {

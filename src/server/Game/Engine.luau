@@ -5,6 +5,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 local Cards = require(ReplicatedStorage.Shared.Board.Cards)
+local PropertyRules = require(ReplicatedStorage.Shared.Rules.PropertyRules)
 local Rent = require(script.Parent.Rent)
 local Types = require(script.Parent.Types)
 
@@ -27,6 +28,8 @@ Engine.JAIL_POSITION = 10
 Engine.JAIL_FINE = 50
 Engine.JAIL_MAX_ATTEMPTS = 3 -- failed doubles rolls before the fine is forced
 Engine.MAX_DOUBLES = 3 -- doubles in one turn that send you to jail
+Engine.BANK_HOUSES = 32
+Engine.BANK_HOTELS = 12
 
 local PURCHASABLE = { Property = true, Railroad = true, Utility = true }
 
@@ -266,6 +269,74 @@ local function useJailCard(state: GameState, player: Player): (boolean, string?)
 	return true
 end
 
+local PROPERTY_ACTIONS = { Build = true, SellBuilding = true, Mortgage = true, Unmortgage = true }
+
+local function isPosition(value: any): boolean
+	-- value % 1 == 0 is false for NaN and for infinity (inf % 1 is NaN).
+	return typeof(value) == "number" and value % 1 == 0 and value >= 0 and value < Tiles.COUNT
+end
+
+local function propertyAction(state: GameState, player: Player, kind: string, position: any): (boolean, string?)
+	if not isPosition(position) then
+		return false, "invalid position"
+	end
+	local ok, err
+	if kind == "Build" then
+		ok, err = PropertyRules.canBuild(state, player.id, player.money, position)
+	elseif kind == "SellBuilding" then
+		ok, err = PropertyRules.canSell(state, player.id, position)
+	elseif kind == "Mortgage" then
+		ok, err = PropertyRules.canMortgage(state, player.id, position)
+	else
+		ok, err = PropertyRules.canUnmortgage(state, player.id, player.money, position)
+	end
+	if not ok then
+		return false, err
+	end
+
+	local ownership = state.properties[position]
+	if kind == "Build" or kind == "SellBuilding" then
+		local price = PropertyRules.housePrice(position)
+		local building = kind == "Build"
+		-- A hotel swaps with four houses: building one returns them, selling one takes them.
+		local hotel = if building
+			then ownership.houses == PropertyRules.HOUSES_PER_HOTEL
+			else ownership.houses == PropertyRules.HOTEL
+		local direction = if building then 1 else -1
+		if hotel then
+			state.bankHotels -= direction
+			state.bankHouses += direction * PropertyRules.HOUSES_PER_HOTEL
+		else
+			state.bankHouses -= direction
+		end
+		ownership.houses += direction
+		local amount = if building then price else price // 2
+		if building then
+			transfer(state, player.id, nil, amount, "Building")
+		else
+			transfer(state, nil, player.id, amount, "Building")
+		end
+		emit(state, {
+			type = if building then "Built" else "BuildingSold",
+			player = player.id,
+			position = position,
+			amount = amount,
+			hotel = hotel,
+		})
+	elseif kind == "Mortgage" then
+		local amount = PropertyRules.mortgageValue(position)
+		ownership.mortgaged = true
+		transfer(state, nil, player.id, amount, "Mortgage")
+		emit(state, { type = "Mortgaged", player = player.id, position = position, amount = amount })
+	else
+		local amount = PropertyRules.unmortgageCost(position)
+		ownership.mortgaged = false
+		transfer(state, player.id, nil, amount, "Mortgage")
+		emit(state, { type = "Unmortgaged", player = player.id, position = position, amount = amount })
+	end
+	return true
+end
+
 local function buy(state: GameState, player: Player): (boolean, string?)
 	local tile = Tiles.at(player.position)
 	local price = tile.price :: number
@@ -408,6 +479,8 @@ function Engine.new(players: { PlayerInfo }, rollDice: Types.DiceRoller, shuffle
 		doublesCount = 0,
 		rollAgain = false,
 		decks = decks,
+		bankHouses = Engine.BANK_HOUSES,
+		bankHotels = Engine.BANK_HOTELS,
 		auction = nil,
 		events = {},
 		rollDice = rollDice,
@@ -456,6 +529,8 @@ function Engine.act(state: GameState, playerId: string, action: Types.Action): (
 		return payJailFine(state, player)
 	elseif action.type == "UseJailCard" and state.phase == "Roll" and player.inJail then
 		return useJailCard(state, player)
+	elseif PROPERTY_ACTIONS[action.type] and (state.phase == "Roll" or state.phase == "EndTurn") then
+		return propertyAction(state, player, action.type, action.position)
 	elseif action.type == "EndTurn" and state.phase == "EndTurn" then
 		endTurn(state)
 		return true

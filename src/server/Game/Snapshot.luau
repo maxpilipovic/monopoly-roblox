@@ -54,6 +54,8 @@ function Snapshot.fromState(state: Types.GameState): Protocol.Snapshot
 		properties = properties,
 		auction = auction,
 		lastRoll = if state.lastRoll then table.clone(state.lastRoll) else nil,
+		bankHouses = state.bankHouses,
+		bankHotels = state.bankHotels,
 	}
 end
 

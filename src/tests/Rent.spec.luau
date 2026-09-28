@@ -33,6 +33,14 @@ tests["base rent doubles when the owner has the whole color group"] = function()
 	assert(not Rent.ownsGroup(state, "p1", "LightBlue"), "ownsGroup other player")
 end
 
+tests["a full set still doubles bare lots when another lot in it is mortgaged"] = function()
+	local state = GameFixtures.bareState(2)
+	GameFixtures.own(state, "p2", 1)
+	GameFixtures.own(state, "p2", 3)
+	state.properties[3].mortgaged = true
+	Expect.equal(Rent.calculate(state, 1, 7), 4, "Mediterranean base 2, doubled")
+end
+
 tests["houses and hotels use the rent table"] = function()
 	local state = GameFixtures.bareState(2)
 	GameFixtures.own(state, "p2", PARK_PLACE, 0)

@@ -33,7 +33,7 @@ export type Auction = {
 -- { type = "Moved", player = "p1", from = 38, to = 3, passedGo = true, style = "Walk" }.
 export type Event = { [string]: any }
 
-export type Action = { [string]: any } -- { type = "Roll" | "Buy" | "Decline" | "Bid" | "PassBid" | "EndTurn" | "PayJailFine" | "UseJailCard", amount = number? }
+export type Action = { [string]: any } -- { type = "Roll" | "Buy" | "Decline" | "Bid" | "PassBid" | "EndTurn" | "PayJailFine" | "UseJailCard" | "Build" | "SellBuilding" | "Mortgage" | "Unmortgage", amount = number?, position = number? }
 
 export type DiceRoller = () -> (number, number)
 
@@ -48,6 +48,8 @@ export type GameState = {
 	doublesCount: number, -- doubles rolled so far this turn
 	rollAgain: boolean, -- the move being resolved earned another roll
 	decks: { [string]: { string } }, -- card ids per deck; index 1 is the top
+	bankHouses: number, -- houses left in the bank
+	bankHotels: number, -- hotels left in the bank
 	auction: Auction?,
 	events: { Event },
 	rollDice: DiceRoller,
