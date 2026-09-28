@@ -1,6 +1,7 @@
 --!strict
 local ServerScriptService = game:GetService("ServerScriptService")
 local Types = require(ServerScriptService.Server.Game.Types)
+local Engine = require(ServerScriptService.Server.Game.Engine)
 
 local GameFixtures = {}
 
@@ -12,6 +13,15 @@ function GameFixtures.scriptedDice(rolls: { { number } }): Types.DiceRoller
 		assert(roll, `scripted dice ran out after {index - 1} rolls`)
 		return roll[1], roll[2]
 	end
+end
+
+-- A real engine game with players p1..pN and scripted dice.
+function GameFixtures.newGame(playerCount: number, rolls: { { number } }?): Types.GameState
+	local infos = {}
+	for i = 1, playerCount do
+		table.insert(infos, { id = `p{i}`, name = `Player {i}`, isBot = false })
+	end
+	return Engine.new(infos, GameFixtures.scriptedDice(rolls or {}))
 end
 
 -- A state with players p1..pN and no engine involvement, for testing pure helpers.
