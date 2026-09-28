@@ -61,6 +61,62 @@ tests["a jailed bot uses its card, else pays if it can spare it, else rolls"] = 
 	Expect.equal(Bot.chooseAction(state, "p1").type, "Roll", "poor")
 end
 
+tests["a bot with a full set builds evenly while it keeps its reserve"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.own(state, "p1", 1)
+	GameFixtures.own(state, "p1", 3)
+	local action = Bot.chooseAction(state, "p1")
+	Expect.equal(action.type, "Build", "builds")
+	Expect.equal(action.position, 1, "lowest position first")
+	act(state, "p1", action)
+	Expect.equal(Bot.chooseAction(state, "p1").position, 3, "then evens out")
+	Engine.getPlayer(state, "p1").money = Bot.CASH_RESERVE + 49
+	Expect.equal(Bot.chooseAction(state, "p1").type, "Roll", "keeps the reserve")
+end
+
+tests["a bot builds its cheapest set first"] = function()
+	local state = GameFixtures.newGame(2)
+	for _, position in { 37, 39, 1, 3 } do -- dark blue ($200 houses) and brown ($50)
+		GameFixtures.own(state, "p1", position)
+	end
+	Expect.equal(Bot.chooseAction(state, "p1").position, 1)
+end
+
+tests["a rich bot lifts its cheapest mortgage before building"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.own(state, "p1", 1)
+	GameFixtures.own(state, "p1", 3)
+	GameFixtures.own(state, "p1", 5)
+	GameFixtures.own(state, "p1", 12)
+	state.properties[5].mortgaged = true -- costs 110
+	state.properties[12].mortgaged = true -- costs 83
+	local action = Bot.chooseAction(state, "p1")
+	Expect.equal(action.type, "Unmortgage", "unmortgages")
+	Expect.equal(action.position, 12, "cheapest first")
+	Engine.getPlayer(state, "p1").money = 3 * Bot.CASH_RESERVE + 82 -- 83 would leave 449
+	Expect.equal(Bot.chooseAction(state, "p1").type, "Build", "not rich enough: builds instead")
+end
+
+tests["two bots eventually build"] = function()
+	local random = Random.new(99)
+	local state = Engine.new({
+		{ id = "b1", name = "B1", isBot = true },
+		{ id = "b2", name = "B2", isBot = true },
+	}, function()
+		return random:NextInteger(1, 6), random:NextInteger(1, 6)
+	end)
+	for step = 1, 4000 do
+		local actor = assert(Engine.actingPlayer(state), `no acting player at step {step}`)
+		local action = assert(Bot.chooseAction(state, actor), `bot {actor} had no action in {state.phase}`)
+		local ok, err = Engine.act(state, actor, action)
+		assert(ok, `step {step}: {actor} {action.type} rejected: {err}`)
+		if #GameFixtures.eventsOfType(state, "Built") > 0 then
+			return
+		end
+	end
+	error("no bot built anything in 4000 steps")
+end
+
 tests["an all-bot game keeps making legal moves"] = function()
 	local random = Random.new(1234)
 	local state = Engine.new({
