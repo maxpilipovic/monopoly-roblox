@@ -1,0 +1,15 @@
+Task 5: Ruling: added ':: { any }' casts on mixed-type test tables in EventText.spec for strict mode — no behavior change — cost if wrong: none.
+Task 6: Ruling: playtest showed an empty world — StreamingEnabled with no characters streamed nothing. Added Board.ModelStreamingMode = Persistent (test "board always streams to every client" RED→GREEN) and player.ReplicationFocus = Board.Center in GameService (verified in playtest: 185 board parts on client) — cost if wrong: parts far from the board (none yet) wouldn't stream.
+Task 6: Ruling: visual fixes found in playtest, no unit test (layout-only): log label placeholder "Label" cleared; player list widened to 300px with truncation so the money column shows — cost if wrong: cosmetic.
+Final: Ruling: tokens never re-sync — fixed (snap to snapshot position when idle / after queue drains) without a unit test (client tween wiring); verified in playtest. Backward/direct moves (Go To Jail, "go back 3") need a Moved kind — deferred to milestone 3 where those moves are introduced — cost if wrong: jail move would hop forward 20 tiles until then.
+Final: minor (deferred): global botScheduled flag, no cancellation (turn timer milestone)
+Final: minor (deferred): seat = array index; keep bankrupt players in array
+Final: minor (deferred): game end ignores spectators
+Final: minor (deferred): double-click Roll can roll twice after doubles (disable buttons on click)
+Final: minor (deferred): event log not cleared between games
+Final: minor (deferred): ClientReady unthrottled
+Final: minor (deferred): tweens continue on destroyed tokens
+Final: minor (deferred): client duplicates actingPlayer logic; send it in Snapshot
+Final: minor (deferred): seating order from GetPlayers not guaranteed; duplicate display names
+Final: minor (deferred): no status hint when it's your bid
+Final: minor (deferred): no GameService tests (lobby validation only playtested)
