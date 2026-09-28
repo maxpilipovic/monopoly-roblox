@@ -367,12 +367,14 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		b.LayoutOrder = order
 	end
 
-	local toggle = button(if self.propertiesOpen then "Hide properties" else "Properties", self.buttonRow, function()
-		self.propertiesOpen = not self.propertiesOpen
-		self:render(self.snapshot, self.localId)
-	end)
-	toggle.LayoutOrder = 100
-	toggle.BackgroundColor3 = TOGGLE_COLOR
+	if HudModel.showsPropertiesToggle(snapshot) then
+		local toggle = button(if self.propertiesOpen then "Hide properties" else "Properties", self.buttonRow, function()
+			self.propertiesOpen = not self.propertiesOpen
+			self:render(self.snapshot, self.localId)
+		end)
+		toggle.LayoutOrder = 100
+		toggle.BackgroundColor3 = TOGGLE_COLOR
+	end
 	renderProperties(self, snapshot, localId)
 end
 

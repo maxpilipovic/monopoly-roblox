@@ -142,6 +142,15 @@ tests["property rows have no buttons off your turn or mid-decision"] = function(
 	end
 end
 
+tests["the properties toggle hides during auctions so the bid buttons fit"] = function()
+	local state = GameFixtures.newGame(2, { { 2, 4 } })
+	assert(HudModel.showsPropertiesToggle(Snapshot.fromState(state)), "roll phase")
+	Engine.act(state, "p1", { type = "Roll" })
+	assert(HudModel.showsPropertiesToggle(Snapshot.fromState(state)), "buy decision: you may want to check your deeds")
+	Engine.act(state, "p1", { type = "Decline" })
+	assert(not HudModel.showsPropertiesToggle(Snapshot.fromState(state)), "auction")
+end
+
 tests["names maps ids to display names"] = function()
 	local names = HudModel.names(Snapshot.fromState(GameFixtures.newGame(2)))
 	Expect.equal(names.p1, "Player 1")

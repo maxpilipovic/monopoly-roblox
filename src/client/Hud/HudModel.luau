@@ -193,6 +193,12 @@ function HudModel.propertyRows(snapshot: Protocol.Snapshot, localId: string): { 
 	return rows
 end
 
+-- The Properties toggle gives way during auctions, when the bid buttons need the whole bar
+-- (the panel is view-only then anyway).
+function HudModel.showsPropertiesToggle(snapshot: Protocol.Snapshot): boolean
+	return snapshot.phase ~= "Auction"
+end
+
 function HudModel.buildingText(row: PropertyRow): string
 	if row.mortgaged then
 		return "MORTGAGED"

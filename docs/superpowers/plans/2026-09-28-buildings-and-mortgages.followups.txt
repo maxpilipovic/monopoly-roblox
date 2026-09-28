@@ -1,0 +1,18 @@
+Setup: Ruling: work on branch feat/buildings-and-mortgages in the main checkout (Rojo syncs it into Studio, where tests run) — cost if wrong: none.
+Setup: Ruling: tests run in Studio via MCP; runner output saved to <workspace>/studio-tests.txt right before task-done, which checks it for ", 0 failed"; each run preceded by a Rojo sync check — cost if wrong: a stale file; overwritten every task.
+Task 1: Ruling: plan's refused(ok, reason, expected, label) helper was called as refused(rules.canX(...), expected, label) — a call mid-argument-list keeps only its first result, so every argument shifted; reordered to refused(label, expected, rules.canX(...)) — the implementation was already correct (failures showed the right reasons) — cost if wrong: none.
+Task 1: Ruling: plan expected 140 (12 new tests); the spec file has 11 tests → 139 — plan miscount — cost if wrong: none.
+Task 2: Ruling: two tests passed before implementation — "property actions only on your own turn" (actions were already refused as unknown) and the Rent characterisation test (existing behaviour, as the plan said); the other 10 carried RED — cost if wrong: none.
+Task 5: Ruling: the real click on "Unmortgage $220" didn't register; diagnosis: the server accepts the same action sent over the remote (Paid+Unmortgaged), the button was visible/Active, and after that the Studio MCP mouse tool hung on every call (even the known-good Properties toggle) and screen_capture hung too — a tooling failure, not the panel (the first row-button click worked end to end and all row buttons share one code path) — cost if wrong: a row-button bug after the first re-render would ship; a human click-through in Studio would settle it.
+Task 5: Not observed: a human building through the panel (the human never completed a set), the house close-up screenshot (capture tool hung). Covered by HudModel.spec rows and BuildingActions.spec.
+Task 5: Playtest finding (deferred minor): row buttons are 92 px, so "Unmortgage $220" / "Mortgage +$200" text is clipped at the edges.
+Final: minor (deferred): panel rebuilt on every render — a click can be lost if an update lands mid-press, and the scroll may snap to top; rebuild only when rows change (would also settle the unconfirmed Unmortgage click)
+Final: minor (deferred): no HudModel test that "+🏠" disappears when the bank is out of houses (same PropertyRules path as tested)
+Final: minor (deferred): 92 px row buttons clip "Unmortgage $220" / "Mortgage +$200"
+Final: minor (deferred): spectators see "You don't own any property yet" instead of "You're not in this game"
+Final: Ruling: property actions only on own Roll/EndTurn — spec decision — cost if wrong: less official flexibility.
+Final: Ruling: hotel sale refused with <4 houses in the bank — spec simplification — cost if wrong: rare edge-case refusal.
+Final: Ruling: players with negative money can still mortgage; bots don't raise cash — part 2 (debt) — cost if wrong: none now.
+Final: Ruling: mortgaged railroads/utilities still count toward the rent tier — official rules and existing behaviour — cost if wrong: none.
+Final: Ruling: a rejoined human watching a bot-held seat sees row buttons the server rejects — mirrors existing HudModel.buttons — cost if wrong: confusing buttons for a rare case.
+Final: Ruling: spec names setPositions/BuildingLayout.spot became groupPositions/BuildingLayout.cframe — the plan chose them — cost if wrong: none.
