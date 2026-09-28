@@ -4,6 +4,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Cards = require(ReplicatedStorage.Shared.Board.Cards)
+local ColorGroups = require(ReplicatedStorage.Shared.Board.ColorGroups)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local TokenLayout = require(ReplicatedStorage.Shared.Board.TokenLayout)
 local CardQueue = require(script.Parent.CardQueue)
@@ -20,6 +21,8 @@ local CARD_COLORS = {
 	CommunityChest = Color3.fromRGB(125, 190, 230),
 }
 local CARD_TEXT_COLOR = Color3.fromRGB(20, 20, 20)
+local TOGGLE_COLOR = Color3.fromRGB(70, 90, 140)
+local OTHER_SWATCH = Color3.fromRGB(150, 150, 150)
 
 export type Callbacks = {
 	onAction: (action: { [string]: any }) -> (),
@@ -45,6 +48,10 @@ export type HudView = typeof(setmetatable(
 		cardTitle: TextLabel,
 		cardText: TextLabel,
 		cards: CardQueue.Queue,
+		propertiesOpen: boolean,
+		propertiesPanel: ScrollingFrame,
+		snapshot: Protocol.Snapshot?,
+		localId: string,
 	},
 	HudView
 ))
@@ -116,6 +123,64 @@ local function updateCard(self: HudView)
 	end
 end
 
+local function renderProperties(self: HudView, snapshot: Protocol.Snapshot, localId: string)
+	local panel = self.propertiesPanel
+	panel.Visible = self.propertiesOpen
+	for _, child in panel:GetChildren() do
+		if child:IsA("Frame") or child:IsA("TextLabel") then
+			child:Destroy()
+		end
+	end
+	if not self.propertiesOpen then
+		return
+	end
+
+	local rows = HudModel.propertyRows(snapshot, localId)
+	if #rows == 0 then
+		local empty = text("Empty", panel, UDim2.new(1, -16, 0, 30), 16)
+		empty.Text = "You don't own any property yet"
+		return
+	end
+	for order, entry in rows do
+		local row = Instance.new("Frame")
+		row.Name = entry.name
+		row.Size = UDim2.new(1, -16, 0, 34)
+		row.BackgroundTransparency = 1
+		row.LayoutOrder = order
+		row.Parent = panel
+		local rowLayout = Instance.new("UIListLayout")
+		rowLayout.FillDirection = Enum.FillDirection.Horizontal
+		rowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+		rowLayout.Padding = UDim.new(0, 6)
+		rowLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		rowLayout.Parent = row
+
+		local swatch = Instance.new("Frame")
+		swatch.Name = "Swatch"
+		swatch.Size = UDim2.fromOffset(10, 26)
+		swatch.BorderSizePixel = 0
+		local group = ColorGroups[entry.group]
+		swatch.BackgroundColor3 = if group then group.color else OTHER_SWATCH
+		swatch.Parent = row
+
+		local label = text("Name", row, UDim2.fromOffset(190, 26), 15)
+		label.LayoutOrder = 1
+		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.TextWrapped = false
+		label.TextTruncate = Enum.TextTruncate.AtEnd
+		label.Text = `{entry.name}  {HudModel.buildingText(entry)}`
+
+		for i, entryButton in entry.buttons do
+			local b = button(entryButton.label, row, function()
+				self.callbacks.onAction(entryButton.action)
+			end)
+			b.Size = UDim2.fromOffset(92, 28)
+			b.TextSize = 13
+			b.LayoutOrder = 1 + i
+		end
+	end
+end
+
 function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "MonopolyHud"
@@ -148,6 +213,10 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		cardTitle = nil :: any,
 		cardText = nil :: any,
 		cards = CardQueue.new(CARD_SECONDS),
+		propertiesOpen = false,
+		propertiesPanel = nil :: any,
+		snapshot = nil,
+		localId = "",
 	}, HudView)
 
 	local function changeSeats(delta: number)
@@ -171,7 +240,7 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 	list(self.playerList, Enum.FillDirection.Vertical, 4)
 
 	-- Bottom bar: status line over action buttons.
-	local bar = panel("ActionBar", UDim2.fromOffset(560, 100), UDim2.new(0.5, 0, 1, -12), Vector2.new(0.5, 1), gui)
+	local bar = panel("ActionBar", UDim2.fromOffset(660, 100), UDim2.new(0.5, 0, 1, -12), Vector2.new(0.5, 1), gui)
 	list(bar, Enum.FillDirection.Vertical, 6)
 	self.status = text("Status", bar, UDim2.new(1, -16, 0, 28), 20)
 	local buttonRow = Instance.new("Frame")
@@ -189,6 +258,31 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 	self.logLabel.Text = ""
 	self.logLabel.TextXAlignment = Enum.TextXAlignment.Left
 	self.logLabel.TextYAlignment = Enum.TextYAlignment.Bottom
+
+	-- Your properties, right side under the log; opened from the action bar.
+	local properties = Instance.new("ScrollingFrame")
+	properties.Name = "Properties"
+	properties.Size = UDim2.fromOffset(420, 360)
+	properties.Position = UDim2.new(1, -12, 0, 224)
+	properties.AnchorPoint = Vector2.new(1, 0)
+	properties.BackgroundColor3 = PANEL_COLOR
+	properties.BackgroundTransparency = 0.15
+	properties.BorderSizePixel = 0
+	properties.ScrollBarThickness = 6
+	properties.CanvasSize = UDim2.new()
+	properties.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	properties.Visible = false
+	properties.Parent = gui
+	corner(properties)
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, 6)
+	padding.PaddingLeft = UDim.new(0, 8)
+	padding.Parent = properties
+	local propertiesLayout = Instance.new("UIListLayout")
+	propertiesLayout.Padding = UDim.new(0, 4)
+	propertiesLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	propertiesLayout.Parent = properties
+	self.propertiesPanel = properties
 
 	-- Drawn card popup, under the top edge.
 	local card = panel("Card", UDim2.fromOffset(360, 130), UDim2.new(0.5, 0, 0, 12), Vector2.new(0.5, 0), gui)
@@ -224,11 +318,15 @@ function HudView.log(self: HudView, lines: { string })
 end
 
 function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: string)
+	self.snapshot = snapshot
+	self.localId = localId
 	self.lobby.Visible = snapshot == nil
 	self.playerList.Visible = snapshot ~= nil
 	self.buttonRow.Parent.Visible = snapshot ~= nil
 	if not snapshot then
 		table.clear(self.cards.items) -- back in the lobby: drop cards still waiting
+		self.propertiesOpen = false
+		self.propertiesPanel.Visible = false
 	end
 
 	for _, child in self.playerList:GetChildren() do
@@ -268,6 +366,14 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		end)
 		b.LayoutOrder = order
 	end
+
+	local toggle = button(if self.propertiesOpen then "Hide properties" else "Properties", self.buttonRow, function()
+		self.propertiesOpen = not self.propertiesOpen
+		self:render(self.snapshot, self.localId)
+	end)
+	toggle.LayoutOrder = 100
+	toggle.BackgroundColor3 = TOGGLE_COLOR
+	renderProperties(self, snapshot, localId)
 end
 
 return HudView

@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Cards = require(ReplicatedStorage.Shared.Board.Cards)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
+local Buildings = require(script.Parent.Buildings)
 local EventText = require(script.Parent.Hud.EventText)
 local HudModel = require(script.Parent.Hud.HudModel)
 local HudView = require(script.Parent.Hud.HudView)
@@ -23,6 +24,7 @@ function GameClient.start()
 	local readyRemote = remotes:WaitForChild(Protocol.READY) :: RemoteEvent
 
 	local tokens = Tokens.new(workspace)
+	local buildings = Buildings.new(workspace)
 	local hud = HudView.new(localPlayer:WaitForChild("PlayerGui"), {
 		onAction = function(action)
 			actionRemote:FireServer(action)
@@ -34,6 +36,7 @@ function GameClient.start()
 
 	updateRemote.OnClientEvent:Connect(function(update: Protocol.Update)
 		tokens:apply(update)
+		buildings:apply(update.snapshot)
 		if update.snapshot then
 			local names = HudModel.names(update.snapshot)
 			local lines = {}
