@@ -39,6 +39,8 @@ function GameFixtures.bareState(playerCount: number): Types.GameState
 		lastRoll = nil,
 		doublesCount = 0,
 		rollAgain = false,
+		bankHouses = 32,
+		bankHotels = 12,
 		decks = { Chance = Cards.idsFor("Chance"), CommunityChest = Cards.idsFor("CommunityChest") },
 		auction = nil,
 		events = {},
