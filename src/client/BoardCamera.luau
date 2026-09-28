@@ -1,7 +1,6 @@
 --!strict
 -- Fixed overhead view of the board, fitted to the screen.
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Layout = require(ReplicatedStorage.Shared.Board.Layout)
@@ -33,9 +32,11 @@ function BoardCamera.start()
 
 	apply()
 	camera:GetPropertyChangedSignal("ViewportSize"):Connect(apply)
-	-- The default camera scripts reset the camera when a character spawns; re-apply after them.
-	Players.LocalPlayer.CharacterAdded:Connect(function()
-		task.defer(apply)
+	-- If anything (e.g. the default camera scripts) takes the camera over, take it back.
+	camera:GetPropertyChangedSignal("CameraType"):Connect(function()
+		if camera.CameraType ~= Enum.CameraType.Scriptable then
+			task.defer(apply)
+		end
 	end)
 end
 

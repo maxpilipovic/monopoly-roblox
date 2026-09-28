@@ -64,6 +64,12 @@ tests["every tile has a label with its name"] = function()
 	end)
 end
 
+tests["board always streams to every client"] = function()
+	withBoard(function(board)
+		Expect.equal(board.ModelStreamingMode, Enum.ModelStreamingMode.Persistent)
+	end)
+end
+
 tests["rebuilding replaces the existing board"] = function()
 	local scratch = Instance.new("Folder")
 	BoardBuilder.build(scratch)

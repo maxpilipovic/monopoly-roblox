@@ -112,6 +112,8 @@ function BoardBuilder.build(parent: Instance): Model
 
 	local model = Instance.new("Model")
 	model.Name = BoardBuilder.MODEL_NAME
+	-- Players have no characters to stream around, so the whole board must always be sent.
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 
 	-- Dark slab under everything; slightly lower so tile tops sit above it.
 	makePart(
