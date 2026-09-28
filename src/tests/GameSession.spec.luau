@@ -93,4 +93,30 @@ tests["a leaving player is replaced by a bot who then acts"] = function()
 	assert(not GameSession.hasHumans(session), "no humans left")
 end
 
+tests["a player who rejoins cannot act for the bot that took their seat"] = function()
+	local session = GameSession.new(humans(2), 2, GameFixtures.scriptedDice({ { 3, 4 } }))
+	GameSession.replaceWithBot(session, "h1")
+	local ok, err = GameSession.act(session, "h1", { type = "Roll" })
+	assert(not ok, "rejoined player rolled for the bot")
+	Expect.equal(err, "a bot is playing this seat")
+end
+
+tests["a bot with no idea what to do still keeps the game moving"] = function()
+	local Bot = require(ServerScriptService.Server.Game.Bot)
+	local original = Bot.chooseAction
+	Bot.chooseAction = function()
+		return nil
+	end
+	local ok, err = pcall(function()
+		local session = GameSession.new(humans(1), 2, GameFixtures.scriptedDice({ { 3, 4 }, { 3, 4 } }))
+		assert(GameSession.act(session, "h1", { type = "Roll" }))
+		assert(GameSession.act(session, "h1", { type = "EndTurn" }))
+		assert(GameSession.stepBot(session), "bot did not roll")
+		assert(GameSession.stepBot(session), "bot did not end its turn")
+		Expect.equal(Engine.currentPlayer(session.state).id, "h1", "turn back to the human")
+	end)
+	Bot.chooseAction = original
+	assert(ok, err)
+end
+
 return tests

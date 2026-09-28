@@ -38,8 +38,21 @@ function GameSession.new(humans: { Human }, seats: number, rollDice: Types.DiceR
 end
 
 function GameSession.act(session: Session, playerId: string, action: any): (boolean, string?)
+	-- A player who left and rejoined spectates; the bot that took their seat keeps it.
+	local player = Engine.getPlayer(session.state, playerId)
+	if player and player.isBot then
+		return false, "a bot is playing this seat"
+	end
 	return Engine.act(session.state, playerId, action)
 end
+
+-- Tried in order when a bot has no plan (or its plan is rejected), so a game never waits on a bot forever.
+local FALLBACK_ACTIONS = {
+	{ type = "EndTurn" },
+	{ type = "PassBid" },
+	{ type = "Decline" },
+	{ type = "Roll" },
+}
 
 function GameSession.takeNewEvents(session: Session): { Types.Event }
 	local events = session.state.events
@@ -55,14 +68,22 @@ function GameSession.stepBot(session: Session): boolean
 		return false
 	end
 	local action = Bot.chooseAction(session.state, player.id)
-	if not action then
-		return false
-	end
-	local ok, err = Engine.act(session.state, player.id, action)
-	if not ok then
+	if action then
+		local ok, err = Engine.act(session.state, player.id, action)
+		if ok then
+			return true
+		end
 		warn(`bot {player.id} could not {action.type}: {err}`)
+	else
+		warn(`bot {player.id} has no action for phase {session.state.phase}`)
 	end
-	return ok
+
+	for _, fallback in FALLBACK_ACTIONS do
+		if Engine.act(session.state, player.id, fallback) then
+			return true
+		end
+	end
+	return false
 end
 
 function GameSession.replaceWithBot(session: Session, playerId: string)

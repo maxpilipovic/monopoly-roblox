@@ -15,7 +15,7 @@ local TOKEN_HEIGHT = 0.8
 type Token = {
 	part: BasePart,
 	seat: number,
-	position: number, -- board position the token is shown at (or heading to)
+	position: number, -- the server's position for this player; tokens settle here once their moves finish
 	queue: { { from: number, to: number } },
 	moving: boolean,
 }
@@ -80,7 +80,22 @@ local function runQueue(token: Token)
 			end
 		end
 		token.moving = false
+		-- Settle on the server's position, in case a change arrived without a move to animate.
+		if token.part.Parent then
+			token.part.CFrame = standingCFrame(token.position, token.seat)
+		end
 	end)
+end
+
+-- Where a newly created token should appear: at the start of its first move in this update, so the
+-- move animates from there, otherwise at the player's current position.
+function Tokens.startPosition(player: Protocol.PlayerView, events: { { [string]: any } }): number
+	for _, event in events do
+		if event.type == "Moved" and event.player == player.id then
+			return event.from
+		end
+	end
+	return player.position
 end
 
 function Tokens.apply(self: TokensView, update: Protocol.Update)
@@ -93,10 +108,11 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 			local token = self.tokens[player.id]
 			if not token then
 				local part = makePart(player.seat, player.name, self.folder)
-				part.CFrame = standingCFrame(player.position, player.seat)
+				part.CFrame = standingCFrame(Tokens.startPosition(player, update.events), player.seat)
 				token = { part = part, seat = player.seat, position = player.position, queue = {}, moving = false }
 				self.tokens[player.id] = token
 			end
+			token.position = player.position
 			token.part.Transparency = if player.bankrupt then 0.7 else 0
 		end
 	end
@@ -112,8 +128,14 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 		local token = event.type == "Moved" and self.tokens[event.player]
 		if token then
 			table.insert(token.queue, { from = event.from, to = event.to })
-			token.position = event.to
 			runQueue(token)
+		end
+	end
+
+	-- Tokens with nothing to animate snap to where the server says they are.
+	for _, token in self.tokens do
+		if not token.moving then
+			token.part.CFrame = standingCFrame(token.position, token.seat)
 		end
 	end
 end
