@@ -56,6 +56,7 @@ tests["rolling moves the current player by the dice total"] = function()
 	local moved = GameFixtures.eventsOfType(state, "Moved")[1]
 	Expect.equal(moved.from, 0, "moved from")
 	Expect.equal(moved.to, 6, "moved to")
+	Expect.equal(moved.style, "Walk", "moved style")
 end
 
 tests["only the current player can roll, and only in the Roll phase"] = function()
@@ -145,14 +146,15 @@ tests["tax tiles charge their amount"] = function()
 end
 
 tests["other tiles just end the move"] = function()
-	local state = GameFixtures.newGame(2, { { 3, 4 } }) -- 7 -> Chance
+	local state = GameFixtures.newGame(2, { { 3, 4 } })
+	Engine.getPlayer(state, "p1").position = 13 -- 13 + 7 = 20, Free Parking
 	act(state, "p1", ROLL)
 	Expect.equal(money(state, "p1"), 1500)
 	Expect.equal(state.phase, "EndTurn")
 end
 
 tests["doubles give the same player another roll"] = function()
-	local state = GameFixtures.newGame(2, { { 1, 1 } }) -- 2 -> Community Chest
+	local state = GameFixtures.newGame(2, { { 2, 2 } }) -- 4 -> Income Tax
 	act(state, "p1", ROLL)
 	Expect.equal(state.phase, "Roll")
 	Expect.equal(Engine.currentPlayer(state).id, "p1")

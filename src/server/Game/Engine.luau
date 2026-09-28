@@ -22,6 +22,10 @@ Engine.STARTING_MONEY = 1500
 Engine.GO_SALARY = 200
 Engine.MIN_PLAYERS = 2
 Engine.MAX_PLAYERS = 6
+Engine.JAIL_POSITION = 10
+Engine.JAIL_FINE = 50
+Engine.JAIL_MAX_ATTEMPTS = 3 -- failed doubles rolls before the fine is forced
+Engine.MAX_DOUBLES = 3 -- doubles in one turn that send you to jail
 
 local PURCHASABLE = { Property = true, Railroad = true, Utility = true }
 
@@ -53,14 +57,35 @@ local function transfer(state: GameState, fromId: string?, toId: string?, amount
 	emit(state, { type = "Paid", from = fromId, to = toId, amount = amount, reason = reason })
 end
 
-local function rolledDoubles(state: GameState): boolean
-	local roll = state.lastRoll
-	return roll ~= nil and roll[1] == roll[2]
-end
-
 -- Called once everything caused by landing is settled.
 local function finishMove(state: GameState)
-	state.phase = if rolledDoubles(state) then "Roll" else "EndTurn"
+	state.phase = if state.rollAgain and not Engine.currentPlayer(state).inJail then "Roll" else "EndTurn"
+end
+
+-- style: "Walk" hops forward and collects Go when passing it, "Back" hops backward,
+-- "ToJail" jumps straight into the jail cell.
+local function moveTo(state: GameState, player: Player, to: number, style: string)
+	local from = player.position
+	local passedGo = style == "Walk" and to < from
+	player.position = to
+	emit(state, { type = "Moved", player = player.id, from = from, to = to, passedGo = passedGo, style = style })
+	if passedGo then
+		transfer(state, nil, player.id, Engine.GO_SALARY, "Go")
+	end
+end
+
+local function sendToJail(state: GameState, player: Player, reason: string)
+	moveTo(state, player, Engine.JAIL_POSITION, "ToJail")
+	player.inJail = true
+	player.jailAttempts = 0
+	emit(state, { type = "SentToJail", player = player.id, reason = reason })
+	finishMove(state)
+end
+
+local function leaveJail(state: GameState, player: Player, reason: string)
+	player.inJail = false
+	player.jailAttempts = 0
+	emit(state, { type = "LeftJail", player = player.id, reason = reason })
 end
 
 local function resolveLanding(state: GameState, player: Player)
@@ -82,6 +107,9 @@ local function resolveLanding(state: GameState, player: Player)
 		end
 	elseif tile.kind == "Tax" then
 		transfer(state, player.id, nil, tile.amount :: number, "Tax")
+	elseif tile.kind == "GoToJail" then
+		sendToJail(state, player, "GoToJail")
+		return
 	end
 
 	finishMove(state)
@@ -91,17 +119,44 @@ local function roll(state: GameState, player: Player)
 	local a, b = state.rollDice()
 	state.lastRoll = { a, b }
 	emit(state, { type = "Rolled", player = player.id, dice = { a, b } })
+	local doubles = a == b
 
-	local from = player.position
-	local steps = from + a + b
-	player.position = steps % Tiles.COUNT
-	local passedGo = steps >= Tiles.COUNT
-	emit(state, { type = "Moved", player = player.id, from = from, to = player.position, passedGo = passedGo })
-	if passedGo then
-		transfer(state, nil, player.id, Engine.GO_SALARY, "Go")
+	if player.inJail then
+		if doubles then
+			leaveJail(state, player, "Doubles")
+		else
+			player.jailAttempts += 1
+			if player.jailAttempts < Engine.JAIL_MAX_ATTEMPTS then
+				finishMove(state)
+				return
+			end
+			transfer(state, player.id, nil, Engine.JAIL_FINE, "JailFine")
+			leaveJail(state, player, "Fine")
+		end
+		-- Getting out by the dice never earns another roll.
+		state.rollAgain = false
+	else
+		if doubles then
+			state.doublesCount += 1
+			if state.doublesCount >= Engine.MAX_DOUBLES then
+				sendToJail(state, player, "Doubles")
+				return
+			end
+		end
+		state.rollAgain = doubles
 	end
 
+	moveTo(state, player, (player.position + a + b) % Tiles.COUNT, "Walk")
 	resolveLanding(state, player)
+end
+
+local function payJailFine(state: GameState, player: Player): (boolean, string?)
+	if player.money < Engine.JAIL_FINE then
+		return false, "not enough money"
+	end
+	transfer(state, player.id, nil, Engine.JAIL_FINE, "JailFine")
+	leaveJail(state, player, "Fine")
+	return true
 end
 
 local function buy(state: GameState, player: Player): (boolean, string?)
@@ -192,6 +247,8 @@ end
 
 local function endTurn(state: GameState)
 	state.lastRoll = nil
+	state.doublesCount = 0
+	state.rollAgain = false
 	for _ = 1, #state.players do
 		state.currentIndex = state.currentIndex % #state.players + 1
 		if not Engine.currentPlayer(state).bankrupt then
@@ -220,6 +277,8 @@ function Engine.new(players: { PlayerInfo }, rollDice: Types.DiceRoller): GameSt
 			money = Engine.STARTING_MONEY,
 			position = 0,
 			bankrupt = false,
+			inJail = false,
+			jailAttempts = 0,
 		})
 	end
 
@@ -229,6 +288,8 @@ function Engine.new(players: { PlayerInfo }, rollDice: Types.DiceRoller): GameSt
 		phase = "Roll",
 		properties = {},
 		lastRoll = nil,
+		doublesCount = 0,
+		rollAgain = false,
 		auction = nil,
 		events = {},
 		rollDice = rollDice,
@@ -273,6 +334,8 @@ function Engine.act(state: GameState, playerId: string, action: Types.Action): (
 	elseif action.type == "Decline" and state.phase == "BuyDecision" then
 		startAuction(state, player.position)
 		return true
+	elseif action.type == "PayJailFine" and state.phase == "Roll" and player.inJail then
+		return payJailFine(state, player)
 	elseif action.type == "EndTurn" and state.phase == "EndTurn" then
 		endTurn(state)
 		return true

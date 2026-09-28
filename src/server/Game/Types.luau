@@ -10,6 +10,8 @@ export type Player = {
 	money: number,
 	position: number,
 	bankrupt: boolean,
+	inJail: boolean,
+	jailAttempts: number, -- failed doubles rolls during this jail stay
 }
 
 export type Ownership = {
@@ -27,10 +29,10 @@ export type Auction = {
 }
 
 -- Events are plain tables with a `type` and event-specific fields, e.g.
--- { type = "Moved", player = "p1", from = 38, to = 3, passedGo = true }.
+-- { type = "Moved", player = "p1", from = 38, to = 3, passedGo = true, style = "Walk" }.
 export type Event = { [string]: any }
 
-export type Action = { [string]: any } -- { type = "Roll" | "Buy" | "Decline" | "Bid" | "PassBid" | "EndTurn", amount = number? }
+export type Action = { [string]: any } -- { type = "Roll" | "Buy" | "Decline" | "Bid" | "PassBid" | "EndTurn" | "PayJailFine", amount = number? }
 
 export type DiceRoller = () -> (number, number)
 
@@ -40,6 +42,8 @@ export type GameState = {
 	phase: Phase,
 	properties: { [number]: Ownership }, -- keyed by board position; absent = owned by the bank
 	lastRoll: { number }?,
+	doublesCount: number, -- doubles rolled so far this turn
+	rollAgain: boolean, -- the move being resolved earned another roll
 	auction: Auction?,
 	events: { Event },
 	rollDice: DiceRoller,

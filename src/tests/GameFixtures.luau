@@ -28,7 +28,7 @@ end
 function GameFixtures.bareState(playerCount: number): Types.GameState
 	local players = {}
 	for i = 1, playerCount do
-		table.insert(players, { id = `p{i}`, name = `Player {i}`, isBot = false, money = 1500, position = 0, bankrupt = false })
+		table.insert(players, { id = `p{i}`, name = `Player {i}`, isBot = false, money = 1500, position = 0, bankrupt = false, inJail = false, jailAttempts = 0 })
 	end
 	return {
 		players = players,
@@ -36,6 +36,8 @@ function GameFixtures.bareState(playerCount: number): Types.GameState
 		phase = "Roll",
 		properties = {},
 		lastRoll = nil,
+		doublesCount = 0,
+		rollAgain = false,
 		auction = nil,
 		events = {},
 		rollDice = GameFixtures.scriptedDice({}),
