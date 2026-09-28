@@ -189,4 +189,15 @@ tests["rejects malformed actions without changing state"] = function()
 	Expect.equal(#state.events, 1, "only the TurnStarted event")
 end
 
+tests["acting player is the current player, or the bidder during an auction"] = function()
+	local state = GameFixtures.newGame(3, { { 2, 4 } })
+	Expect.equal(Engine.actingPlayer(state), "p1", "roll phase")
+	act(state, "p1", ROLL)
+	act(state, "p1", { type = "Decline" })
+	act(state, "p1", { type = "PassBid" })
+	Expect.equal(Engine.actingPlayer(state), "p2", "auction")
+	state.phase = "GameOver"
+	Expect.equal(Engine.actingPlayer(state), nil, "game over")
+end
+
 return tests

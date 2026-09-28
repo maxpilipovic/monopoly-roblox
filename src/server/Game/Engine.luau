@@ -122,6 +122,16 @@ function Engine.currentBidder(state: GameState): string?
 	return if auction then auction.bidders[auction.nextBidder] else nil
 end
 
+-- Whoever the game is waiting on: the bidder during an auction, otherwise the current player.
+function Engine.actingPlayer(state: GameState): string?
+	if state.phase == "GameOver" then
+		return nil
+	elseif state.phase == "Auction" then
+		return Engine.currentBidder(state)
+	end
+	return Engine.currentPlayer(state).id
+end
+
 local function startAuction(state: GameState, position: number)
 	-- Everyone still in the game bids, starting with the player who declined.
 	local bidders = {}
