@@ -1,0 +1,8 @@
+Speed options (milestone 5): deferred review minors, from the final review on 2026-09-29.
+
+- a timeout that does nothing leaves a dead clock showing 0:00 (no phase triggers it today) — clear the deadline and broadcast, or retry
+- GameSession.timeout doesn't refuse bot seats (only the generation counter protects it)
+- the match line keeps ticking on the results screen ("12:34 left" / "Final turn") — at GameOver show only the timer part or nothing
+- plan Review Focus 1 says a string `seats` starts a default game; the older guard drops the request instead
+- no Limits test for time running out during an auction (safe by structure)
+- refreshTimers rewrites HUD text every frame even with both options Off (negligible)
