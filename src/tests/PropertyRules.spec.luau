@@ -126,4 +126,15 @@ tests["unmortgaging needs a mortgage and the money"] = function()
 	refused("not the owner", "you don't own it", PropertyRules.canUnmortgage(state, "p2", 1500, MEDITERRANEAN))
 end
 
+tests["net worth counts cash, deeds at price or mortgage value, and buildings at cost"] = function()
+	local state = GameFixtures.bareState(2)
+	GameFixtures.own(state, "p1", 1, 2) -- $60 + 2 x $50
+	GameFixtures.own(state, "p1", 3, 5) -- $60 + hotel = 5 x $50
+	GameFixtures.own(state, "p1", 5) -- mortgaged: $100
+	state.properties[5].mortgaged = true
+	GameFixtures.own(state, "p2", 6)
+	Expect.equal(PropertyRules.netWorth(state, "p1", 100), 100 + 60 + 100 + 60 + 250 + 100)
+	Expect.equal(PropertyRules.netWorth(state, "p2", 0), 100, "p2")
+end
+
 return tests

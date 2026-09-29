@@ -149,6 +149,9 @@ tests["two bots eventually build"] = function()
 		return random:NextInteger(1, 6), random:NextInteger(1, 6)
 	end)
 	for step = 1, 4000 do
+		if state.phase == "GameOver" then
+			break
+		end
 		local actor = assert(Engine.actingPlayer(state), `no acting player at step {step}`)
 		local action = assert(Bot.chooseAction(state, actor), `bot {actor} had no action in {state.phase}`)
 		local ok, err = Engine.act(state, actor, action)
@@ -157,7 +160,7 @@ tests["two bots eventually build"] = function()
 			return
 		end
 	end
-	error("no bot built anything in 4000 steps")
+	error("no bot built anything before the game ended or 4000 steps")
 end
 
 tests["an all-bot game keeps making legal moves"] = function()
@@ -176,6 +179,9 @@ tests["an all-bot game keeps making legal moves"] = function()
 		end
 	end)
 	for step = 1, 2000 do
+		if state.phase == "GameOver" then
+			break
+		end
 		local actor = assert(Engine.actingPlayer(state), `no acting player at step {step}`)
 		local action = assert(Bot.chooseAction(state, actor), `bot {actor} had no action in {state.phase}`)
 		local ok, err = Engine.act(state, actor, action)

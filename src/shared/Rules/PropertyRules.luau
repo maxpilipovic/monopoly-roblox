@@ -143,4 +143,21 @@ function PropertyRules.canUnmortgage(view: View, playerId: string, money: number
 	return true
 end
 
+-- What a player is worth if everything were counted at face value: used to rank players at the end.
+function PropertyRules.netWorth(view: View, playerId: string, money: number): number
+	local worth = money
+	for position, ownership in view.properties do
+		if ownership.owner ~= playerId then
+			continue
+		end
+		worth += if ownership.mortgaged
+			then PropertyRules.mortgageValue(position)
+			else Tiles.at(position).price :: number
+		if ownership.houses > 0 then
+			worth += ownership.houses * PropertyRules.housePrice(position)
+		end
+	end
+	return worth
+end
+
 return PropertyRules

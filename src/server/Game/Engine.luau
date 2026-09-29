@@ -393,7 +393,7 @@ function Engine.actingPlayer(state: GameState): string?
 	return Engine.currentPlayer(state).id
 end
 
-local function startAuction(state: GameState, position: number)
+local function startAuction(state: GameState, position: number, fromBankruptcy: boolean?)
 	-- Everyone still in the game bids, starting with the player who declined.
 	local bidders = {}
 	for offset = 0, #state.players - 1 do
@@ -402,7 +402,7 @@ local function startAuction(state: GameState, position: number)
 			table.insert(bidders, player.id)
 		end
 	end
-	state.auction = { position = position, highBid = 0, highBidder = nil, bidders = bidders, nextBidder = 1, fromBankruptcy = false }
+	state.auction = { position = position, highBid = 0, highBidder = nil, bidders = bidders, nextBidder = 1, fromBankruptcy = fromBankruptcy == true }
 	state.phase = "Auction"
 	emit(state, { type = "AuctionStarted", position = position, bidders = table.clone(bidders) })
 end
@@ -421,7 +421,11 @@ local function endAuctionIfSettled(state: GameState)
 		state.properties[auction.position] = { owner = winner, houses = 0, mortgaged = false }
 	end
 	emit(state, { type = "AuctionEnded", position = auction.position, winner = winner, amount = auction.highBid })
-	finishMove(state)
+	if auction.fromBankruptcy then
+		resume(state)
+	else
+		finishMove(state)
+	end
 end
 
 local function placeBid(state: GameState, player: Player, amount: any): (boolean, string?)
@@ -466,10 +470,14 @@ local function endTurn(state: GameState)
 	emit(state, { type = "TurnStarted", player = Engine.currentPlayer(state).id })
 end
 
--- Continues the game once a debt is settled.
+-- Continues the game once a debt, a bankruptcy or a bankruptcy auction is settled.
 function resume(state: GameState)
-	if #state.debts > 0 then
+	if #state.auctionQueue > 0 then
+		startAuction(state, table.remove(state.auctionQueue, 1) :: number, true)
+	elseif #state.debts > 0 then
 		state.phase = "Debt"
+	elseif Engine.currentPlayer(state).bankrupt then
+		endTurn(state)
 	else
 		state.phase = state.resumePhase :: Types.Phase
 		state.resumePhase = nil
@@ -490,11 +498,125 @@ local function payDebt(state: GameState, player: Player): (boolean, string?)
 	return true
 end
 
+-- Hands a property's buildings back to the bank supply; returns what selling them earns (half price each).
+local function returnBuildings(state: GameState, position: number, ownership: Types.Ownership): number
+	local houses = ownership.houses
+	if houses == 0 then
+		return 0
+	end
+	if houses == PropertyRules.HOTEL then
+		state.bankHotels += 1
+	else
+		state.bankHouses += houses
+	end
+	ownership.houses = 0
+	return houses * (PropertyRules.housePrice(position) // 2)
+end
+
+-- After a bankruptcy: ends the game if one player is left, or if the last human still playing just went out.
+local function endIfOver(state: GameState, bankrupt: Player): boolean
+	local solvent, humans = 0, 0
+	for _, other in state.players do
+		if not other.bankrupt then
+			solvent += 1
+			if not other.isBot then
+				humans += 1
+			end
+		end
+	end
+	if solvent > 1 and (bankrupt.isBot or humans > 0) then
+		return false
+	end
+
+	local winner: Player?, best = nil, -math.huge
+	for _, other in state.players do
+		if not other.bankrupt then
+			local worth = PropertyRules.netWorth(state, other.id, other.money)
+			if worth > best then -- strictly greater: ties go to the earlier seat
+				winner, best = other, worth
+			end
+		end
+	end
+	state.phase = "GameOver"
+	state.winner = (winner :: Player).id
+	state.debts = {}
+	state.auctionQueue = {}
+	state.resumePhase = nil
+	emit(state, { type = "GameOver", winner = state.winner })
+	return true
+end
+
+local function goBankrupt(state: GameState, player: Player): (boolean, string?)
+	local debt = state.debts[1]
+	if player.money >= debt.amount then
+		return false, "you can pay this debt"
+	end
+	local creditor = liveCreditor(state, debt.creditor)
+	player.bankrupt = true
+	player.inJail = false
+	for i = #state.debts, 1, -1 do
+		if state.debts[i].debtor == player.id then
+			table.remove(state.debts, i)
+		end
+	end
+	emit(state, { type = "WentBankrupt", player = player.id, creditor = if creditor then creditor.id else nil })
+
+	local refund = 0
+	local inherited = {} -- mortgaged deeds the creditor takes over
+	for position = 0, Tiles.COUNT - 1 do
+		local ownership = state.properties[position]
+		if not ownership or ownership.owner ~= player.id then
+			continue
+		end
+		refund += returnBuildings(state, position, ownership)
+		if creditor then
+			ownership.owner = creditor.id
+			if ownership.mortgaged then
+				table.insert(inherited, position)
+			end
+		else
+			state.properties[position] = nil
+			table.insert(state.auctionQueue, position)
+		end
+	end
+
+	if creditor then
+		if refund > 0 then
+			transfer(state, nil, player.id, refund, "Building")
+		end
+		for _, id in player.jailCards do
+			table.insert(creditor.jailCards, id)
+		end
+	else
+		for _, id in player.jailCards do
+			table.insert(state.decks[Cards.byId[id].deck], id)
+		end
+	end
+	table.clear(player.jailCards)
+	if player.money > 0 then
+		transfer(state, player.id, if creditor then creditor.id else nil, player.money, "Bankruptcy")
+	end
+
+	if endIfOver(state, player) then
+		return true
+	end
+	if creditor then
+		for _, position in inherited do
+			local interest = PropertyRules.unmortgageCost(position) - PropertyRules.mortgageValue(position)
+			charge(state, creditor, nil, interest, "MortgageInterest")
+		end
+	end
+	resume(state)
+	return true
+end
+
 local function actInDebt(state: GameState, player: Player, action: Types.Action): (boolean, string?)
 	if state.debts[1].debtor ~= player.id then
 		return false, "waiting for another player to pay a debt"
 	elseif action.type == "PayDebt" then
 		return payDebt(state, player)
+	elseif action.type == "Bankrupt" then
+		return goBankrupt(state, player)
 	elseif action.type == "SellBuilding" or action.type == "Mortgage" then
 		return propertyAction(state, player, action.type, action.position)
 	end
