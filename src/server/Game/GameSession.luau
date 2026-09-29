@@ -1,8 +1,11 @@
 --!strict
 -- One match: the engine state, which events clients have already been sent, and bot turn-taking.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MatchSettings = require(ReplicatedStorage.Shared.Rules.MatchSettings)
 local Bot = require(script.Parent.Bot)
 local Engine = require(script.Parent.Engine)
+local Timeouts = require(script.Parent.Timeouts)
 local Types = require(script.Parent.Types)
 
 export type Human = {
@@ -13,11 +16,21 @@ export type Human = {
 export type Session = {
 	state: Types.GameState,
 	eventCursor: number,
+	settings: MatchSettings.Settings,
+	endsAt: number?, -- server time the minutes limit runs out, if there is one
 }
 
 local GameSession = {}
 
-function GameSession.new(humans: { Human }, seats: number, rollDice: Types.DiceRoller, shuffle: Types.Shuffler?): Session
+GameSession.MAX_TIMEOUT_STEPS = 100
+
+function GameSession.new(
+	humans: { Human },
+	seats: number,
+	rollDice: Types.DiceRoller,
+	shuffle: Types.Shuffler?,
+	settings: MatchSettings.Settings?
+): Session
 	local playing = math.min(#humans, Engine.MAX_PLAYERS)
 	if seats ~= seats then -- NaN
 		seats = Engine.MIN_PLAYERS
@@ -34,7 +47,13 @@ function GameSession.new(humans: { Human }, seats: number, rollDice: Types.DiceR
 		table.insert(infos, { id = `bot{botNumber}`, name = `Bot {botNumber}`, isBot = true })
 	end
 
-	return { state = Engine.new(infos, rollDice, shuffle), eventCursor = 0 }
+	local chosen = settings or MatchSettings.validate(nil)
+	return {
+		state = Engine.new(infos, rollDice, shuffle, MatchSettings.roundLimit(chosen)),
+		eventCursor = 0,
+		settings = chosen,
+		endsAt = nil,
+	}
 end
 
 function GameSession.act(session: Session, playerId: string, action: any): (boolean, string?)
@@ -87,6 +106,49 @@ function GameSession.stepBot(session: Session): boolean
 		end
 	end
 	return false
+end
+
+local function playDefault(state: Types.GameState, playerId: string): boolean
+	local action = Timeouts.defaultAction(state, playerId)
+	if action and Engine.act(state, playerId, action) then
+		return true
+	end
+	for _, fallback in FALLBACK_ACTIONS do
+		if Engine.act(state, playerId, fallback) then
+			return true
+		end
+	end
+	return false
+end
+
+-- A human's timer ran out: play their safe default. A debt is settled in one go, so an absent
+-- player doesn't cost everyone a full timer per mortgage; anywhere else it's one move.
+function GameSession.timeout(session: Session, playerId: string): boolean
+	local state = session.state
+	if Engine.actingPlayer(state) ~= playerId then
+		return false
+	end
+	local inDebt = state.phase == "Debt"
+	if not playDefault(state, playerId) then
+		return false
+	end
+	local steps = 1
+	while
+		inDebt
+		and state.phase == "Debt"
+		and Engine.actingPlayer(state) == playerId
+		and steps < GameSession.MAX_TIMEOUT_STEPS
+	do
+		if not playDefault(state, playerId) then
+			break
+		end
+		steps += 1
+	end
+	return true
+end
+
+function GameSession.markTimeUp(session: Session)
+	Engine.markTimeUp(session.state)
 end
 
 function GameSession.replaceWithBot(session: Session, playerId: string)

@@ -49,7 +49,7 @@ local function propertyPlan(state: Types.GameState, me: Types.Player): Types.Act
 end
 
 -- In debt: sell the priciest building (the rules keep sets even), else mortgage the cheapest bare deed.
-local function raiseCash(state: Types.GameState, me: Types.Player): Types.Action?
+function Bot.raiseCash(state: Types.GameState, me: Types.Player): Types.Action?
 	local best: number?, bestPrice = nil, -math.huge
 	for _, tile in Tiles.list do
 		if tile.kind == "Property" and PropertyRules.canSell(state, me.id, tile.position) then
@@ -148,7 +148,7 @@ function Bot.chooseAction(state: Types.GameState, botId: string): Types.Action?
 		if me.money >= state.debts[1].amount then
 			return { type = "PayDebt" }
 		end
-		return raiseCash(state, me) or { type = "Bankrupt" }
+		return Bot.raiseCash(state, me) or { type = "Bankrupt" }
 	elseif state.phase == "Trade" then
 		local trade = state.trade :: Types.PendingTrade
 		return { type = if acceptsTrade(state, me, trade) then "AcceptTrade" else "DeclineTrade" }

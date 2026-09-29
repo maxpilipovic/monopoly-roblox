@@ -163,4 +163,50 @@ tests["a bot with no plan still answers a trade"] = function()
 	assert(ok, err)
 end
 
+tests["a timeout plays one safe move outside a debt"] = function()
+	local session = GameSession.new(humans(1), 2, GameFixtures.scriptedDice({ { 2, 4 } }))
+	assert(GameSession.timeout(session, "h1"), "roll")
+	Expect.equal(session.state.phase, "BuyDecision", "rolled once, didn't buy yet")
+	assert(GameSession.timeout(session, "h1"), "decline")
+	Expect.equal(session.state.phase, "Auction")
+	assert(not GameSession.timeout(session, "bot1"), "only the acting player times out")
+end
+
+tests["a timeout settles a whole debt in one go"] = function()
+	local session = GameSession.new(humans(1), 2, GameFixtures.scriptedDice({}))
+	local state = session.state
+	GameFixtures.own(state, "h1", 1)
+	GameFixtures.own(state, "h1", 3)
+	local h1: any = Engine.getPlayer(state, "h1")
+	h1.money = 0
+	GameFixtures.inDebt(state, "h1", 50)
+	assert(GameSession.timeout(session, "h1"))
+	Expect.equal(state.properties[1].mortgaged, true, "Mediterranean")
+	Expect.equal(state.properties[3].mortgaged, true, "Baltic")
+	Expect.equal(h1.money, 10, "$60 raised, $50 paid")
+	Expect.equal(state.phase, "Roll", "back to the turn")
+end
+
+tests["a timeout with nothing to raise goes bankrupt"] = function()
+	local session = GameSession.new(humans(1), 2, GameFixtures.scriptedDice({}))
+	local h1: any = Engine.getPlayer(session.state, "h1")
+	h1.money = 0
+	GameFixtures.inDebt(session.state, "h1", 50)
+	assert(GameSession.timeout(session, "h1"))
+	Expect.equal(h1.bankrupt, true)
+	Expect.equal(session.state.phase, "GameOver", "the last human went bankrupt")
+end
+
+tests["sessions keep their settings and take the round limit from them"] = function()
+	local session = GameSession.new(humans(1), 2, GameFixtures.scriptedDice({}), nil, { timer = "Fast", length = "Rounds15" })
+	Expect.equal(session.settings.timer, "Fast")
+	Expect.equal(session.state.roundLimit, 15)
+	Expect.equal(session.endsAt, nil)
+	local plain = GameSession.new(humans(1), 2, GameFixtures.scriptedDice({}))
+	Expect.equal(plain.settings.timer, "Relaxed", "default settings")
+	Expect.equal(plain.state.roundLimit, nil)
+	GameSession.markTimeUp(plain)
+	Expect.equal(plain.state.timeUp, true)
+end
+
 return tests
