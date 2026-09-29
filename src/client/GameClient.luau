@@ -29,8 +29,8 @@ function GameClient.start()
 		onAction = function(action)
 			actionRemote:FireServer(action)
 		end,
-		onStart = function(seats)
-			lobbyRemote:FireServer({ type = "Start", seats = seats })
+		onStart = function(seats, settings)
+			lobbyRemote:FireServer({ type = "Start", seats = seats, timer = settings.timer, length = settings.length })
 		end,
 		onReturnToLobby = function()
 			lobbyRemote:FireServer({ type = "ReturnToLobby" })

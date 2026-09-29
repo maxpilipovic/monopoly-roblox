@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 local Cards = require(ReplicatedStorage.Shared.Board.Cards)
 local ColorGroups = require(ReplicatedStorage.Shared.Board.ColorGroups)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
+local MatchSettings = require(ReplicatedStorage.Shared.Rules.MatchSettings)
 local TokenLayout = require(ReplicatedStorage.Shared.Board.TokenLayout)
 local CardQueue = require(script.Parent.CardQueue)
 local HudModel = require(script.Parent.HudModel)
@@ -26,10 +27,11 @@ local TOGGLE_COLOR = Color3.fromRGB(70, 90, 140)
 local OTHER_SWATCH = Color3.fromRGB(150, 150, 150)
 local DANGER_COLOR = Color3.fromRGB(200, 60, 60)
 local DEBT_TEXT_COLOR = Color3.fromRGB(255, 120, 120)
+local URGENT_COLOR = Color3.fromRGB(255, 90, 90)
 
 export type Callbacks = {
 	onAction: (action: { [string]: any }) -> (),
-	onStart: (seats: number) -> (),
+	onStart: (seats: number, settings: MatchSettings.Settings) -> (),
 	onReturnToLobby: () -> (),
 }
 
@@ -65,6 +67,10 @@ export type HudView = typeof(setmetatable(
 		tradeWindow: Frame,
 		offerPanel: Frame,
 		offerText: TextLabel,
+		settings: MatchSettings.Settings,
+		statusText: string,
+		statusColor: Color3,
+		matchLabel: TextLabel?,
 	},
 	HudView
 ))
@@ -350,6 +356,24 @@ local function renderTrade(self: HudView, snapshot: Protocol.Snapshot, localId: 
 	cancel.BackgroundColor3 = UNSELECTED_COLOR
 end
 
+-- The countdown and match line change every second between server updates.
+local function refreshTimers(self: HudView)
+	local snapshot = self.snapshot
+	if not snapshot then
+		return
+	end
+	local now = workspace:GetServerTimeNow()
+	local countdown, urgent = HudModel.countdown(snapshot, now)
+	self.status.Text = if countdown then `{self.statusText} · {countdown}` else self.statusText
+	self.status.TextColor3 = if urgent then URGENT_COLOR else self.statusColor
+	local matchLabel = self.matchLabel
+	if matchLabel then
+		local line = HudModel.matchLine(snapshot, now)
+		matchLabel.Visible = line ~= nil
+		matchLabel.Text = line or ""
+	end
+end
+
 function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "MonopolyHud"
@@ -358,12 +382,14 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 	gui.Parent = playerGui
 
 	-- Lobby: pick seats, start.
-	local lobby = panel("Lobby", UDim2.fromOffset(320, 150), UDim2.fromScale(0.5, 0.5), Vector2.new(0.5, 0.5), gui)
+	local lobby = panel("Lobby", UDim2.fromOffset(320, 250), UDim2.fromScale(0.5, 0.5), Vector2.new(0.5, 0.5), gui)
 	list(lobby, Enum.FillDirection.Vertical, 10)
 	local seatsLabel = text("Seats", lobby, UDim2.new(1, 0, 0, 30), 22)
+	seatsLabel.LayoutOrder = 1
 	local seatRow = Instance.new("Frame")
 	seatRow.Size = UDim2.new(1, 0, 0, 44)
 	seatRow.BackgroundTransparency = 1
+	seatRow.LayoutOrder = 2
 	seatRow.Parent = lobby
 	list(seatRow, Enum.FillDirection.Horizontal, 10)
 
@@ -395,6 +421,10 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		tradeWindow = nil :: any,
 		offerPanel = nil :: any,
 		offerText = nil :: any,
+		settings = MatchSettings.validate(nil),
+		statusText = "",
+		statusColor = TEXT_COLOR,
+		matchLabel = nil,
 	}, HudView)
 
 	local function changeSeats(delta: number)
@@ -406,13 +436,35 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 	end)
 	minus.Size = UDim2.fromOffset(44, 44)
 	button("Start game", seatRow, function()
-		callbacks.onStart(self.seats)
+		callbacks.onStart(self.seats, table.clone(self.settings))
 	end)
 	local plus = button("+", seatRow, function()
 		changeSeats(1)
 	end)
 	plus.Size = UDim2.fromOffset(44, 44)
 	changeSeats(0)
+
+	-- Speed options: each button cycles through its choices.
+	local function settingButton(order: number, label: () -> string, cycle: () -> ())
+		local b: TextButton
+		b = button(label(), lobby, function()
+			cycle()
+			b.Text = label()
+		end)
+		b.Size = UDim2.fromOffset(260, 40)
+		b.LayoutOrder = order
+		b.BackgroundColor3 = TOGGLE_COLOR
+	end
+	settingButton(3, function()
+		return MatchSettings.timerLabel(self.settings.timer)
+	end, function()
+		self.settings.timer = MatchSettings.nextTimer(self.settings.timer)
+	end)
+	settingButton(4, function()
+		return MatchSettings.lengthLabel(self.settings.length)
+	end, function()
+		self.settings.length = MatchSettings.nextLength(self.settings.length)
+	end)
 
 	self.playerList.AutomaticSize = Enum.AutomaticSize.Y
 	list(self.playerList, Enum.FillDirection.Vertical, 4)
@@ -475,6 +527,7 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 	self.card = card
 	RunService.Heartbeat:Connect(function()
 		updateCard(self)
+		refreshTimers(self)
 	end)
 
 	-- Results, centre screen once the game is over.
@@ -488,6 +541,7 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 	resultsPadding.Parent = results
 	self.resultsTitle = text("Title", results, UDim2.new(1, -16, 0, 36), 28)
 	self.resultsTitle.LayoutOrder = 1
+	self.resultsTitle.AutomaticSize = Enum.AutomaticSize.Y -- "Round limit reached — …" wraps onto two lines
 	local resultsRows = Instance.new("Frame")
 	resultsRows.Name = "Standings"
 	resultsRows.Size = UDim2.new(1, -16, 0, 0)
@@ -558,6 +612,7 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 			child:Destroy()
 		end
 	end
+	self.matchLabel = nil
 	for _, child in self.buttonRow:GetChildren() do
 		if child:IsA("TextButton") then
 			child:Destroy()
@@ -580,12 +635,17 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		local balance = if player.bankrupt then "Bankrupt" else `${player.money}`
 		row.Text = `{marker}{player.name}{you}{jail}   {balance}`
 	end
+	local matchLabel = text("Match", self.playerList, UDim2.new(1, -12, 0, 22), 15)
+	matchLabel.LayoutOrder = 100
+	matchLabel.TextXAlignment = Enum.TextXAlignment.Left
+	self.matchLabel = matchLabel
 
 	local roll = snapshot.lastRoll
 	local dice = if roll then `   🎲 {roll[1]} + {roll[2]}` else ""
-	self.status.Text = HudModel.status(snapshot, localId) .. dice
+	self.statusText = HudModel.status(snapshot, localId) .. dice
 	local debtor = HudModel.isDebtor(snapshot, localId)
-	self.status.TextColor3 = if debtor then DEBT_TEXT_COLOR else TEXT_COLOR
+	self.statusColor = if debtor then DEBT_TEXT_COLOR else TEXT_COLOR
+	refreshTimers(self)
 
 	if debtor and not self.wasDebtor then
 		self.propertiesOpen = true -- raising cash happens in the panel

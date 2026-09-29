@@ -8,6 +8,8 @@ local RunService = game:GetService("RunService")
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local GameSession = require(script.Parent.Game.GameSession)
 local Snapshot = require(script.Parent.Game.Snapshot)
+local MatchSettings = require(ReplicatedStorage.Shared.Rules.MatchSettings)
+local TurnClock = require(script.Parent.Game.TurnClock)
 
 local GameService = {}
 
@@ -20,6 +22,19 @@ local random = Random.new()
 local botScheduled = false
 local endingSession: GameSession.Session? = nil
 local scheduleLobbyReturn: () -> ()
+local clock = TurnClock.new()
+local clockGeneration = 0 -- bumped on every clock change, so only the latest check can fire
+local refreshClock: (actedBy: string?) -> ()
+
+-- Playtests: numeric workspace attributes that only count in Studio.
+local function studioNumber(name: string): number?
+	local value = workspace:GetAttribute(name)
+	return if RunService:IsStudio() and typeof(value) == "number" then value else nil
+end
+
+local function timerSeconds(current: GameSession.Session): number
+	return studioNumber("TimerSeconds") or MatchSettings.timerSeconds(current.settings)
+end
 
 local function rollDice(): (number, number)
 	return random:NextInteger(1, 6), random:NextInteger(1, 6)
@@ -33,8 +48,16 @@ local function shuffle(ids: { string })
 end
 
 local function currentUpdate(events: { any }): Protocol.Update
+	local current = session
 	return {
-		snapshot = if session then Snapshot.fromState(session.state) else nil,
+		snapshot = if current
+			then Snapshot.fromState(current.state, {
+				timer = current.settings.timer,
+				length = current.settings.length,
+				endsAt = current.endsAt,
+				turnDeadline = clock.deadline,
+			})
+			else nil,
 		events = events,
 	}
 end
@@ -69,14 +92,46 @@ local function scheduleBots()
 	task.delay(GameService.BOT_DELAY, function()
 		botScheduled = false
 		if session and GameSession.stepBot(session) then
+			refreshClock(nil)
 			broadcast()
 			scheduleBots()
 		end
 	end)
 end
 
+-- Starts, keeps or clears the acting human's decision timer. When it runs out, their safe
+-- default is played through the session like any other move.
+function refreshClock(actedBy: string?)
+	clockGeneration += 1
+	local current = session
+	if not current then
+		return
+	end
+	local now = workspace:GetServerTimeNow()
+	TurnClock.update(clock, current.state, timerSeconds(current), now, actedBy)
+	local deadline, actor = clock.deadline, clock.actor
+	if not deadline or not actor then
+		return
+	end
+	local generation = clockGeneration
+	task.delay(math.max(deadline - now, 0), function()
+		if session ~= current or generation ~= clockGeneration then
+			return
+		end
+		if GameSession.timeout(current, actor) then
+			refreshClock(actor)
+			broadcast()
+			scheduleBots()
+		else
+			warn(`timeout for {actor} in phase {current.state.phase} did nothing`)
+		end
+	end)
+end
+
 local function onAction(player: Player, action: any)
-	if session and GameSession.act(session, tostring(player.UserId), action) then
+	local playerId = tostring(player.UserId)
+	if session and GameSession.act(session, playerId, action) then
+		refreshClock(playerId)
 		broadcast()
 		scheduleBots()
 	end
@@ -100,7 +155,8 @@ local function onLobbyRequest(_player: Player, request: any)
 	for _, player in Players:GetPlayers() do
 		table.insert(humans, { id = tostring(player.UserId), name = player.DisplayName })
 	end
-	local started = GameSession.new(humans, request.seats, rollDice, shuffle)
+	local settings = MatchSettings.validate(request)
+	local started = GameSession.new(humans, request.seats, rollDice, shuffle, settings)
 	-- Playtests: a workspace StartingMoney attribute makes debts and bankruptcies come quickly.
 	local startingMoney = workspace:GetAttribute("StartingMoney")
 	if RunService:IsStudio() and typeof(startingMoney) == "number" then
@@ -108,7 +164,23 @@ local function onLobbyRequest(_player: Player, request: any)
 			player.money = startingMoney
 		end
 	end
+	local roundLimit = studioNumber("RoundLimit")
+	if roundLimit then
+		started.state.roundLimit = roundLimit
+	end
+	local minutes = studioNumber("LimitMinutes") or MatchSettings.limitMinutes(settings)
+	if minutes then
+		started.endsAt = workspace:GetServerTimeNow() + minutes * 60
+		task.delay(minutes * 60, function()
+			if session == started then
+				GameSession.markTimeUp(started)
+				broadcast()
+			end
+		end)
+	end
 	session = started
+	clock = TurnClock.new()
+	refreshClock(nil)
 	broadcast()
 	scheduleBots()
 end
@@ -121,6 +193,7 @@ local function onPlayerRemoving(player: Player)
 	if not GameSession.hasHumans(session) then
 		session = nil -- everyone left: back to the lobby
 	end
+	refreshClock(nil)
 	broadcast()
 	scheduleBots()
 end
