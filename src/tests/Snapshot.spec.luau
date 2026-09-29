@@ -70,6 +70,7 @@ tests["snapshot shows the open debt, the winner and each player's net worth"] = 
 	Expect.equal(snapshot.players[1].netWorth, 1560, "cash + Mediterranean")
 	Expect.equal(snapshot.winner, nil, "no winner yet")
 	state.winner = "p2"
+	state.phase = "GameOver"
 	state.debts = {}
 	Expect.equal(Snapshot.fromState(state).winner, "p2", "winner")
 	Expect.equal(Snapshot.fromState(state).debt, nil, "no debt")
@@ -83,6 +84,24 @@ tests["snapshot shares no tables with the game state"] = function()
 	(snapshot.lastRoll :: { number })[1] = 99
 	Expect.equal(state.players[1].money, 1500, "player money")
 	Expect.equal((state.lastRoll :: { number })[1], 2, "last roll")
+end
+
+tests["snapshot shows the open trade and the offers left"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.own(state, "p2", 39)
+	Expect.equal(Snapshot.fromState(state).tradeOffersLeft, 3, "fresh turn")
+	assert(GameFixtures.propose(state, "p1", "p2", GameFixtures.side(nil, 100), GameFixtures.side({ 39 })))
+	local snapshot = Snapshot.fromState(state)
+	local trade = snapshot.trade :: any
+	Expect.equal(trade.from, "p1", "from")
+	Expect.equal(trade.to, "p2", "to")
+	Expect.equal(trade.give.cash, 100, "give cash")
+	Expect.equal(trade.get.properties[1], 39, "get deed")
+	Expect.equal(snapshot.tradeOffersLeft, 3, "p2 is acting and has offered nothing")
+	Engine.act(state, "p2", { type = "DeclineTrade" })
+	snapshot = Snapshot.fromState(state)
+	Expect.equal(snapshot.trade, nil, "closed")
+	Expect.equal(snapshot.tradeOffersLeft, 2, "p1 used one")
 end
 
 return tests

@@ -54,6 +54,19 @@ function Snapshot.fromState(state: Types.GameState): Protocol.Snapshot
 		then { debtor = openDebt.debtor, creditor = openDebt.creditor, amount = openDebt.amount, reason = openDebt.reason }
 		else nil
 
+	local trade: Protocol.TradeView? = nil
+	if state.trade then
+		local offer = state.trade.offer
+		trade = {
+			from = state.trade.from,
+			to = offer.to,
+			give = { properties = table.clone(offer.give.properties), cash = offer.give.cash, jailCards = offer.give.jailCards },
+			get = { properties = table.clone(offer.get.properties), cash = offer.get.cash, jailCards = offer.get.jailCards },
+		}
+	end
+	local acting = Engine.actingPlayer(state)
+	local offersLeft = if acting then Engine.MAX_TRADE_OFFERS - (state.tradeOffers[acting] or 0) else 0
+
 	return {
 		phase = state.phase,
 		currentPlayer = Engine.currentPlayer(state).id,
@@ -64,6 +77,8 @@ function Snapshot.fromState(state: Types.GameState): Protocol.Snapshot
 		bankHouses = state.bankHouses,
 		bankHotels = state.bankHotels,
 		debt = debt,
+		trade = trade,
+		tradeOffersLeft = offersLeft,
 		winner = state.winner,
 	}
 end

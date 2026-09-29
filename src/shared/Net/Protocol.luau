@@ -35,6 +35,19 @@ export type DebtView = {
 	reason: string,
 }
 
+export type TradeSideView = {
+	properties: { number },
+	cash: number,
+	jailCards: number,
+}
+
+export type TradeView = {
+	from: string,
+	to: string,
+	give: TradeSideView, -- from `from`
+	get: TradeSideView, -- from `to`
+}
+
 -- Arrays only (RemoteEvents drop sparse numeric keys).
 export type Snapshot = {
 	phase: string,
@@ -46,6 +59,8 @@ export type Snapshot = {
 	bankHouses: number,
 	bankHotels: number,
 	debt: DebtView?, -- the IOU being settled, while phase is "Debt"
+	trade: TradeView?, -- the offer waiting for an answer, while phase is "Trade"
+	tradeOffersLeft: number, -- offers the acting player may still make this turn
 	winner: string?,
 }
 

@@ -143,4 +143,24 @@ tests["a bot with no plan in debt still settles it"] = function()
 	assert(ok, err)
 end
 
+tests["a bot with no plan still answers a trade"] = function()
+	local Bot = require(ServerScriptService.Server.Game.Bot)
+	local original = Bot.chooseAction
+	Bot.chooseAction = function()
+		return nil
+	end
+	local ok, err = pcall(function()
+		local session = GameSession.new(humans(1), 2, GameFixtures.scriptedDice({}))
+		assert(GameSession.act(session, "h1", {
+			type = "ProposeTrade",
+			offer = { to = "bot1", give = GameFixtures.side(nil, 10), get = GameFixtures.side() },
+		}))
+		assert(GameSession.stepBot(session), "bot did not answer")
+		Expect.equal(session.state.phase, "Roll", "back to h1")
+		Expect.equal(#GameFixtures.eventsOfType(session.state, "TradeDeclined"), 1, "declined")
+	end)
+	Bot.chooseAction = original
+	assert(ok, err)
+end
+
 return tests

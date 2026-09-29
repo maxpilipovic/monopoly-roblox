@@ -54,6 +54,7 @@ local FALLBACK_ACTIONS = {
 	{ type = "Roll" },
 	{ type = "PayDebt" },
 	{ type = "Bankrupt" },
+	{ type = "DeclineTrade" },
 }
 
 function GameSession.takeNewEvents(session: Session): { Types.Event }
