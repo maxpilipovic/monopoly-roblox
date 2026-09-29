@@ -112,7 +112,8 @@ function HudModel.status(snapshot: Protocol.Snapshot, localId: string): string
 	local names = HudModel.names(snapshot)
 	if snapshot.phase == "GameOver" then
 		local winner = snapshot.winner
-		return `{if winner then names[winner] or winner else "Nobody"} wins!`
+		local prefix = EventText.WIN_PREFIX[snapshot.winReason or ""] or ""
+		return `{prefix}{if winner then names[winner] or winner else "Nobody"} wins!`
 	end
 	local debt = snapshot.debt
 	if snapshot.phase == "Debt" and debt then
@@ -147,6 +148,38 @@ function HudModel.status(snapshot: Protocol.Snapshot, localId: string): string
 		return "Your turn"
 	end
 	return `Waiting for {names[snapshot.currentPlayer] or snapshot.currentPlayer}`
+end
+
+HudModel.URGENT_SECONDS = 5
+
+local function clockText(seconds: number): string
+	return string.format("%d:%02d", seconds // 60, seconds % 60)
+end
+
+-- Time left on the acting human's decision, e.g. "0:14", and whether it's nearly up.
+function HudModel.countdown(snapshot: Protocol.Snapshot, now: number): (string?, boolean)
+	local deadline = snapshot.match.turnDeadline
+	if not deadline then
+		return nil, false
+	end
+	local left = math.max(0, math.ceil(deadline - now))
+	return clockText(left), left <= HudModel.URGENT_SECONDS
+end
+
+-- The speed options in play, e.g. "Fast · Round 7 of 25" or "Relaxed · 23:10 left".
+function HudModel.matchLine(snapshot: Protocol.Snapshot, now: number): string?
+	local match = snapshot.match
+	local parts = {}
+	if match.timer ~= "Off" then
+		table.insert(parts, match.timer)
+	end
+	if match.roundLimit then
+		table.insert(parts, `Round {math.min(match.round, match.roundLimit)} of {match.roundLimit}`)
+	elseif match.endsAt then
+		local left = math.ceil(match.endsAt - now)
+		table.insert(parts, if left > 0 then `{clockText(left)} left` else "Final turn")
+	end
+	return if #parts > 0 then table.concat(parts, " · ") else nil
 end
 
 function HudModel.canTrade(snapshot: Protocol.Snapshot, localId: string): boolean

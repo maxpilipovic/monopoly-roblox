@@ -52,6 +52,9 @@ tests["describes the events players care about"] = function()
 		{ { type = "WentBankrupt", player = "p1", creditor = "p2" }, "Ana went bankrupt to Bot 1" },
 		{ { type = "WentBankrupt", player = "p1", creditor = nil }, "Ana went bankrupt to the bank" },
 		{ { type = "GameOver", winner = "p2" }, "Bot 1 wins!" },
+		{ { type = "GameOver", winner = "p1", reason = "Bankruptcy" }, "Ana wins!" },
+		{ { type = "GameOver", winner = "p1", reason = "RoundLimit" }, "Round limit reached — Ana wins!" },
+		{ { type = "GameOver", winner = "p1", reason = "TimeLimit" }, "Time's up — Ana wins!" },
 	}
 	for _, case in cases :: { any } do
 		Expect.equal(EventText.describe(case[1], NAMES), case[2], case[1].type)

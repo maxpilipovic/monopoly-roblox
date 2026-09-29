@@ -8,6 +8,12 @@ local PropertyRules = require(ReplicatedStorage.Shared.Rules.PropertyRules)
 
 local EventText = {}
 
+-- How a game-over line starts, by the way the game ended; a bankruptcy ending has no prefix.
+EventText.WIN_PREFIX = table.freeze({
+	RoundLimit = "Round limit reached — ",
+	TimeLimit = "Time's up — ",
+}) :: { [string]: string }
+
 local DEBT_REASONS = {
 	Rent = " in rent",
 	Tax = " in tax",
@@ -105,7 +111,7 @@ function EventText.describe(event: { [string]: any }, names: { [string]: string 
 	elseif kind == "WentBankrupt" then
 		return `{name(event.player)} went bankrupt to {if event.creditor then name(event.creditor) else "the bank"}`
 	elseif kind == "GameOver" then
-		return `{name(event.winner)} wins!`
+		return `{EventText.WIN_PREFIX[event.reason] or ""}{name(event.winner)} wins!`
 	elseif kind == "TradeProposed" then
 		return `{name(event.from)} offered {name(event.to)} {EventText.tradeSide(event.give)} for {EventText.tradeSide(event.get)}`
 	elseif kind == "TradeAccepted" then

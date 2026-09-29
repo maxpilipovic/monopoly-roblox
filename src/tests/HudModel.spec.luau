@@ -277,4 +277,53 @@ tests["the receiver's summary marks mortgaged deeds"] = function()
 	Expect.equal(summary.give, "$50", "receiver gives")
 end
 
+local function snapshotWith(info)
+	return Snapshot.fromState(GameFixtures.newGame(2), info)
+end
+
+tests["the countdown shows minutes and seconds and turns urgent in the last five"] = function()
+	local snapshot = snapshotWith({ timer = "Fast", length = "Off", turnDeadline = 100 })
+	local text, urgent = HudModel.countdown(snapshot, 58.5)
+	Expect.equal(text, "0:42", "rounds up")
+	Expect.equal(urgent, false)
+	text, urgent = HudModel.countdown(snapshot, 95.2)
+	Expect.equal(text, "0:05", "five left")
+	Expect.equal(urgent, true)
+	text, urgent = HudModel.countdown(snapshot, 130)
+	Expect.equal(text, "0:00", "never below zero")
+	Expect.equal(urgent, true)
+	text = HudModel.countdown(snapshotWith({ timer = "Relaxed", length = "Off", turnDeadline = 100 }), 30)
+	Expect.equal(text, "1:10", "over a minute")
+	text, urgent = HudModel.countdown(snapshotWith({ timer = "Fast", length = "Off" }), 30)
+	Expect.equal(text, nil, "no deadline")
+	Expect.equal(urgent, false)
+end
+
+tests["the match line shows the timer and the limit"] = function()
+	local state = GameFixtures.newGame(2)
+	state.roundLimit = 25
+	state.round = 7
+	Expect.equal(HudModel.matchLine(Snapshot.fromState(state, { timer = "Fast", length = "Rounds25" }), 0), "Fast · Round 7 of 25")
+	state.round = 26 -- at GameOver after the last round
+	Expect.equal(HudModel.matchLine(Snapshot.fromState(state, { timer = "Off", length = "Rounds25" }), 0), "Round 25 of 25", "clamped")
+
+	local timed = snapshotWith({ timer = "Relaxed", length = "Minutes30", endsAt = 2000 })
+	Expect.equal(HudModel.matchLine(timed, 2000 - 1390), "Relaxed · 23:10 left", "time left")
+	Expect.equal(HudModel.matchLine(timed, 2001), "Relaxed · Final turn", "time's up")
+	Expect.equal(HudModel.matchLine(snapshotWith({ timer = "Fast", length = "Off" }), 0), "Fast", "timer only")
+	Expect.equal(HudModel.matchLine(snapshotWith({ timer = "Off", length = "Off" }), 0), nil, "nothing to show")
+end
+
+tests["the results title says how the game ended"] = function()
+	local state = GameFixtures.newGame(2)
+	state.phase = "GameOver"
+	state.winner = "p2"
+	state.winReason = "TimeLimit"
+	Expect.equal(HudModel.status(Snapshot.fromState(state), "p1"), "Time's up — Player 2 wins!")
+	state.winReason = "RoundLimit"
+	Expect.equal(HudModel.status(Snapshot.fromState(state), "p1"), "Round limit reached — Player 2 wins!")
+	state.winReason = "Bankruptcy"
+	Expect.equal(HudModel.status(Snapshot.fromState(state), "p1"), "Player 2 wins!")
+end
+
 return tests
