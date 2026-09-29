@@ -20,6 +20,7 @@ export type DeedRow = {
 	position: number,
 	name: string,
 	selected: boolean,
+	mortgaged: boolean,
 	tradable: boolean,
 	reason: string?,
 }
@@ -84,6 +85,7 @@ function TradeBuilder.rows(snapshot: Protocol.Snapshot, ownerId: string, side: T
 				position = property.position,
 				name = Tiles.at(property.position).name,
 				selected = table.find(side.properties, property.position) ~= nil,
+				mortgaged = property.mortgaged,
 				tradable = tradable,
 				reason = reason,
 			})

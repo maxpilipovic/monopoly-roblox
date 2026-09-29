@@ -262,7 +262,8 @@ local function renderTrade(self: HudView, snapshot: Protocol.Snapshot, localId: 
 		local owner = players[ownerId]
 		local side = builder[sideName]
 		for order, row in TradeBuilder.rows(snapshot, ownerId, side) do
-			local label = if row.tradable then row.name else `{row.name} — {row.reason}`
+			local name = if row.mortgaged then `{row.name} (mortgaged)` else row.name
+			local label = if row.tradable then name else `{name} — {row.reason}`
 			local b = button(label, frame, function()
 				if row.tradable then
 					TradeBuilder.toggle(builder, sideName, row.position)

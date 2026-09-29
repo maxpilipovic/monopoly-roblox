@@ -170,7 +170,8 @@ function HudModel.tradeSummary(snapshot: Protocol.Snapshot, localId: string): { 
 	if snapshot.phase ~= "Trade" or not trade or trade.to ~= localId then
 		return nil
 	end
-	return { give = EventText.tradeSide(trade.get), get = EventText.tradeSide(trade.give) }
+	local view = HudModel.rulesView(snapshot)
+	return { give = EventText.tradeSide(trade.get, view), get = EventText.tradeSide(trade.give, view) }
 end
 
 export type PropertyRow = {

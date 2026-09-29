@@ -267,4 +267,14 @@ tests["the receiver sees the offer with Accept and Decline"] = function()
 	assert(not HudModel.canTrade(snapshot, "p1"), "no new offer while one is open")
 end
 
+tests["the receiver's summary marks mortgaged deeds"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.own(state, "p1", 5)
+	state.properties[5].mortgaged = true
+	assert(GameFixtures.propose(state, "p1", "p2", GameFixtures.side({ 5 }), GameFixtures.side(nil, 50)))
+	local summary = HudModel.tradeSummary(Snapshot.fromState(state), "p2") :: any
+	Expect.equal(summary.get, "Reading Railroad (mortgaged)", "receiver gets")
+	Expect.equal(summary.give, "$50", "receiver gives")
+end
+
 return tests

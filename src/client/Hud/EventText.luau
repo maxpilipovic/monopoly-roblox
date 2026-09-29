@@ -4,6 +4,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 local Cards = require(ReplicatedStorage.Shared.Board.Cards)
+local PropertyRules = require(ReplicatedStorage.Shared.Rules.PropertyRules)
 
 local EventText = {}
 
@@ -16,10 +17,13 @@ local DEBT_REASONS = {
 }
 
 -- One side of a trade in words: "Park Place + $50 + 1 jail card", or "nothing".
-function EventText.tradeSide(side: { properties: { number }, cash: number, jailCards: number }): string
+-- Given a view of the properties, mortgaged deeds read "Reading Railroad (mortgaged)".
+function EventText.tradeSide(side: { properties: { number }, cash: number, jailCards: number }, view: PropertyRules.View?): string
 	local parts = {}
 	for _, position in side.properties do
-		table.insert(parts, Tiles.at(position).name)
+		local ownership = if view then view.properties[position] else nil
+		local mortgaged = if ownership and ownership.mortgaged then " (mortgaged)" else ""
+		table.insert(parts, Tiles.at(position).name .. mortgaged)
 	end
 	if side.cash > 0 then
 		table.insert(parts, `${side.cash}`)

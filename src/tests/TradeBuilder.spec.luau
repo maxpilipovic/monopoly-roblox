@@ -78,4 +78,13 @@ tests["check uses the trade rules, and a new partner clears the offer"] = functi
 	Expect.equal(builder.give.cash, 0, "cash cleared")
 end
 
+tests["deed rows say which deeds are mortgaged"] = function()
+	local state = game()
+	state.properties[5].mortgaged = true
+	local rows = TradeBuilder.rows(Snapshot.fromState(state), "p1", TradeBuilder.new().give)
+	Expect.equal(rows[3].position, 5, "Reading")
+	Expect.equal(rows[3].mortgaged, true, "mortgaged")
+	Expect.equal(rows[2].mortgaged, false, "Baltic isn't")
+end
+
 return tests
