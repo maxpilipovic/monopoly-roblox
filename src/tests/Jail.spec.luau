@@ -117,11 +117,12 @@ tests["the third failed roll forces the fine and moves you"] = function()
 	p1.money = 20
 	act(state, "p1", ROLL)
 	assert(not p1.inJail, "still in jail")
-	Expect.equal(p1.money, -30, "fine charged even into debt")
+	Expect.equal(p1.money, 20, "fine owed, not taken")
 	Expect.equal(p1.position, 13, "moved by the roll")
-	Expect.equal(state.phase, "EndTurn")
+	Expect.equal(state.phase, "Debt")
+	Expect.equal(state.debts[1].reason, "JailFine", "debt reason")
+	Expect.equal(state.debts[1].amount, 50, "debt amount")
 	Expect.equal(GameFixtures.eventsOfType(state, "LeftJail")[1].reason, "Fine")
-	Expect.equal(GameFixtures.eventsOfType(state, "Paid")[1].reason, "JailFine")
 end
 
 tests["paying the fine frees you, then you roll normally"] = function()

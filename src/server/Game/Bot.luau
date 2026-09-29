@@ -1,6 +1,6 @@
 --!strict
 -- A simple bot: keeps a cash reserve when buying, bidding and building, lifts mortgages when rich,
--- and leaves jail as soon as it can spare the fine.
+-- leaves jail as soon as it can spare the fine, and in debt sells, then mortgages, then gives up.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
@@ -45,6 +45,33 @@ local function propertyPlan(state: Types.GameState, me: Types.Player): Types.Act
 	return nil
 end
 
+-- In debt: sell the priciest building (the rules keep sets even), else mortgage the cheapest bare deed.
+local function raiseCash(state: Types.GameState, me: Types.Player): Types.Action?
+	local best: number?, bestPrice = nil, -math.huge
+	for _, tile in Tiles.list do
+		if tile.kind == "Property" and PropertyRules.canSell(state, me.id, tile.position) then
+			local price = PropertyRules.housePrice(tile.position)
+			if price >= bestPrice then
+				best, bestPrice = tile.position, price
+			end
+		end
+	end
+	if best then
+		return { type = "SellBuilding", position = best }
+	end
+
+	local cheapest = math.huge
+	for _, tile in Tiles.list do
+		if PropertyRules.canMortgage(state, me.id, tile.position) then
+			local value = PropertyRules.mortgageValue(tile.position)
+			if value < cheapest then
+				best, cheapest = tile.position, value
+			end
+		end
+	end
+	return if best then { type = "Mortgage", position = best } else nil
+end
+
 function Bot.chooseAction(state: Types.GameState, botId: string): Types.Action?
 	if Engine.actingPlayer(state) ~= botId then
 		return nil
@@ -72,6 +99,11 @@ function Bot.chooseAction(state: Types.GameState, botId: string): Types.Action?
 		local limit = math.min(Tiles.at(auction.position).price :: number, me.money - Bot.CASH_RESERVE)
 		local nextBid = auction.highBid + Bot.BID_STEP
 		return if nextBid <= limit then { type = "Bid", amount = nextBid } else { type = "PassBid" }
+	elseif state.phase == "Debt" then
+		if me.money >= state.debts[1].amount then
+			return { type = "PayDebt" }
+		end
+		return raiseCash(state, me) or { type = "Bankrupt" }
 	elseif state.phase == "EndTurn" then
 		return { type = "EndTurn" }
 	end

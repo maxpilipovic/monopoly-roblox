@@ -129,13 +129,14 @@ tests["utility rent uses the dice just rolled"] = function()
 	Expect.equal(money(state, "p1"), 1500 - 48)
 end
 
-tests["rent is paid even if it leaves the player in debt"] = function()
+tests["rent you can't afford is owed, not taken"] = function()
 	local state = GameFixtures.newGame(2, { { 2, 4 } })
 	GameFixtures.own(state, "p2", 6)
 	Engine.getPlayer(state, "p1").money = 3
 	act(state, "p1", ROLL)
-	Expect.equal(money(state, "p1"), -3)
-	Expect.equal(money(state, "p2"), 1506)
+	Expect.equal(money(state, "p1"), 3)
+	Expect.equal(money(state, "p2"), 1500)
+	Expect.equal(state.phase, "Debt")
 end
 
 tests["tax tiles charge their amount"] = function()

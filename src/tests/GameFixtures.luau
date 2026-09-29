@@ -43,6 +43,10 @@ function GameFixtures.bareState(playerCount: number): Types.GameState
 		bankHotels = 12,
 		decks = { Chance = Cards.idsFor("Chance"), CommunityChest = Cards.idsFor("CommunityChest") },
 		auction = nil,
+		debts = {},
+		resumePhase = nil,
+		auctionQueue = {},
+		winner = nil,
 		events = {},
 		rollDice = GameFixtures.scriptedDice({}),
 	}
@@ -61,6 +65,13 @@ function GameFixtures.stackDeck(state: Types.GameState, deck: string, ids: { str
 		table.remove(cards, index)
 		table.insert(cards, 1, ids[i])
 	end
+end
+
+-- Puts a state straight into the Debt phase: debtorId owes amount, play resumes in the current phase.
+function GameFixtures.inDebt(state: Types.GameState, debtorId: string, amount: number, creditorId: string?, reason: string?)
+	state.resumePhase = state.phase
+	state.phase = "Debt"
+	table.insert(state.debts, { debtor = debtorId, creditor = creditorId, amount = amount, reason = reason or "Tax" })
 end
 
 function GameFixtures.eventsOfType(state: Types.GameState, eventType: string): { Types.Event }

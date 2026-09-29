@@ -61,6 +61,31 @@ local function transfer(state: GameState, fromId: string?, toId: string?, amount
 	emit(state, { type = "Paid", from = fromId, to = toId, amount = amount, reason = reason })
 end
 
+local function hasDebt(state: GameState, playerId: string): boolean
+	for _, debt in state.debts do
+		if debt.debtor == playerId then
+			return true
+		end
+	end
+	return false
+end
+
+-- A forced payment: paid now if the payer can cover it and owes nothing else, otherwise an IOU.
+local function charge(state: GameState, payer: Player, creditorId: string?, amount: number, reason: string)
+	if payer.money >= amount and not hasDebt(state, payer.id) then
+		transfer(state, payer.id, creditorId, amount, reason)
+		return
+	end
+	table.insert(state.debts, { debtor = payer.id, creditor = creditorId, amount = amount, reason = reason })
+	emit(state, { type = "DebtOwed", debtor = payer.id, creditor = creditorId, amount = amount, reason = reason })
+end
+
+-- The player a debt is owed to, or nil when that's the bank (a bankrupt creditor counts as the bank).
+local function liveCreditor(state: GameState, creditorId: string?): Player?
+	local creditor = if creditorId then Engine.getPlayer(state, creditorId) else nil
+	return if creditor and not creditor.bankrupt then creditor else nil
+end
+
 -- Called once everything caused by landing is settled.
 local function finishMove(state: GameState)
 	state.phase = if state.rollAgain and not Engine.currentPlayer(state).inJail then "Roll" else "EndTurn"
@@ -93,6 +118,7 @@ local function leaveJail(state: GameState, player: Player, reason: string)
 end
 
 local resolveLanding: (state: GameState, player: Player, rentRule: string?) -> ()
+local resume: (state: GameState) -> ()
 
 local function nearestAhead(from: number, kind: string): number
 	for step = 1, Tiles.COUNT do
@@ -121,21 +147,21 @@ local function applyCard(state: GameState, player: Player, effect: Cards.Effect)
 	if kind == "Collect" then
 		transfer(state, nil, player.id, effect.amount :: number, "Card")
 	elseif kind == "Pay" then
-		transfer(state, player.id, nil, effect.amount :: number, "Card")
+		charge(state, player, nil, effect.amount :: number, "Card")
 	elseif kind == "PayEachPlayer" or kind == "CollectFromEachPlayer" then
 		for _, other in state.players do
 			if other ~= player and not other.bankrupt then
 				if kind == "PayEachPlayer" then
-					transfer(state, player.id, other.id, effect.amount :: number, "Card")
+					charge(state, player, other.id, effect.amount :: number, "Card")
 				else
-					transfer(state, other.id, player.id, effect.amount :: number, "Card")
+					charge(state, other, player.id, effect.amount :: number, "Card")
 				end
 			end
 		end
 	elseif kind == "Repairs" then
 		local cost = repairCost(state, player, effect)
 		if cost > 0 then
-			transfer(state, player.id, nil, cost, "Card")
+			charge(state, player, nil, cost, "Card")
 		end
 	elseif kind == "GoToJail" then
 		sendToJail(state, player, "Card")
@@ -199,11 +225,11 @@ function resolveLanding(state: GameState, player: Player, rentRule: string?)
 		if ownership.owner ~= player.id then
 			local rent = rentOwed(state, player, tile.position, rentRule)
 			if rent > 0 then
-				transfer(state, player.id, ownership.owner, rent, "Rent")
+				charge(state, player, ownership.owner, rent, "Rent")
 			end
 		end
 	elseif tile.kind == "Tax" then
-		transfer(state, player.id, nil, tile.amount :: number, "Tax")
+		charge(state, player, nil, tile.amount :: number, "Tax")
 	elseif tile.kind == "Chance" or tile.kind == "CommunityChest" then
 		drawCard(state, player, tile.kind)
 		return
@@ -230,7 +256,7 @@ local function roll(state: GameState, player: Player)
 				finishMove(state)
 				return
 			end
-			transfer(state, player.id, nil, Engine.JAIL_FINE, "JailFine")
+			charge(state, player, nil, Engine.JAIL_FINE, "JailFine")
 			leaveJail(state, player, "Fine")
 		end
 		-- Getting out by the dice never earns another roll.
@@ -359,6 +385,8 @@ end
 function Engine.actingPlayer(state: GameState): string?
 	if state.phase == "GameOver" then
 		return nil
+	elseif state.phase == "Debt" then
+		return state.debts[1].debtor
 	elseif state.phase == "Auction" then
 		return Engine.currentBidder(state)
 	end
@@ -374,7 +402,7 @@ local function startAuction(state: GameState, position: number)
 			table.insert(bidders, player.id)
 		end
 	end
-	state.auction = { position = position, highBid = 0, highBidder = nil, bidders = bidders, nextBidder = 1 }
+	state.auction = { position = position, highBid = 0, highBidder = nil, bidders = bidders, nextBidder = 1, fromBankruptcy = false }
 	state.phase = "Auction"
 	emit(state, { type = "AuctionStarted", position = position, bidders = table.clone(bidders) })
 end
@@ -427,6 +455,7 @@ local function endTurn(state: GameState)
 	state.lastRoll = nil
 	state.doublesCount = 0
 	state.rollAgain = false
+	state.resumePhase = nil
 	for _ = 1, #state.players do
 		state.currentIndex = state.currentIndex % #state.players + 1
 		if not Engine.currentPlayer(state).bankrupt then
@@ -435,6 +464,41 @@ local function endTurn(state: GameState)
 	end
 	state.phase = "Roll"
 	emit(state, { type = "TurnStarted", player = Engine.currentPlayer(state).id })
+end
+
+-- Continues the game once a debt is settled.
+function resume(state: GameState)
+	if #state.debts > 0 then
+		state.phase = "Debt"
+	else
+		state.phase = state.resumePhase :: Types.Phase
+		state.resumePhase = nil
+	end
+end
+
+local function payDebt(state: GameState, player: Player): (boolean, string?)
+	local debt = state.debts[1]
+	if player.money < debt.amount then
+		return false, "not enough money"
+	end
+	table.remove(state.debts, 1)
+	local creditor = liveCreditor(state, debt.creditor)
+	local creditorId = if creditor then creditor.id else nil
+	transfer(state, player.id, creditorId, debt.amount, debt.reason)
+	emit(state, { type = "DebtPaid", debtor = player.id, creditor = creditorId, amount = debt.amount, reason = debt.reason })
+	resume(state)
+	return true
+end
+
+local function actInDebt(state: GameState, player: Player, action: Types.Action): (boolean, string?)
+	if state.debts[1].debtor ~= player.id then
+		return false, "waiting for another player to pay a debt"
+	elseif action.type == "PayDebt" then
+		return payDebt(state, player)
+	elseif action.type == "SellBuilding" or action.type == "Mortgage" then
+		return propertyAction(state, player, action.type, action.position)
+	end
+	return false, "pay your debt first"
 end
 
 function Engine.new(players: { PlayerInfo }, rollDice: Types.DiceRoller, shuffle: Types.Shuffler?): GameState
@@ -482,6 +546,10 @@ function Engine.new(players: { PlayerInfo }, rollDice: Types.DiceRoller, shuffle
 		bankHouses = Engine.BANK_HOUSES,
 		bankHotels = Engine.BANK_HOTELS,
 		auction = nil,
+		debts = {},
+		resumePhase = nil,
+		auctionQueue = {},
+		winner = nil,
 		events = {},
 		rollDice = rollDice,
 	}
@@ -489,16 +557,10 @@ function Engine.new(players: { PlayerInfo }, rollDice: Types.DiceRoller, shuffle
 	return state
 end
 
-function Engine.act(state: GameState, playerId: string, action: Types.Action): (boolean, string?)
-	if typeof(action) ~= "table" or typeof(action.type) ~= "string" then
-		return false, "invalid action"
-	end
-	if state.phase == "GameOver" then
-		return false, "the game is over"
-	end
-	local player = Engine.getPlayer(state, playerId)
-	if not player or player.bankrupt then
-		return false, "not in this game"
+local function dispatch(state: GameState, player: Player, action: Types.Action): (boolean, string?)
+	local playerId = player.id
+	if state.phase == "Debt" then
+		return actInDebt(state, player, action)
 	end
 
 	if state.phase == "Auction" then
@@ -536,6 +598,26 @@ function Engine.act(state: GameState, playerId: string, action: Types.Action): (
 		return true
 	end
 	return false, `can't {action.type} now`
+end
+
+function Engine.act(state: GameState, playerId: string, action: Types.Action): (boolean, string?)
+	if typeof(action) ~= "table" or typeof(action.type) ~= "string" then
+		return false, "invalid action"
+	end
+	if state.phase == "GameOver" then
+		return false, "the game is over"
+	end
+	local player = Engine.getPlayer(state, playerId)
+	if not player or player.bankrupt then
+		return false, "not in this game"
+	end
+	local ok, err = dispatch(state, player, action)
+	-- Anything owed during that action pauses the game on the debtor; play picks up here afterwards.
+	if ok and #state.debts > 0 and state.phase ~= "Debt" and state.phase ~= "Auction" and state.phase ~= "GameOver" then
+		state.resumePhase = state.phase
+		state.phase = "Debt"
+	end
+	return ok, err
 end
 
 return Engine

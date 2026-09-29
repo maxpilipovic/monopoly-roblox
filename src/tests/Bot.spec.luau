@@ -97,6 +97,49 @@ tests["a rich bot lifts its cheapest mortgage before building"] = function()
 	Expect.equal(Bot.chooseAction(state, "p1").type, "Build", "not rich enough: builds instead")
 end
 
+tests["a bot in debt pays as soon as it can"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.inDebt(state, "p1", 100)
+	Expect.equal(Bot.chooseAction(state, "p1").type, "PayDebt")
+	Expect.equal(Bot.chooseAction(state, "p2"), nil, "not p2's move")
+end
+
+tests["a bot in debt sells its most expensive building first"] = function()
+	local state = GameFixtures.newGame(2)
+	for _, position in { 1, 3, 37, 39 } do
+		GameFixtures.own(state, "p1", position, 1)
+	end
+	Engine.getPlayer(state, "p1").money = 0
+	GameFixtures.inDebt(state, "p1", 100)
+	local action = Bot.chooseAction(state, "p1")
+	Expect.equal(action.type, "SellBuilding", "sells")
+	Expect.equal(action.position, 39, "a $200 house before a $50 one")
+end
+
+tests["a bot in debt with no buildings mortgages its cheapest deed"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.own(state, "p1", 5) -- mortgage value 100
+	GameFixtures.own(state, "p1", 12) -- 75
+	GameFixtures.own(state, "p1", 1) -- 30
+	Engine.getPlayer(state, "p1").money = 0
+	GameFixtures.inDebt(state, "p1", 100)
+	local action = Bot.chooseAction(state, "p1")
+	Expect.equal(action.type, "Mortgage")
+	Expect.equal(action.position, 1)
+end
+
+tests["a bot that can't sell or mortgage goes bankrupt"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.own(state, "p1", 1, 5)
+	GameFixtures.own(state, "p1", 3, 5)
+	state.bankHouses = 0 -- the bank can't swap the hotels back
+	Engine.getPlayer(state, "p1").money = 0
+	GameFixtures.inDebt(state, "p1", 100)
+	Expect.equal(Bot.chooseAction(state, "p1").type, "Bankrupt", "hotels stuck, nothing to mortgage")
+	state.properties = {}
+	Expect.equal(Bot.chooseAction(state, "p1").type, "Bankrupt", "owns nothing")
+end
+
 tests["two bots eventually build"] = function()
 	local random = Random.new(99)
 	local state = Engine.new({
