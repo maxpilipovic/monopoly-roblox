@@ -49,6 +49,10 @@ function GameFixtures.bareState(playerCount: number): Types.GameState
 		winner = nil,
 		trade = nil,
 		tradeOffers = {},
+		round = 1,
+		roundLimit = nil,
+		timeUp = false,
+		winReason = nil,
 		events = {},
 		rollDice = GameFixtures.scriptedDice({}),
 	}

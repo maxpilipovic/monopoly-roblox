@@ -76,6 +76,10 @@ export type GameState = {
 	winner: string?,
 	trade: PendingTrade?,
 	tradeOffers: { [string]: number }, -- offers each player has made this turn
+	round: number, -- starts at 1; goes up each time play wraps back to an earlier seat
+	roundLimit: number?, -- the game ends once round passes this
+	timeUp: boolean, -- the minutes limit ran out; the game ends at the next turn change
+	winReason: string?, -- how the game ended: "Bankruptcy" | "RoundLimit" | "TimeLimit"
 	events: { Event },
 	rollDice: DiceRoller,
 }

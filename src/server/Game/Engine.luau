@@ -394,6 +394,13 @@ function Engine.actingPlayer(state: GameState): string?
 	return Engine.currentPlayer(state).id
 end
 
+-- The minutes limit ran out: the game ends at the next turn change.
+function Engine.markTimeUp(state: GameState)
+	if state.phase ~= "GameOver" then
+		state.timeUp = true
+	end
+end
+
 local function startAuction(state: GameState, position: number, fromBankruptcy: boolean?)
 	-- Everyone still in the game bids, starting with the player who declined.
 	local bidders = {}
@@ -456,17 +463,49 @@ local function passBid(state: GameState, player: Player)
 	endAuctionIfSettled(state)
 end
 
+-- Ends the game: the richest player still in wins (ties go to the earlier seat).
+local function finishGame(state: GameState, reason: string)
+	local winner: Player?, best = nil, -math.huge
+	for _, other in state.players do
+		if not other.bankrupt then
+			local worth = PropertyRules.netWorth(state, other.id, other.money)
+			if worth > best then -- strictly greater: ties go to the earlier seat
+				winner, best = other, worth
+			end
+		end
+	end
+	state.phase = "GameOver"
+	state.winner = (winner :: Player).id
+	state.winReason = reason
+	state.debts = {}
+	state.auctionQueue = {}
+	state.resumePhase = nil
+	emit(state, { type = "GameOver", winner = state.winner, reason = reason })
+end
+
 local function endTurn(state: GameState)
 	state.lastRoll = nil
 	state.doublesCount = 0
 	state.rollAgain = false
 	state.resumePhase = nil
 	table.clear(state.tradeOffers)
+	local previous = state.currentIndex
 	for _ = 1, #state.players do
 		state.currentIndex = state.currentIndex % #state.players + 1
 		if not Engine.currentPlayer(state).bankrupt then
 			break
 		end
+	end
+	if state.currentIndex <= previous then
+		state.round += 1
+	end
+	-- A game length limit ends the game here, between turns, so nobody is cut off mid-move.
+	if state.roundLimit and state.round > state.roundLimit then
+		finishGame(state, "RoundLimit")
+		return
+	elseif state.timeUp then
+		finishGame(state, "TimeLimit")
+		return
 	end
 	state.phase = "Roll"
 	emit(state, { type = "TurnStarted", player = Engine.currentPlayer(state).id })
@@ -529,22 +568,7 @@ local function endIfOver(state: GameState, bankrupt: Player): boolean
 	if solvent > 1 and (bankrupt.isBot or humans > 0) then
 		return false
 	end
-
-	local winner: Player?, best = nil, -math.huge
-	for _, other in state.players do
-		if not other.bankrupt then
-			local worth = PropertyRules.netWorth(state, other.id, other.money)
-			if worth > best then -- strictly greater: ties go to the earlier seat
-				winner, best = other, worth
-			end
-		end
-	end
-	state.phase = "GameOver"
-	state.winner = (winner :: Player).id
-	state.debts = {}
-	state.auctionQueue = {}
-	state.resumePhase = nil
-	emit(state, { type = "GameOver", winner = state.winner })
+	finishGame(state, "Bankruptcy")
 	return true
 end
 
@@ -733,7 +757,7 @@ local function actInDebt(state: GameState, player: Player, action: Types.Action)
 	return false, "pay your debt first"
 end
 
-function Engine.new(players: { PlayerInfo }, rollDice: Types.DiceRoller, shuffle: Types.Shuffler?): GameState
+function Engine.new(players: { PlayerInfo }, rollDice: Types.DiceRoller, shuffle: Types.Shuffler?, roundLimit: number?): GameState
 	assert(
 		#players >= Engine.MIN_PLAYERS and #players <= Engine.MAX_PLAYERS,
 		`a game needs {Engine.MIN_PLAYERS}-{Engine.MAX_PLAYERS} players, got {#players}`
@@ -784,6 +808,10 @@ function Engine.new(players: { PlayerInfo }, rollDice: Types.DiceRoller, shuffle
 		winner = nil,
 		trade = nil,
 		tradeOffers = {},
+		round = 1,
+		roundLimit = roundLimit,
+		timeUp = false,
+		winReason = nil,
 		events = {},
 		rollDice = rollDice,
 	}
