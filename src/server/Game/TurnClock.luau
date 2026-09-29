@@ -16,6 +16,10 @@ export type Clock = {
 
 local TurnClock = {}
 
+-- Players see the deadline; the server waits this much longer before playing the default, so a
+-- click made at "0:01" that is still travelling over the network isn't overruled.
+TurnClock.GRACE_SECONDS = 0.5
+
 function TurnClock.new(): Clock
 	return { key = nil, actor = nil, deadline = nil }
 end
@@ -35,6 +39,17 @@ function TurnClock.update(clock: Clock, state: Types.GameState, timerSeconds: nu
 		local seconds = if state.phase == "Auction" then MatchSettings.bidSeconds(timerSeconds) else timerSeconds
 		clock.deadline = now + seconds
 	end
+end
+
+-- When the server should play the timed-out player's default, or nil if nothing is timed.
+function TurnClock.expiresAt(clock: Clock): number?
+	local deadline = clock.deadline
+	return if deadline then deadline + TurnClock.GRACE_SECONDS else nil
+end
+
+function TurnClock.expired(clock: Clock, now: number): boolean
+	local expiresAt = TurnClock.expiresAt(clock)
+	return expiresAt ~= nil and now >= expiresAt
 end
 
 return TurnClock

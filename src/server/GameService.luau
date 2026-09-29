@@ -109,12 +109,12 @@ function refreshClock(actedBy: string?)
 	end
 	local now = workspace:GetServerTimeNow()
 	TurnClock.update(clock, current.state, timerSeconds(current), now, actedBy)
-	local deadline, actor = clock.deadline, clock.actor
-	if not deadline or not actor then
+	local expiresAt, actor = TurnClock.expiresAt(clock), clock.actor
+	if not expiresAt or not actor then
 		return
 	end
 	local generation = clockGeneration
-	task.delay(math.max(deadline - now, 0), function()
+	task.delay(math.max(expiresAt - now, 0), function()
 		if session ~= current or generation ~= clockGeneration then
 			return
 		end

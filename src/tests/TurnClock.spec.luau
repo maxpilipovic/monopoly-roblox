@@ -65,4 +65,15 @@ tests["a human replaced by a bot stops the clock"] = function()
 	Expect.equal(clock.deadline, nil)
 end
 
+tests["a decision only expires a moment after its deadline, for clicks still in flight"] = function()
+	local state = GameFixtures.newGame(2)
+	local clock = TurnClock.new()
+	Expect.equal(TurnClock.expired(clock, 1000), false, "no deadline yet")
+	TurnClock.update(clock, state, 20, 1000, nil)
+	Expect.equal(TurnClock.expired(clock, 1020), false, "at the deadline shown to players")
+	Expect.equal(TurnClock.expired(clock, 1020 + TurnClock.GRACE_SECONDS - 0.01), false, "still in the grace period")
+	Expect.equal(TurnClock.expired(clock, 1020 + TurnClock.GRACE_SECONDS), true, "grace over")
+	Expect.equal(TurnClock.GRACE_SECONDS > 0 and TurnClock.GRACE_SECONDS <= 1, true, "a short grace")
+end
+
 return tests
