@@ -48,6 +48,15 @@ export type TradeView = {
 	get: TradeSideView, -- from `to`
 }
 
+export type MatchView = {
+	timer: string, -- MatchSettings timer id
+	length: string, -- MatchSettings length id
+	round: number,
+	roundLimit: number?,
+	endsAt: number?, -- server time the minutes limit runs out
+	turnDeadline: number?, -- server time the acting human's decision times out
+}
+
 -- Arrays only (RemoteEvents drop sparse numeric keys).
 export type Snapshot = {
 	phase: string,
@@ -61,6 +70,8 @@ export type Snapshot = {
 	debt: DebtView?, -- the IOU being settled, while phase is "Debt"
 	trade: TradeView?, -- the offer waiting for an answer, while phase is "Trade"
 	tradeOffersLeft: number, -- offers the acting player may still make this turn
+	match: MatchView,
+	winReason: string?, -- "Bankruptcy" | "RoundLimit" | "TimeLimit", once the game is over
 	winner: string?,
 }
 

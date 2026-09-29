@@ -104,4 +104,24 @@ tests["snapshot shows the open trade and the offers left"] = function()
 	Expect.equal(snapshot.tradeOffersLeft, 2, "p1 used one")
 end
 
+tests["snapshot carries the match settings, round and deadlines"] = function()
+	local state = GameFixtures.newGame(2)
+	state.roundLimit = 25
+	local snapshot = Snapshot.fromState(state, { timer = "Fast", length = "Rounds25", endsAt = nil, turnDeadline = 123 })
+	Expect.equal(snapshot.match.timer, "Fast", "timer")
+	Expect.equal(snapshot.match.length, "Rounds25", "length")
+	Expect.equal(snapshot.match.round, 1, "round")
+	Expect.equal(snapshot.match.roundLimit, 25, "limit")
+	Expect.equal(snapshot.match.turnDeadline, 123, "deadline")
+	Expect.equal(snapshot.match.endsAt, nil, "no minutes limit")
+
+	local plain = Snapshot.fromState(state)
+	Expect.equal(plain.match.timer, "Off", "no match info")
+	Expect.equal(plain.match.length, "Off")
+	Expect.equal(plain.match.turnDeadline, nil)
+	Expect.equal(plain.winReason, nil, "no winner yet")
+	state.winReason = "TimeLimit"
+	Expect.equal(Snapshot.fromState(state).winReason, "TimeLimit", "reason")
+end
+
 return tests

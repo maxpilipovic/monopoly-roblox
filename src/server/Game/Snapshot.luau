@@ -9,7 +9,18 @@ local Types = require(script.Parent.Types)
 
 local Snapshot = {}
 
-function Snapshot.fromState(state: Types.GameState): Protocol.Snapshot
+-- What the session knows about the match beyond the engine state.
+export type MatchInfo = {
+	timer: string,
+	length: string,
+	endsAt: number?,
+	turnDeadline: number?,
+}
+
+local NO_MATCH: MatchInfo = { timer = "Off", length = "Off" }
+
+function Snapshot.fromState(state: Types.GameState, info: MatchInfo?): Protocol.Snapshot
+	local match = info or NO_MATCH
 	local players = {}
 	for seat, player in state.players do
 		table.insert(players, {
@@ -79,6 +90,15 @@ function Snapshot.fromState(state: Types.GameState): Protocol.Snapshot
 		debt = debt,
 		trade = trade,
 		tradeOffersLeft = offersLeft,
+		match = {
+			timer = match.timer,
+			length = match.length,
+			round = state.round,
+			roundLimit = state.roundLimit,
+			endsAt = match.endsAt,
+			turnDeadline = match.turnDeadline,
+		},
+		winReason = state.winReason,
 		winner = state.winner,
 	}
 end
