@@ -9,6 +9,7 @@ local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local TokenLayout = require(ReplicatedStorage.Shared.Board.TokenLayout)
 local CardQueue = require(script.Parent.CardQueue)
 local HudModel = require(script.Parent.HudModel)
+local TradeBuilder = require(script.Parent.TradeBuilder)
 
 local LOG_LINES = 8
 local FONT = Font.fromEnum(Enum.Font.GothamBold)
@@ -59,6 +60,11 @@ export type HudView = typeof(setmetatable(
 		results: Frame,
 		resultsTitle: TextLabel,
 		resultsRows: Frame,
+		tradeOpen: boolean,
+		trade: TradeBuilder.Builder,
+		tradeWindow: Frame,
+		offerPanel: Frame,
+		offerText: TextLabel,
 	},
 	HudView
 ))
@@ -188,6 +194,161 @@ local function renderProperties(self: HudView, snapshot: Protocol.Snapshot, loca
 	end
 end
 
+local CASH_STEPS = { -100, -50, -10, 10, 50, 100 }
+local SELECTED_COLOR = Color3.fromRGB(46, 160, 67)
+local UNSELECTED_COLOR = Color3.fromRGB(60, 64, 72)
+local DISABLED_COLOR = Color3.fromRGB(40, 40, 44)
+
+local function renderTrade(self: HudView, snapshot: Protocol.Snapshot, localId: string)
+	local window = self.tradeWindow
+	window.Visible = self.tradeOpen
+	for _, child in window:GetChildren() do
+		if not child:IsA("UICorner") then
+			child:Destroy()
+		end
+	end
+	if not self.tradeOpen then
+		return
+	end
+	local builder = self.trade
+	local function rerender()
+		self:render(self.snapshot, self.localId)
+	end
+
+	-- Partner picker across the top.
+	local partnerRow = Instance.new("Frame")
+	partnerRow.Name = "Partners"
+	partnerRow.Size = UDim2.new(1, -16, 0, 36)
+	partnerRow.Position = UDim2.fromOffset(8, 8)
+	partnerRow.BackgroundTransparency = 1
+	partnerRow.Parent = window
+	list(partnerRow, Enum.FillDirection.Horizontal, 6)
+	for _, partner in TradeBuilder.partners(snapshot, localId) do
+		local b = button(partner.name, partnerRow, function()
+			TradeBuilder.setPartner(builder, partner.id)
+			rerender()
+		end)
+		b.Size = UDim2.fromOffset(140, 32)
+		b.BackgroundColor3 = if builder.partner == partner.id then SELECTED_COLOR else UNSELECTED_COLOR
+	end
+
+	local players = {}
+	for _, player in snapshot.players do
+		players[player.id] = player
+	end
+
+	-- One column per side: deeds, then cash and jail-card steppers.
+	local function column(sideName: TradeBuilder.SideName, ownerId: string?, x: number)
+		local frame = Instance.new("ScrollingFrame")
+		frame.Name = sideName
+		frame.Size = UDim2.new(0.5, -12, 1, -110)
+		frame.Position = UDim2.new(x, 8, 0, 52)
+		frame.BackgroundTransparency = 1
+		frame.BorderSizePixel = 0
+		frame.ScrollBarThickness = 6
+		frame.CanvasSize = UDim2.new()
+		frame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		frame.Parent = window
+		local layout = Instance.new("UIListLayout")
+		layout.Padding = UDim.new(0, 4)
+		layout.SortOrder = Enum.SortOrder.LayoutOrder
+		layout.Parent = frame
+
+		local title = text("Title", frame, UDim2.new(1, -8, 0, 24), 18)
+		title.Text = if sideName == "give" then "You give" else "You get"
+		if not ownerId then
+			return
+		end
+		local owner = players[ownerId]
+		local side = builder[sideName]
+		for order, row in TradeBuilder.rows(snapshot, ownerId, side) do
+			local label = if row.tradable then row.name else `{row.name} — {row.reason}`
+			local b = button(label, frame, function()
+				if row.tradable then
+					TradeBuilder.toggle(builder, sideName, row.position)
+					rerender()
+				end
+			end)
+			b.Size = UDim2.new(1, -8, 0, 28)
+			b.TextSize = 14
+			b.LayoutOrder = order
+			b.BackgroundColor3 = if not row.tradable
+				then DISABLED_COLOR
+				elseif row.selected then SELECTED_COLOR
+				else UNSELECTED_COLOR
+		end
+
+		local cashRow = Instance.new("Frame")
+		cashRow.Name = "Cash"
+		cashRow.Size = UDim2.new(1, -8, 0, 30)
+		cashRow.BackgroundTransparency = 1
+		cashRow.LayoutOrder = 100
+		cashRow.Parent = frame
+		list(cashRow, Enum.FillDirection.Horizontal, 3)
+		local amount = text("Amount", cashRow, UDim2.fromOffset(60, 28), 15)
+		amount.Text = `${side.cash}`
+		for i, step in CASH_STEPS do
+			local b = button(if step > 0 then `+{step}` else `{step}`, cashRow, function()
+				TradeBuilder.stepCash(builder, sideName, step, owner.money)
+				rerender()
+			end)
+			b.Size = UDim2.fromOffset(38, 26)
+			b.TextSize = 12
+			b.LayoutOrder = i
+		end
+
+		if owner.jailCards > 0 then
+			local cardRow = Instance.new("Frame")
+			cardRow.Name = "JailCards"
+			cardRow.Size = UDim2.new(1, -8, 0, 30)
+			cardRow.BackgroundTransparency = 1
+			cardRow.LayoutOrder = 101
+			cardRow.Parent = frame
+			list(cardRow, Enum.FillDirection.Horizontal, 3)
+			local count = text("Count", cardRow, UDim2.fromOffset(150, 28), 15)
+			count.Text = `Jail cards: {side.jailCards}`
+			for i, step in { -1, 1 } do
+				local b = button(if step > 0 then "+" else "−", cardRow, function()
+					TradeBuilder.stepJailCards(builder, sideName, step, owner.jailCards)
+					rerender()
+				end)
+				b.Size = UDim2.fromOffset(32, 26)
+				b.LayoutOrder = i
+			end
+		end
+	end
+	column("give", localId, 0)
+	column("get", builder.partner, 0.5)
+
+	-- Footer: why it can't be sent, or Send; Cancel always.
+	local footer = Instance.new("Frame")
+	footer.Name = "Footer"
+	footer.Size = UDim2.new(1, -16, 0, 44)
+	footer.Position = UDim2.new(0, 8, 1, -52)
+	footer.BackgroundTransparency = 1
+	footer.Parent = window
+	list(footer, Enum.FillDirection.Horizontal, 8)
+	local ok, reason = TradeBuilder.check(snapshot, localId, builder)
+	local hint = text("Hint", footer, UDim2.fromOffset(300, 40), 15)
+	hint.Text = if ok then "" else reason or ""
+	local send = button("Send offer", footer, function()
+		if TradeBuilder.check(snapshot, localId, builder) then
+			self.callbacks.onAction({ type = "ProposeTrade", offer = TradeBuilder.offer(builder) })
+			self.tradeOpen = false
+			self.trade = TradeBuilder.new()
+			rerender()
+		end
+	end)
+	send.BackgroundColor3 = if ok then BUTTON_COLOR else DISABLED_COLOR
+	send.AutoButtonColor = ok
+	local cancel = button("Cancel", footer, function()
+		self.tradeOpen = false
+		self.trade = TradeBuilder.new()
+		rerender()
+	end)
+	cancel.BackgroundColor3 = UNSELECTED_COLOR
+end
+
 function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "MonopolyHud"
@@ -228,6 +389,11 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		results = nil :: any,
 		resultsTitle = nil :: any,
 		resultsRows = nil :: any,
+		tradeOpen = false,
+		trade = TradeBuilder.new(),
+		tradeWindow = nil :: any,
+		offerPanel = nil :: any,
+		offerText = nil :: any,
 	}, HudView)
 
 	local function changeSeats(delta: number)
@@ -336,6 +502,18 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 	back.LayoutOrder = 3
 	self.results = results
 
+	-- Trade window, centre screen, built from TradeBuilder on every render.
+	local tradeWindow = panel("Trade", UDim2.fromOffset(640, 420), UDim2.fromScale(0.5, 0.45), Vector2.new(0.5, 0.5), gui)
+	tradeWindow.Visible = false
+	self.tradeWindow = tradeWindow
+
+	-- The receiver's view of an offer, above the action bar.
+	local offerPanel = panel("Offer", UDim2.fromOffset(660, 70), UDim2.new(0.5, 0, 1, -124), Vector2.new(0.5, 1), gui)
+	offerPanel.Visible = false
+	self.offerText = text("Text", offerPanel, UDim2.new(1, -16, 1, -8), 17)
+	self.offerText.Position = UDim2.fromOffset(8, 4)
+	self.offerPanel = offerPanel
+
 	return self
 end
 
@@ -368,6 +546,10 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		self.logLabel.Text = ""
 		self.wasDebtor = false
 		self.results.Visible = false
+		self.tradeOpen = false
+		self.trade = TradeBuilder.new()
+		self.tradeWindow.Visible = false
+		self.offerPanel.Visible = false
 	end
 
 	for _, child in self.playerList:GetChildren() do
@@ -412,6 +594,11 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		self.propertiesOpen = false
 	end
 
+	if self.tradeOpen and not HudModel.canTrade(snapshot, localId) then
+		self.tradeOpen = false -- the moment passed (the turn moved on, or an offer is open)
+		self.trade = TradeBuilder.new()
+	end
+
 	for order, entry in HudModel.buttons(snapshot, localId) do
 		local b: TextButton
 		b = button(entry.label, self.buttonRow, function()
@@ -437,7 +624,24 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		toggle.LayoutOrder = 100
 		toggle.BackgroundColor3 = TOGGLE_COLOR
 	end
+	if HudModel.canTrade(snapshot, localId) then
+		local tradeToggle = button(if self.tradeOpen then "Close trade" else "Trade", self.buttonRow, function()
+			self.tradeOpen = not self.tradeOpen
+			if not self.tradeOpen then
+				self.trade = TradeBuilder.new()
+			end
+			self:render(self.snapshot, self.localId)
+		end)
+		tradeToggle.LayoutOrder = 101
+		tradeToggle.BackgroundColor3 = TOGGLE_COLOR
+	end
 	renderProperties(self, snapshot, localId)
+	renderTrade(self, snapshot, localId)
+	local summary = HudModel.tradeSummary(snapshot, localId)
+	self.offerPanel.Visible = summary ~= nil
+	if summary then
+		self.offerText.Text = `You give: {summary.give}\nYou get: {summary.get}`
+	end
 
 	self.results.Visible = snapshot.phase == "GameOver"
 	for _, child in self.resultsRows:GetChildren() do
