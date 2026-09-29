@@ -35,7 +35,7 @@ LengthId = "Off" | "Rounds15" | "Rounds25" | "Rounds40" | "Minutes30" | "Minutes
 
 - `MatchSettings.DEFAULT = { timer = "Relaxed", length = "Off" }`.
 - `validate(raw: any): Settings` never fails. Anything that isn't a known id falls back to that field's default.
-- `timerSeconds(settings)` gives 0, 60 or 20. `bidSeconds(settings)` gives `math.ceil(timerSeconds / 3)`.
+- `timerSeconds(settings)` gives 0, 60 or 20. `bidSeconds(timerSeconds)` gives `math.ceil(timerSeconds / 3)`.
 - `roundLimit(settings)` gives a number or nil. `limitMinutes(settings)` gives a number or nil.
 - `nextTimer(id)` and `nextLength(id)` cycle through the options in the order listed above, wrapping round.
 - `timerLabel(id)` gives "Timer: Relaxed 60 s", "Timer: Fast 20 s" or "Timer: Off". `lengthLabel(id)` gives "Length: 25 rounds", "Length: 30 min" or "Length: Off".
@@ -44,7 +44,7 @@ LengthId = "Off" | "Rounds15" | "Rounds25" | "Rounds40" | "Minutes30" | "Minutes
 
 - **New state:**
   - `round: number` starts at 1.
-  - `roundLimit: number?` is passed to `Engine.new` as an optional fifth argument.
+  - `roundLimit: number?` is passed to `Engine.new` as an optional fourth argument.
   - `timeUp: boolean` starts false.
 - **Counting rounds:** when `endTurn` moves to the next player and the new seat index is at or below the old one (a wrap, whatever bankrupt seats were skipped), `round` goes up by 1.
 - **Ending by the limit:** in `endTurn`, after choosing the next player and before emitting `TurnStarted`:
@@ -73,13 +73,13 @@ LengthId = "Off" | "Rounds15" | "Rounds25" | "Rounds40" | "Minutes30" | "Minutes
 ### Deadlines (`TurnClock`, server, pure)
 
 ```
-Clock = { key: string?, deadline: number? }
-TurnClock.update(clock, state, settings, now, actedBy: string?)
+Clock = { key: string?, actor: string?, deadline: number? }
+TurnClock.update(clock, state, timerSeconds, now, actedBy: string?)
 ```
 
 - **key** = `actingPlayer .. "|" .. phase`, or nil when nobody is acting (GameOver).
 - **No deadline:** the timer is Off, the acting player is a bot, or the key is nil.
-- **Deadline:** otherwise, when the key changed, or `actedBy` is the acting player, or there is no deadline yet, the deadline becomes `now + seconds`. `seconds` is `bidSeconds` in an Auction and `timerSeconds` in every other phase. Otherwise the deadline is kept.
+- **Deadline:** otherwise, when the key changed, or `actedBy` is the acting player, or there is no deadline yet, the deadline becomes `now + seconds`. `seconds` is `bidSeconds(timerSeconds)` in an Auction and `timerSeconds` in every other phase. `actor` is the acting player (nil at GameOver). `timerSeconds` comes from the settings, or from the Studio `TimerSeconds` attribute. Otherwise the deadline is kept.
 
 ### Server (`GameService`)
 
