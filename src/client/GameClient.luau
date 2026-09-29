@@ -32,6 +32,9 @@ function GameClient.start()
 		onStart = function(seats)
 			lobbyRemote:FireServer({ type = "Start", seats = seats })
 		end,
+		onReturnToLobby = function()
+			lobbyRemote:FireServer({ type = "ReturnToLobby" })
+		end,
 	})
 
 	updateRemote.OnClientEvent:Connect(function(update: Protocol.Update)

@@ -23,10 +23,13 @@ local CARD_COLORS = {
 local CARD_TEXT_COLOR = Color3.fromRGB(20, 20, 20)
 local TOGGLE_COLOR = Color3.fromRGB(70, 90, 140)
 local OTHER_SWATCH = Color3.fromRGB(150, 150, 150)
+local DANGER_COLOR = Color3.fromRGB(200, 60, 60)
+local DEBT_TEXT_COLOR = Color3.fromRGB(255, 120, 120)
 
 export type Callbacks = {
 	onAction: (action: { [string]: any }) -> (),
 	onStart: (seats: number) -> (),
+	onReturnToLobby: () -> (),
 }
 
 local HudView = {}
@@ -52,6 +55,10 @@ export type HudView = typeof(setmetatable(
 		propertiesPanel: ScrollingFrame,
 		snapshot: Protocol.Snapshot?,
 		localId: string,
+		wasDebtor: boolean,
+		results: Frame,
+		resultsTitle: TextLabel,
+		resultsRows: Frame,
 	},
 	HudView
 ))
@@ -217,6 +224,10 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		propertiesPanel = nil :: any,
 		snapshot = nil,
 		localId = "",
+		wasDebtor = false,
+		results = nil :: any,
+		resultsTitle = nil :: any,
+		resultsRows = nil :: any,
 	}, HudView)
 
 	local function changeSeats(delta: number)
@@ -299,6 +310,32 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		updateCard(self)
 	end)
 
+	-- Results, centre screen once the game is over.
+	local results = panel("Results", UDim2.fromOffset(360, 0), UDim2.fromScale(0.5, 0.45), Vector2.new(0.5, 0.5), gui)
+	results.AutomaticSize = Enum.AutomaticSize.Y
+	results.Visible = false
+	list(results, Enum.FillDirection.Vertical, 8)
+	local resultsPadding = Instance.new("UIPadding")
+	resultsPadding.PaddingTop = UDim.new(0, 12)
+	resultsPadding.PaddingBottom = UDim.new(0, 12)
+	resultsPadding.Parent = results
+	self.resultsTitle = text("Title", results, UDim2.new(1, -16, 0, 36), 28)
+	self.resultsTitle.LayoutOrder = 1
+	local resultsRows = Instance.new("Frame")
+	resultsRows.Name = "Standings"
+	resultsRows.Size = UDim2.new(1, -16, 0, 0)
+	resultsRows.AutomaticSize = Enum.AutomaticSize.Y
+	resultsRows.BackgroundTransparency = 1
+	resultsRows.LayoutOrder = 2
+	resultsRows.Parent = results
+	list(resultsRows, Enum.FillDirection.Vertical, 4)
+	self.resultsRows = resultsRows
+	local back = button("Back to lobby", results, function()
+		callbacks.onReturnToLobby()
+	end)
+	back.LayoutOrder = 3
+	self.results = results
+
 	return self
 end
 
@@ -327,6 +364,10 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		table.clear(self.cards.items) -- back in the lobby: drop cards still waiting
 		self.propertiesOpen = false
 		self.propertiesPanel.Visible = false
+		table.clear(self.logLines) -- the next game starts with a fresh log
+		self.logLabel.Text = ""
+		self.wasDebtor = false
+		self.results.Visible = false
 	end
 
 	for _, child in self.playerList:GetChildren() do
@@ -353,18 +394,39 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		local marker = if player.id == snapshot.currentPlayer then "▶ " else "   "
 		local you = if player.id == localId then " (you)" else ""
 		local jail = if player.inJail then " 🔒" else ""
-		row.Text = `{marker}{player.name}{you}{jail}   ${player.money}`
+		local balance = if player.bankrupt then "Bankrupt" else `${player.money}`
+		row.Text = `{marker}{player.name}{you}{jail}   {balance}`
 	end
 
 	local roll = snapshot.lastRoll
 	local dice = if roll then `   🎲 {roll[1]} + {roll[2]}` else ""
 	self.status.Text = HudModel.status(snapshot, localId) .. dice
+	local debtor = HudModel.isDebtor(snapshot, localId)
+	self.status.TextColor3 = if debtor then DEBT_TEXT_COLOR else TEXT_COLOR
+
+	if debtor and not self.wasDebtor then
+		self.propertiesOpen = true -- raising cash happens in the panel
+	end
+	self.wasDebtor = debtor
+	if snapshot.phase == "GameOver" then
+		self.propertiesOpen = false
+	end
 
 	for order, entry in HudModel.buttons(snapshot, localId) do
-		local b = button(entry.label, self.buttonRow, function()
+		local b: TextButton
+		b = button(entry.label, self.buttonRow, function()
+			local confirm = entry.confirm
+			if confirm and b.Text ~= confirm then
+				b.Text = confirm -- first click only arms it; any re-render disarms it
+				return
+			end
 			self.callbacks.onAction(entry.action)
 		end)
 		b.LayoutOrder = order
+		if entry.confirm then
+			b.BackgroundColor3 = DANGER_COLOR
+			b.Size = UDim2.fromOffset(200, 44)
+		end
 	end
 
 	if HudModel.showsPropertiesToggle(snapshot) then
@@ -376,6 +438,22 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		toggle.BackgroundColor3 = TOGGLE_COLOR
 	end
 	renderProperties(self, snapshot, localId)
+
+	self.results.Visible = snapshot.phase == "GameOver"
+	for _, child in self.resultsRows:GetChildren() do
+		if child:IsA("TextLabel") then
+			child:Destroy()
+		end
+	end
+	if snapshot.phase == "GameOver" then
+		self.resultsTitle.Text = HudModel.status(snapshot, localId)
+		for order, standing in HudModel.standings(snapshot) do
+			local line = text(`Rank{order}`, self.resultsRows, UDim2.new(1, 0, 0, 24), 18)
+			line.LayoutOrder = order
+			local worth = if standing.bankrupt then "Bankrupt" else `${standing.netWorth}`
+			line.Text = `{order}. {standing.name}{if standing.winner then " 🏆" else ""}   {worth}`
+		end
+	end
 end
 
 return HudView

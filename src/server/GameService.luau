@@ -3,6 +3,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local GameSession = require(script.Parent.Game.GameSession)
@@ -11,11 +12,14 @@ local Snapshot = require(script.Parent.Game.Snapshot)
 local GameService = {}
 
 GameService.BOT_DELAY = 0.8
+GameService.RESULTS_SECONDS = 15
 
 local session: GameSession.Session? = nil
 local updateRemote: RemoteEvent
 local random = Random.new()
 local botScheduled = false
+local endingSession: GameSession.Session? = nil
+local scheduleLobbyReturn: () -> ()
 
 local function rollDice(): (number, number)
 	return random:NextInteger(1, 6), random:NextInteger(1, 6)
@@ -38,6 +42,22 @@ end
 local function broadcast()
 	local events = if session then GameSession.takeNewEvents(session) else {}
 	updateRemote:FireAllClients(currentUpdate(events))
+	scheduleLobbyReturn()
+end
+
+-- Once a game is over, everyone gets RESULTS_SECONDS on the results screen before the lobby returns.
+function scheduleLobbyReturn()
+	local ended = session
+	if not ended or ended.state.phase ~= "GameOver" or endingSession == ended then
+		return
+	end
+	endingSession = ended
+	task.delay(GameService.RESULTS_SECONDS, function()
+		if session == ended then
+			session = nil
+			broadcast()
+		end
+	end)
 end
 
 -- Bots move one action at a time with a pause, so players can follow along.
@@ -63,14 +83,32 @@ local function onAction(player: Player, action: any)
 end
 
 local function onLobbyRequest(_player: Player, request: any)
-	if session or typeof(request) ~= "table" or request.type ~= "Start" or typeof(request.seats) ~= "number" then
+	if typeof(request) ~= "table" then
+		return
+	end
+	if request.type == "ReturnToLobby" then
+		if session and session.state.phase == "GameOver" then
+			session = nil
+			broadcast()
+		end
+		return
+	end
+	if session or request.type ~= "Start" or typeof(request.seats) ~= "number" then
 		return
 	end
 	local humans = {}
 	for _, player in Players:GetPlayers() do
 		table.insert(humans, { id = tostring(player.UserId), name = player.DisplayName })
 	end
-	session = GameSession.new(humans, request.seats, rollDice, shuffle)
+	local started = GameSession.new(humans, request.seats, rollDice, shuffle)
+	-- Playtests: a workspace StartingMoney attribute makes debts and bankruptcies come quickly.
+	local startingMoney = workspace:GetAttribute("StartingMoney")
+	if RunService:IsStudio() and typeof(startingMoney) == "number" then
+		for _, player in started.state.players do
+			player.money = startingMoney
+		end
+	end
+	session = started
 	broadcast()
 	scheduleBots()
 end
