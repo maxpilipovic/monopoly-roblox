@@ -9,6 +9,7 @@ local PropertyRules = require(ReplicatedStorage.Shared.Rules.PropertyRules)
 export type Button = {
 	label: string,
 	action: { [string]: any },
+	confirm: string?, -- shown after the first click; the second click sends the action
 }
 
 local HudModel = {}
@@ -36,10 +37,16 @@ end
 local function actingPlayer(snapshot: Protocol.Snapshot): string?
 	if snapshot.phase == "GameOver" then
 		return nil
+	elseif snapshot.phase == "Debt" and snapshot.debt then
+		return snapshot.debt.debtor
 	elseif snapshot.auction then
 		return snapshot.auction.currentBidder
 	end
 	return snapshot.currentPlayer
+end
+
+function HudModel.isDebtor(snapshot: Protocol.Snapshot, localId: string): boolean
+	return snapshot.phase == "Debt" and snapshot.debt ~= nil and snapshot.debt.debtor == localId
 end
 
 function HudModel.buttons(snapshot: Protocol.Snapshot, localId: string): { Button }
@@ -81,6 +88,12 @@ function HudModel.buttons(snapshot: Protocol.Snapshot, localId: string): { Butto
 		end
 		table.insert(buttons, { label = "Pass", action = { type = "PassBid" } })
 		return buttons
+	elseif phase == "Debt" and snapshot.debt then
+		local amount = snapshot.debt.amount
+		if me.money >= amount then
+			return { { label = `Pay ${amount}`, action = { type = "PayDebt" } } }
+		end
+		return { { label = "Go bankrupt", confirm = "Confirm bankruptcy?", action = { type = "Bankrupt" } } }
 	elseif phase == "EndTurn" then
 		return { { label = "End turn", action = { type = "EndTurn" } } }
 	end
@@ -89,6 +102,19 @@ end
 
 function HudModel.status(snapshot: Protocol.Snapshot, localId: string): string
 	local names = HudModel.names(snapshot)
+	if snapshot.phase == "GameOver" then
+		local winner = snapshot.winner
+		return `{if winner then names[winner] or winner else "Nobody"} wins!`
+	end
+	local debt = snapshot.debt
+	if snapshot.phase == "Debt" and debt then
+		if debt.debtor == localId then
+			local me = findPlayer(snapshot, localId) :: Protocol.PlayerView
+			local creditor = if debt.creditor then names[debt.creditor] or debt.creditor else "the bank"
+			return `You owe {creditor} ${debt.amount}. You have ${me.money}.`
+		end
+		return `Waiting for {names[debt.debtor] or debt.debtor} to raise ${debt.amount}…`
+	end
 	local auction = snapshot.auction
 	if auction then
 		local tile = Tiles.at(auction.position).name
@@ -132,9 +158,11 @@ function HudModel.propertyRows(snapshot: Protocol.Snapshot, localId: string): { 
 	if not me then
 		return {}
 	end
-	local canAct = snapshot.currentPlayer == localId
+	-- On your own turn you may do everything; while settling a debt only sell and mortgage.
+	local canImprove = snapshot.currentPlayer == localId
 		and snapshot.auction == nil
 		and (snapshot.phase == "Roll" or snapshot.phase == "EndTurn")
+	local canRaise = canImprove or HudModel.isDebtor(snapshot, localId)
 	local view = rulesView(snapshot)
 
 	local rows = {}
@@ -145,10 +173,10 @@ function HudModel.propertyRows(snapshot: Protocol.Snapshot, localId: string): { 
 		local position = property.position
 		local tile = Tiles.at(position)
 		local buttons = {}
-		if canAct then
+		if canRaise then
 			if tile.kind == "Property" then
 				local price = PropertyRules.housePrice(position)
-				if PropertyRules.canBuild(view, localId, me.money, position) then
+				if canImprove and PropertyRules.canBuild(view, localId, me.money, position) then
 					local icon = if property.houses == PropertyRules.HOUSES_PER_HOTEL then "🏨" else "🏠"
 					table.insert(buttons, { label = `+{icon} ${price}`, action = { type = "Build", position = position } })
 				end
@@ -166,7 +194,7 @@ function HudModel.propertyRows(snapshot: Protocol.Snapshot, localId: string): { 
 					action = { type = "Mortgage", position = position },
 				})
 			end
-			if PropertyRules.canUnmortgage(view, localId, me.money, position) then
+			if canImprove and PropertyRules.canUnmortgage(view, localId, me.money, position) then
 				table.insert(buttons, {
 					label = `Unmortgage ${PropertyRules.unmortgageCost(position)}`,
 					action = { type = "Unmortgage", position = position },
@@ -194,9 +222,39 @@ function HudModel.propertyRows(snapshot: Protocol.Snapshot, localId: string): { 
 end
 
 -- The Properties toggle gives way during auctions, when the bid buttons need the whole bar
--- (the panel is view-only then anyway).
+-- (the panel is view-only then anyway), and once the game is over, when it has no use.
 function HudModel.showsPropertiesToggle(snapshot: Protocol.Snapshot): boolean
-	return snapshot.phase ~= "Auction"
+	return snapshot.phase ~= "Auction" and snapshot.phase ~= "GameOver"
+end
+
+export type Standing = {
+	name: string,
+	netWorth: number,
+	bankrupt: boolean,
+	winner: boolean,
+}
+
+-- Final ranking: players still in by net worth (richest first, then seat), bankrupt players last.
+function HudModel.standings(snapshot: Protocol.Snapshot): { Standing }
+	local players = table.clone(snapshot.players)
+	table.sort(players, function(a, b)
+		if a.bankrupt ~= b.bankrupt then
+			return not a.bankrupt
+		elseif a.netWorth ~= b.netWorth then
+			return a.netWorth > b.netWorth
+		end
+		return a.seat < b.seat
+	end)
+	local standings = {}
+	for _, player in players do
+		table.insert(standings, {
+			name = player.name,
+			netWorth = player.netWorth,
+			bankrupt = player.bankrupt,
+			winner = player.id == snapshot.winner,
+		})
+	end
+	return standings
 end
 
 function HudModel.buildingText(row: PropertyRow): string

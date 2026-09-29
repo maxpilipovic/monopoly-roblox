@@ -38,6 +38,14 @@ tests["describes the events players care about"] = function()
 		{ { type = "BuildingSold", player = "p1", position = 3, amount = 25, hotel = true }, "Ana sold a hotel on Baltic Avenue" },
 		{ { type = "Mortgaged", player = "p1", position = 5, amount = 100 }, "Ana mortgaged Reading Railroad for $100" },
 		{ { type = "Unmortgaged", player = "p1", position = 5, amount = 110 }, "Ana paid $110 to unmortgage Reading Railroad" },
+		{ { type = "DebtOwed", debtor = "p1", creditor = "p2", amount = 340, reason = "Rent" }, "Ana owes Bot 1 $340 in rent" },
+		{ { type = "DebtOwed", debtor = "p1", creditor = nil, amount = 200, reason = "Tax" }, "Ana owes the bank $200 in tax" },
+		{ { type = "DebtOwed", debtor = "p1", creditor = nil, amount = 50, reason = "JailFine" }, "Ana owes the bank $50 for the jail fine" },
+		{ { type = "DebtOwed", debtor = "p1", creditor = "p2", amount = 50, reason = "Card" }, "Ana owes Bot 1 $50 for a card" },
+		{ { type = "DebtOwed", debtor = "p2", creditor = nil, amount = 10, reason = "MortgageInterest" }, "Bot 1 owes the bank $10 in mortgage interest" },
+		{ { type = "WentBankrupt", player = "p1", creditor = "p2" }, "Ana went bankrupt to Bot 1" },
+		{ { type = "WentBankrupt", player = "p1", creditor = nil }, "Ana went bankrupt to the bank" },
+		{ { type = "GameOver", winner = "p2" }, "Bot 1 wins!" },
 	}
 	for _, case in cases :: { any } do
 		Expect.equal(EventText.describe(case[1], NAMES), case[2], case[1].type)
@@ -55,6 +63,9 @@ tests["skips events that have no log line"] = function()
 		{ type = "CardDrawn", player = "p1", deck = "Chance", card = "no.such.card" },
 		{ type = "Paid", from = "p1", to = nil, amount = 50, reason = "Building" },
 		{ type = "Paid", from = nil, to = "p1", amount = 100, reason = "Mortgage" },
+		{ type = "DebtPaid", debtor = "p1", creditor = "p2", amount = 6, reason = "Rent" },
+		{ type = "Paid", from = "p1", to = "p2", amount = 53, reason = "Bankruptcy" },
+		{ type = "Paid", from = "p2", to = nil, amount = 10, reason = "MortgageInterest" },
 		{ type = "Mystery" },
 	} :: { any } do
 		Expect.equal(EventText.describe(event, NAMES), nil, event.type)

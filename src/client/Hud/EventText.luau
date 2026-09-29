@@ -7,6 +7,14 @@ local Cards = require(ReplicatedStorage.Shared.Board.Cards)
 
 local EventText = {}
 
+local DEBT_REASONS = {
+	Rent = " in rent",
+	Tax = " in tax",
+	JailFine = " for the jail fine",
+	Card = " for a card",
+	MortgageInterest = " in mortgage interest",
+}
+
 function EventText.describe(event: { [string]: any }, names: { [string]: string }): string?
 	local function name(id: string?): string
 		return if id then names[id] or id else "The bank"
@@ -70,6 +78,13 @@ function EventText.describe(event: { [string]: any }, names: { [string]: string 
 		return `{name(event.player)} mortgaged {tileName(event.position)} for ${event.amount}`
 	elseif kind == "Unmortgaged" then
 		return `{name(event.player)} paid ${event.amount} to unmortgage {tileName(event.position)}`
+	elseif kind == "DebtOwed" then
+		local creditor = if event.creditor then name(event.creditor) else "the bank"
+		return `{name(event.debtor)} owes {creditor} ${event.amount}{DEBT_REASONS[event.reason] or ""}`
+	elseif kind == "WentBankrupt" then
+		return `{name(event.player)} went bankrupt to {if event.creditor then name(event.creditor) else "the bank"}`
+	elseif kind == "GameOver" then
+		return `{name(event.winner)} wins!`
 	elseif kind == "PlayerReplaced" then
 		return `{name(event.player)} left; a bot takes over`
 	end

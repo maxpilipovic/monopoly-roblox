@@ -151,6 +151,73 @@ tests["the properties toggle hides during auctions so the bid buttons fit"] = fu
 	assert(not HudModel.showsPropertiesToggle(Snapshot.fromState(state)), "auction")
 end
 
+tests["a debtor is offered Pay when they can afford it, else a confirmed bankruptcy"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.inDebt(state, "p1", 200, "p2", "Rent")
+	local snapshot = Snapshot.fromState(state)
+	local buttons = HudModel.buttons(snapshot, "p1")
+	Expect.equal(labels(buttons), "Pay $200")
+	Expect.equal(buttons[1].action.type, "PayDebt")
+	Expect.equal(buttons[1].confirm, nil, "no confirm to pay")
+	Expect.equal(#HudModel.buttons(snapshot, "p2"), 0, "creditor waits")
+	assert(HudModel.isDebtor(snapshot, "p1"), "p1 is the debtor")
+	assert(not HudModel.isDebtor(snapshot, "p2"), "p2 is not")
+
+	Engine.getPlayer(state, "p1").money = 120
+	buttons = HudModel.buttons(Snapshot.fromState(state), "p1")
+	Expect.equal(labels(buttons), "Go bankrupt")
+	Expect.equal(buttons[1].action.type, "Bankrupt")
+	Expect.equal(buttons[1].confirm, "Confirm bankruptcy?")
+end
+
+tests["debt status tells the debtor what they owe and everyone else who they wait on"] = function()
+	local state = GameFixtures.newGame(2)
+	Engine.getPlayer(state, "p1").money = 300
+	GameFixtures.inDebt(state, "p1", 2000, "p2", "Rent")
+	local snapshot = Snapshot.fromState(state)
+	Expect.equal(HudModel.status(snapshot, "p1"), "You owe Player 2 $2000. You have $300.")
+	Expect.equal(HudModel.status(snapshot, "p2"), "Waiting for Player 1 to raise $2000…")
+	state.debts[1].creditor = nil
+	Expect.equal(HudModel.status(Snapshot.fromState(state), "p1"), "You owe the bank $2000. You have $300.")
+end
+
+tests["in debt, property rows offer only selling and mortgaging, and only to the debtor"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.own(state, "p1", 1, 1)
+	GameFixtures.own(state, "p1", 3)
+	GameFixtures.own(state, "p1", 5)
+	state.properties[5].mortgaged = true
+	GameFixtures.own(state, "p2", 12)
+	state.currentIndex = 2 -- a debt on someone else's turn
+	GameFixtures.inDebt(state, "p1", 500, "p2")
+	local rows = HudModel.propertyRows(Snapshot.fromState(state), "p1")
+	Expect.equal(rowLabels(rows[1]), "−🏠 +$25", "sell, no build")
+	Expect.equal(rowLabels(rows[2]), "", "Baltic: set has a house, can't mortgage or build")
+	Expect.equal(rowLabels(rows[3]), "", "no unmortgage in debt")
+	for _, row in HudModel.propertyRows(Snapshot.fromState(state), "p2") do
+		Expect.equal(#row.buttons, 0, "the creditor can't act")
+	end
+end
+
+tests["game over: the winner is announced and standings rank by net worth"] = function()
+	local state = GameFixtures.newGame(3)
+	Engine.getPlayer(state, "p1").bankrupt = true
+	Engine.getPlayer(state, "p1").money = 0
+	Engine.getPlayer(state, "p2").money = 900
+	GameFixtures.own(state, "p3", 39) -- $1500 + $400
+	state.phase = "GameOver"
+	state.winner = "p3"
+	local snapshot = Snapshot.fromState(state)
+	Expect.equal(HudModel.status(snapshot, "p1"), "Player 3 wins!")
+	Expect.equal(#HudModel.buttons(snapshot, "p3"), 0, "no buttons")
+	assert(not HudModel.showsPropertiesToggle(snapshot), "no properties toggle at game over")
+	local order = {}
+	for _, standing in HudModel.standings(snapshot) do
+		table.insert(order, `{standing.name}:{standing.netWorth}:{standing.bankrupt}:{standing.winner}`)
+	end
+	Expect.equal(table.concat(order, ","), "Player 3:1900:false:true,Player 2:900:false:false,Player 1:0:true:false")
+end
+
 tests["names maps ids to display names"] = function()
 	local names = HudModel.names(Snapshot.fromState(GameFixtures.newGame(2)))
 	Expect.equal(names.p1, "Player 1")
