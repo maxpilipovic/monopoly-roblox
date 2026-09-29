@@ -27,6 +27,7 @@ tests["describes the events players care about"] = function()
 		{ { type = "LeftJail", player = "p1", reason = "Doubles" }, "Ana rolled doubles and got out of jail" },
 		{ { type = "LeftJail", player = "p1", reason = "Fine" }, "Ana paid $50 and got out of jail" },
 		{ { type = "LeftJail", player = "p1", reason = "Card" }, "Ana used a Get Out of Jail Free card" },
+		{ { type = "LeftJail", player = "p1", reason = "FineOwed" }, "Ana left jail owing the $50 fine" },
 		{
 			{ type = "CardDrawn", player = "p1", deck = "CommunityChest", card = "chest.doctor" },
 			"Ana drew Community Chest: Doctor's fee. Pay $50.",

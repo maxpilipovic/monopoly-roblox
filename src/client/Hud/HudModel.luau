@@ -183,7 +183,7 @@ function HudModel.propertyRows(snapshot: Protocol.Snapshot, localId: string): { 
 				if PropertyRules.canSell(view, localId, position) then
 					local icon = if property.houses == PropertyRules.HOTEL then "🏨" else "🏠"
 					table.insert(buttons, {
-						label = `−{icon} +${price // 2}`,
+						label = `−{icon} +${select(2, PropertyRules.sale(view, position))}`,
 						action = { type = "SellBuilding", position = position },
 					})
 				end

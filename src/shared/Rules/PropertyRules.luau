@@ -106,10 +106,19 @@ function PropertyRules.canSell(view: View, playerId: string, position: number): 
 			return false, "sell evenly across the set"
 		end
 	end
-	if ownership.houses == PropertyRules.HOTEL and view.bankHouses < PropertyRules.HOUSES_PER_HOTEL then
-		return false, "the bank doesn't have 4 houses to replace the hotel"
-	end
 	return true
+end
+
+-- What selling one building leaves on the property and pays (half price per building sold). A hotel
+-- breaks down into four houses, or into as many as the bank still has; the rest are sold as well.
+function PropertyRules.sale(view: View, position: number): (number, number)
+	local houses = view.properties[position].houses
+	local half = PropertyRules.housePrice(position) // 2
+	if houses == PropertyRules.HOTEL then
+		local left = math.min(PropertyRules.HOUSES_PER_HOTEL, view.bankHouses)
+		return left, (PropertyRules.HOTEL - left) * half
+	end
+	return houses - 1, half
 end
 
 function PropertyRules.canMortgage(view: View, playerId: string, position: number): (boolean, string?)

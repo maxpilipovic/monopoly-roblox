@@ -62,6 +62,8 @@ function EventText.describe(event: { [string]: any }, names: { [string]: string 
 			return `{name(event.player)} rolled doubles and got out of jail`
 		elseif event.reason == "Fine" then
 			return `{name(event.player)} paid $50 and got out of jail`
+		elseif event.reason == "FineOwed" then
+			return `{name(event.player)} left jail owing the $50 fine`
 		end
 		return `{name(event.player)} used a Get Out of Jail Free card`
 	elseif kind == "CardDrawn" then

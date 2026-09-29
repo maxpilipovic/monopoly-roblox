@@ -257,7 +257,7 @@ local function roll(state: GameState, player: Player)
 				return
 			end
 			charge(state, player, nil, Engine.JAIL_FINE, "JailFine")
-			leaveJail(state, player, "Fine")
+			leaveJail(state, player, if hasDebt(state, player.id) then "FineOwed" else "Fine")
 		end
 		-- Getting out by the dice never earns another roll.
 		state.rollAgain = false
@@ -321,34 +321,31 @@ local function propertyAction(state: GameState, player: Player, kind: string, po
 	end
 
 	local ownership = state.properties[position]
-	if kind == "Build" or kind == "SellBuilding" then
+	if kind == "Build" then
+		-- A hotel swaps with four houses: building one returns them to the bank.
 		local price = PropertyRules.housePrice(position)
-		local building = kind == "Build"
-		-- A hotel swaps with four houses: building one returns them, selling one takes them.
-		local hotel = if building
-			then ownership.houses == PropertyRules.HOUSES_PER_HOTEL
-			else ownership.houses == PropertyRules.HOTEL
-		local direction = if building then 1 else -1
+		local hotel = ownership.houses == PropertyRules.HOUSES_PER_HOTEL
 		if hotel then
-			state.bankHotels -= direction
-			state.bankHouses += direction * PropertyRules.HOUSES_PER_HOTEL
+			state.bankHotels -= 1
+			state.bankHouses += PropertyRules.HOUSES_PER_HOTEL
 		else
-			state.bankHouses -= direction
+			state.bankHouses -= 1
 		end
-		ownership.houses += direction
-		local amount = if building then price else price // 2
-		if building then
-			transfer(state, player.id, nil, amount, "Building")
+		ownership.houses += 1
+		transfer(state, player.id, nil, price, "Building")
+		emit(state, { type = "Built", player = player.id, position = position, amount = price, hotel = hotel })
+	elseif kind == "SellBuilding" then
+		local hotel = ownership.houses == PropertyRules.HOTEL
+		local left, amount = PropertyRules.sale(state, position)
+		if hotel then
+			state.bankHotels += 1
+			state.bankHouses -= left -- the houses that replace it come from the bank
 		else
-			transfer(state, nil, player.id, amount, "Building")
+			state.bankHouses += 1
 		end
-		emit(state, {
-			type = if building then "Built" else "BuildingSold",
-			player = player.id,
-			position = position,
-			amount = amount,
-			hotel = hotel,
-		})
+		ownership.houses = left
+		transfer(state, nil, player.id, amount, "Building")
+		emit(state, { type = "BuildingSold", player = player.id, position = position, amount = amount, hotel = hotel })
 	elseif kind == "Mortgage" then
 		local amount = PropertyRules.mortgageValue(position)
 		ownership.mortgaged = true

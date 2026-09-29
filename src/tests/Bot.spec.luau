@@ -128,14 +128,14 @@ tests["a bot in debt with no buildings mortgages its cheapest deed"] = function(
 	Expect.equal(action.position, 1)
 end
 
-tests["a bot that can't sell or mortgage goes bankrupt"] = function()
+tests["a bot sells hotels even in a house shortage, and goes bankrupt with nothing left"] = function()
 	local state = GameFixtures.newGame(2)
 	GameFixtures.own(state, "p1", 1, 5)
 	GameFixtures.own(state, "p1", 3, 5)
-	state.bankHouses = 0 -- the bank can't swap the hotels back
+	state.bankHouses = 0
 	Engine.getPlayer(state, "p1").money = 0
 	GameFixtures.inDebt(state, "p1", 100)
-	Expect.equal(Bot.chooseAction(state, "p1").type, "Bankrupt", "hotels stuck, nothing to mortgage")
+	Expect.equal(Bot.chooseAction(state, "p1").type, "SellBuilding", "hotels still sell")
 	state.properties = {}
 	Expect.equal(Bot.chooseAction(state, "p1").type, "Bankrupt", "owns nothing")
 end

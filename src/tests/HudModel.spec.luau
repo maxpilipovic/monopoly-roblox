@@ -122,6 +122,9 @@ tests["property rows label hotels"] = function()
 	Expect.equal(rowLabels(rows[2]), "−🏨 +$25", "sell the hotel")
 	Expect.equal(HudModel.buildingText(rows[2]), "🏨", "hotel text")
 	Expect.equal(HudModel.buildingText(rows[1]), "🏠🏠🏠🏠", "houses text")
+	state.bankHouses = 3
+	rows = HudModel.propertyRows(Snapshot.fromState(state), "p1")
+	Expect.equal(rowLabels(rows[2]), "−🏨 +$50", "short bank: the refund covers the extra house sold")
 end
 
 tests["property rows have no buttons off your turn or mid-decision"] = function()

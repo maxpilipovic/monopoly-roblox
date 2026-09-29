@@ -78,19 +78,26 @@ end
 
 tests["selling a hotel returns it and takes 4 houses"] = function()
 	local state = brownGame(5, 4)
-	state.bankHouses = 3
-	state.bankHotels = 11
-	local ok, err = Engine.act(state, "p1", { type = "SellBuilding", position = MEDITERRANEAN })
-	assert(not ok, "sold without houses in the bank")
-	Expect.equal(err, "the bank doesn't have 4 houses to replace the hotel")
-	Expect.equal(state.properties[MEDITERRANEAN].houses, 5, "unchanged")
-
 	state.bankHouses = 4
+	state.bankHotels = 11
 	act(state, "p1", { type = "SellBuilding", position = MEDITERRANEAN })
 	Expect.equal(state.properties[MEDITERRANEAN].houses, 4, "back to 4 houses")
 	Expect.equal(state.bankHouses, 0, "4 houses taken")
 	Expect.equal(state.bankHotels, 12, "hotel returned")
+	Expect.equal(Engine.getPlayer(state, "p1").money, 1525, "half the hotel price")
 	Expect.equal(GameFixtures.eventsOfType(state, "BuildingSold")[1].hotel, true, "event hotel")
+end
+
+tests["in a house shortage a hotel breaks down into what the bank has, selling the rest"] = function()
+	local state = brownGame(5, 5)
+	state.bankHouses = 3
+	state.bankHotels = 10
+	act(state, "p1", { type = "SellBuilding", position = MEDITERRANEAN })
+	Expect.equal(state.properties[MEDITERRANEAN].houses, 3, "3 houses left")
+	Expect.equal(state.bankHouses, 0, "the bank's 3 houses taken")
+	Expect.equal(state.bankHotels, 11, "hotel returned")
+	Expect.equal(Engine.getPlayer(state, "p1").money, 1550, "hotel + 1 house at $25")
+	Expect.equal(GameFixtures.eventsOfType(state, "BuildingSold")[1].amount, 50, "event amount")
 end
 
 tests["mortgaging pays half the price; unmortgaging costs that plus 10%"] = function()

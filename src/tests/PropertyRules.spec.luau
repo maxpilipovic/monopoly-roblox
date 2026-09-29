@@ -96,12 +96,25 @@ tests["selling is even across the set"] = function()
 	refused("not the owner", "you don't own it", PropertyRules.canSell(state, "p2", MEDITERRANEAN))
 end
 
-tests["selling a hotel needs 4 houses in the bank"] = function()
+tests["a hotel breaks down into the houses the bank can spare"] = function()
 	local state = brownSet(5, 4)
 	state.bankHouses = 3
-	refused("3 houses", "the bank doesn't have 4 houses to replace the hotel", PropertyRules.canSell(state, "p1", MEDITERRANEAN))
-	state.bankHouses = 4
-	assert(PropertyRules.canSell(state, "p1", MEDITERRANEAN), "4 houses refused")
+	assert(PropertyRules.canSell(state, "p1", MEDITERRANEAN), "refused while the bank is short")
+	local left, refund = PropertyRules.sale(state, MEDITERRANEAN)
+	Expect.equal(left, 3, "3 houses left")
+	Expect.equal(refund, 50, "hotel + 1 house at $25 each")
+	state.bankHouses = 0
+	left, refund = PropertyRules.sale(state, MEDITERRANEAN)
+	Expect.equal(left, 0, "no houses left")
+	Expect.equal(refund, 125, "hotel + 4 houses")
+	state.bankHouses = 10
+	left, refund = PropertyRules.sale(state, MEDITERRANEAN)
+	Expect.equal(left, 4, "plenty: 4 houses")
+	Expect.equal(refund, 25, "just the hotel")
+	state.properties[MEDITERRANEAN].houses = 2
+	left, refund = PropertyRules.sale(state, MEDITERRANEAN)
+	Expect.equal(left, 1, "a house")
+	Expect.equal(refund, 25, "house refund")
 end
 
 tests["mortgaging needs no buildings in the set"] = function()
