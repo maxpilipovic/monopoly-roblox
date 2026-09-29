@@ -3,6 +3,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
+local PropertyRules = require(ReplicatedStorage.Shared.Rules.PropertyRules)
 local Engine = require(script.Parent.Engine)
 local Types = require(script.Parent.Types)
 
@@ -21,6 +22,7 @@ function Snapshot.fromState(state: Types.GameState): Protocol.Snapshot
 			inJail = player.inJail,
 			jailCards = #player.jailCards,
 			seat = seat,
+			netWorth = PropertyRules.netWorth(state, player.id, player.money),
 		})
 	end
 
@@ -47,6 +49,11 @@ function Snapshot.fromState(state: Types.GameState): Protocol.Snapshot
 		}
 	end
 
+	local openDebt = state.debts[1]
+	local debt: Protocol.DebtView? = if openDebt
+		then { debtor = openDebt.debtor, creditor = openDebt.creditor, amount = openDebt.amount, reason = openDebt.reason }
+		else nil
+
 	return {
 		phase = state.phase,
 		currentPlayer = Engine.currentPlayer(state).id,
@@ -56,6 +63,8 @@ function Snapshot.fromState(state: Types.GameState): Protocol.Snapshot
 		lastRoll = if state.lastRoll then table.clone(state.lastRoll) else nil,
 		bankHouses = state.bankHouses,
 		bankHotels = state.bankHotels,
+		debt = debt,
+		winner = state.winner,
 	}
 end
 

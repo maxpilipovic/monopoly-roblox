@@ -70,7 +70,11 @@ tests["bots play until a human must act"] = function()
 	local guard = 0
 	repeat
 		if Engine.actingPlayer(session.state) == "h1" and session.state.phase ~= "Roll" then
-			local action = if session.state.phase == "Auction" then { type = "PassBid" } else { type = "EndTurn" }
+			local phase = session.state.phase
+			local action = if phase == "Auction"
+				then { type = "PassBid" }
+				elseif phase == "Debt" then { type = "PayDebt" }
+				else { type = "EndTurn" }
 			assert(GameSession.act(session, "h1", action))
 		end
 		guard += 1
@@ -114,6 +118,26 @@ tests["a bot with no idea what to do still keeps the game moving"] = function()
 		assert(GameSession.stepBot(session), "bot did not roll")
 		assert(GameSession.stepBot(session), "bot did not end its turn")
 		Expect.equal(Engine.currentPlayer(session.state).id, "h1", "turn back to the human")
+	end)
+	Bot.chooseAction = original
+	assert(ok, err)
+end
+
+tests["a bot with no plan in debt still settles it"] = function()
+	local Bot = require(ServerScriptService.Server.Game.Bot)
+	local original = Bot.chooseAction
+	Bot.chooseAction = function()
+		return nil
+	end
+	local ok, err = pcall(function()
+		local session = GameSession.new(humans(1), 2, GameFixtures.scriptedDice({}))
+		session.state.currentIndex = 2
+		GameFixtures.inDebt(session.state, "bot1", 100)
+		assert(GameSession.stepBot(session), "rich bot did not pay")
+		Expect.equal(#session.state.debts, 0, "paid")
+		GameFixtures.inDebt(session.state, "bot1", 5000)
+		assert(GameSession.stepBot(session), "broke bot did not go bankrupt")
+		assert(Engine.getPlayer(session.state, "bot1").bankrupt, "bot1 still in")
 	end)
 	Bot.chooseAction = original
 	assert(ok, err)

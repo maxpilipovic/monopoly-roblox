@@ -11,6 +11,7 @@ export type PlayerView = {
 	inJail: boolean,
 	jailCards: number, -- Get Out of Jail Free cards held
 	seat: number, -- 1-based turn order; also picks the token spot and color
+	netWorth: number,
 }
 
 export type PropertyView = {
@@ -27,6 +28,13 @@ export type AuctionView = {
 	currentBidder: string?,
 }
 
+export type DebtView = {
+	debtor: string,
+	creditor: string?, -- nil = the bank
+	amount: number,
+	reason: string,
+}
+
 -- Arrays only (RemoteEvents drop sparse numeric keys).
 export type Snapshot = {
 	phase: string,
@@ -37,6 +45,8 @@ export type Snapshot = {
 	lastRoll: { number }?,
 	bankHouses: number,
 	bankHotels: number,
+	debt: DebtView?, -- the IOU being settled, while phase is "Debt"
+	winner: string?,
 }
 
 export type Update = {

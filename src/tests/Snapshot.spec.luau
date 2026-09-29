@@ -57,6 +57,24 @@ tests["players show jail status and how many jail cards they hold"] = function()
 	Expect.equal(Snapshot.fromState(state).players[2].inJail, false, "p2")
 end
 
+tests["snapshot shows the open debt, the winner and each player's net worth"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.own(state, "p1", 1)
+	GameFixtures.inDebt(state, "p1", 200, "p2", "Rent")
+	local snapshot = Snapshot.fromState(state)
+	local debt = snapshot.debt :: any
+	Expect.equal(debt.debtor, "p1", "debtor")
+	Expect.equal(debt.creditor, "p2", "creditor")
+	Expect.equal(debt.amount, 200, "amount")
+	Expect.equal(debt.reason, "Rent", "reason")
+	Expect.equal(snapshot.players[1].netWorth, 1560, "cash + Mediterranean")
+	Expect.equal(snapshot.winner, nil, "no winner yet")
+	state.winner = "p2"
+	state.debts = {}
+	Expect.equal(Snapshot.fromState(state).winner, "p2", "winner")
+	Expect.equal(Snapshot.fromState(state).debt, nil, "no debt")
+end
+
 tests["snapshot shares no tables with the game state"] = function()
 	local state = GameFixtures.newGame(2, { { 2, 4 } })
 	Engine.act(state, "p1", { type = "Roll" })

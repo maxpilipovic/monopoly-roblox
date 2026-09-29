@@ -192,4 +192,33 @@ tests["an all-bot game keeps making legal moves"] = function()
 	end
 end
 
+tests["an all-bot game on short money ends with a winner"] = function()
+	local random = Random.new(7)
+	local state = Engine.new({
+		{ id = "b1", name = "B1", isBot = true },
+		{ id = "b2", name = "B2", isBot = true },
+		{ id = "b3", name = "B3", isBot = true },
+	}, function()
+		return random:NextInteger(1, 6), random:NextInteger(1, 6)
+	end)
+	for _, bot in state.players do
+		bot.money = 300
+	end
+	for step = 1, 20000 do
+		if state.phase == "GameOver" then
+			break
+		end
+		local actor = assert(Engine.actingPlayer(state), `no acting player at step {step}`)
+		local action = assert(Bot.chooseAction(state, actor), `bot {actor} had no action in {state.phase}`)
+		local ok, err = Engine.act(state, actor, action)
+		assert(ok, `step {step}: {actor} {action.type} rejected: {err}`)
+	end
+	Expect.equal(state.phase, "GameOver", "game never ended")
+	assert(state.winner, "no winner")
+	Expect.equal(#GameFixtures.eventsOfType(state, "WentBankrupt"), 2, "two bots went out")
+	for _, bot in state.players do
+		assert(bot.money >= 0, `{bot.id} went negative`)
+	end
+end
+
 return tests
