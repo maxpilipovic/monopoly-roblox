@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 local Cards = require(ReplicatedStorage.Shared.Board.Cards)
 local PropertyRules = require(ReplicatedStorage.Shared.Rules.PropertyRules)
+local TradeRules = require(ReplicatedStorage.Shared.Rules.TradeRules)
 local Rent = require(script.Parent.Rent)
 local Types = require(script.Parent.Types)
 
@@ -30,6 +31,7 @@ Engine.JAIL_MAX_ATTEMPTS = 3 -- failed doubles rolls before the fine is forced
 Engine.MAX_DOUBLES = 3 -- doubles in one turn that send you to jail
 Engine.BANK_HOUSES = 32
 Engine.BANK_HOTELS = 12
+Engine.MAX_TRADE_OFFERS = 3 -- per player per turn
 
 local PURCHASABLE = { Property = true, Railroad = true, Utility = true }
 
@@ -384,6 +386,8 @@ function Engine.actingPlayer(state: GameState): string?
 		return nil
 	elseif state.phase == "Debt" then
 		return state.debts[1].debtor
+	elseif state.phase == "Trade" then
+		return (state.trade :: Types.PendingTrade).offer.to
 	elseif state.phase == "Auction" then
 		return Engine.currentBidder(state)
 	end
@@ -457,6 +461,7 @@ local function endTurn(state: GameState)
 	state.doublesCount = 0
 	state.rollAgain = false
 	state.resumePhase = nil
+	table.clear(state.tradeOffers)
 	for _ = 1, #state.players do
 		state.currentIndex = state.currentIndex % #state.players + 1
 		if not Engine.currentPlayer(state).bankrupt then
@@ -607,6 +612,112 @@ local function goBankrupt(state: GameState, player: Player): (boolean, string?)
 	return true
 end
 
+function Engine.tradeParties(state: GameState): { [string]: TradeRules.Party }
+	local parties = {}
+	for _, player in state.players do
+		parties[player.id] = {
+			id = player.id,
+			name = player.name,
+			money = player.money,
+			jailCards = #player.jailCards,
+			bankrupt = player.bankrupt,
+		}
+	end
+	return parties
+end
+
+local function proposeTrade(state: GameState, player: Player, offer: any): (boolean, string?)
+	if (state.tradeOffers[player.id] or 0) >= Engine.MAX_TRADE_OFFERS then
+		return false, "no trade offers left this turn"
+	end
+	local ok, err = TradeRules.validate(state, Engine.tradeParties(state), player.id, offer)
+	if not ok then
+		return false, err
+	end
+	local copy = TradeRules.copy(offer)
+	state.trade = { from = player.id, offer = copy, returnPhase = state.phase }
+	state.tradeOffers[player.id] = (state.tradeOffers[player.id] or 0) + 1
+	state.phase = "Trade"
+	emit(state, {
+		type = "TradeProposed",
+		from = player.id,
+		to = copy.to,
+		give = TradeRules.copy(copy).give,
+		get = TradeRules.copy(copy).get,
+	})
+	return true
+end
+
+local function moveJailCards(from: Player, to: Player, count: number)
+	for _ = 1, count do
+		table.insert(to.jailCards, table.remove(from.jailCards, 1) :: string)
+	end
+end
+
+local function closeTrade(state: GameState, trade: Types.PendingTrade)
+	state.trade = nil
+	state.phase = trade.returnPhase
+end
+
+local function acceptTrade(state: GameState): (boolean, string?)
+	local trade = state.trade :: Types.PendingTrade
+	local ok, err = TradeRules.validate(state, Engine.tradeParties(state), trade.from, trade.offer)
+	if not ok then
+		return false, err
+	end
+	local offer = trade.offer
+	local from = Engine.getPlayer(state, trade.from) :: Player
+	local to = Engine.getPlayer(state, offer.to) :: Player
+
+	local interest = {} -- { payer, position } for each mortgaged deed that changes hands
+	local function hand(positions: { number }, receiver: Player)
+		for _, position in positions do
+			local ownership = state.properties[position]
+			ownership.owner = receiver.id
+			if ownership.mortgaged then
+				table.insert(interest, { payer = receiver, position = position })
+			end
+		end
+	end
+	hand(offer.give.properties, to)
+	hand(offer.get.properties, from)
+	if offer.give.cash > 0 then
+		transfer(state, from.id, to.id, offer.give.cash, "Trade")
+	end
+	if offer.get.cash > 0 then
+		transfer(state, to.id, from.id, offer.get.cash, "Trade")
+	end
+	moveJailCards(from, to, offer.give.jailCards)
+	moveJailCards(to, from, offer.get.jailCards)
+	for _, due in interest do
+		local amount = PropertyRules.unmortgageCost(due.position) - PropertyRules.mortgageValue(due.position)
+		charge(state, due.payer, nil, amount, "MortgageInterest")
+	end
+
+	emit(state, { type = "TradeAccepted", from = from.id, to = to.id })
+	closeTrade(state, trade)
+	return true
+end
+
+local function declineTrade(state: GameState)
+	local trade = state.trade :: Types.PendingTrade
+	emit(state, { type = "TradeDeclined", from = trade.from, to = trade.offer.to })
+	closeTrade(state, trade)
+end
+
+local function actInTrade(state: GameState, player: Player, action: Types.Action): (boolean, string?)
+	local trade = state.trade :: Types.PendingTrade
+	if trade.offer.to ~= player.id then
+		return false, "waiting for another player to answer a trade"
+	elseif action.type == "AcceptTrade" then
+		return acceptTrade(state)
+	elseif action.type == "DeclineTrade" then
+		declineTrade(state)
+		return true
+	end
+	return false, "answer the trade first"
+end
+
 local function actInDebt(state: GameState, player: Player, action: Types.Action): (boolean, string?)
 	if state.debts[1].debtor ~= player.id then
 		return false, "waiting for another player to pay a debt"
@@ -614,6 +725,8 @@ local function actInDebt(state: GameState, player: Player, action: Types.Action)
 		return payDebt(state, player)
 	elseif action.type == "Bankrupt" then
 		return goBankrupt(state, player)
+	elseif action.type == "ProposeTrade" then
+		return proposeTrade(state, player, action.offer)
 	elseif action.type == "SellBuilding" or action.type == "Mortgage" then
 		return propertyAction(state, player, action.type, action.position)
 	end
@@ -669,6 +782,8 @@ function Engine.new(players: { PlayerInfo }, rollDice: Types.DiceRoller, shuffle
 		resumePhase = nil,
 		auctionQueue = {},
 		winner = nil,
+		trade = nil,
+		tradeOffers = {},
 		events = {},
 		rollDice = rollDice,
 	}
@@ -678,6 +793,9 @@ end
 
 local function dispatch(state: GameState, player: Player, action: Types.Action): (boolean, string?)
 	local playerId = player.id
+	if state.phase == "Trade" then
+		return actInTrade(state, player, action)
+	end
 	if state.phase == "Debt" then
 		return actInDebt(state, player, action)
 	end
@@ -712,6 +830,8 @@ local function dispatch(state: GameState, player: Player, action: Types.Action):
 		return useJailCard(state, player)
 	elseif PROPERTY_ACTIONS[action.type] and (state.phase == "Roll" or state.phase == "EndTurn") then
 		return propertyAction(state, player, action.type, action.position)
+	elseif action.type == "ProposeTrade" and (state.phase == "Roll" or state.phase == "EndTurn") then
+		return proposeTrade(state, player, action.offer)
 	elseif action.type == "EndTurn" and state.phase == "EndTurn" then
 		endTurn(state)
 		return true
@@ -732,7 +852,7 @@ function Engine.act(state: GameState, playerId: string, action: Types.Action): (
 	end
 	local ok, err = dispatch(state, player, action)
 	-- Anything owed during that action pauses the game on the debtor; play picks up here afterwards.
-	if ok and #state.debts > 0 and state.phase ~= "Debt" and state.phase ~= "Auction" and state.phase ~= "GameOver" then
+	if ok and #state.debts > 0 and state.phase ~= "Debt" and state.phase ~= "Auction" and state.phase ~= "Trade" and state.phase ~= "GameOver" then
 		state.resumePhase = state.phase
 		state.phase = "Debt"
 	end

@@ -1,7 +1,10 @@
 --!strict
 -- Shapes of the engine's game state, actions and events.
 
-export type Phase = "Roll" | "BuyDecision" | "Auction" | "EndTurn" | "Debt" | "GameOver"
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TradeRules = require(ReplicatedStorage.Shared.Rules.TradeRules)
+
+export type Phase = "Roll" | "BuyDecision" | "Auction" | "EndTurn" | "Debt" | "Trade" | "GameOver"
 
 export type Player = {
 	id: string,
@@ -38,11 +41,18 @@ export type Debt = {
 	reason: string,
 }
 
+-- An offer waiting for its receiver's answer.
+export type PendingTrade = {
+	from: string,
+	offer: TradeRules.Offer,
+	returnPhase: Phase, -- Roll, EndTurn or Debt
+}
+
 -- Events are plain tables with a `type` and event-specific fields, e.g.
 -- { type = "Moved", player = "p1", from = 38, to = 3, passedGo = true, style = "Walk" }.
 export type Event = { [string]: any }
 
-export type Action = { [string]: any } -- { type = "Roll" | "Buy" | "Decline" | "Bid" | "PassBid" | "EndTurn" | "PayJailFine" | "UseJailCard" | "Build" | "SellBuilding" | "Mortgage" | "Unmortgage" | "PayDebt" | "Bankrupt", amount = number?, position = number? }
+export type Action = { [string]: any } -- { type = "Roll" | "Buy" | "Decline" | "Bid" | "PassBid" | "EndTurn" | "PayJailFine" | "UseJailCard" | "Build" | "SellBuilding" | "Mortgage" | "Unmortgage" | "PayDebt" | "Bankrupt" | "ProposeTrade" | "AcceptTrade" | "DeclineTrade", amount = number?, position = number?, offer = table? }
 
 export type DiceRoller = () -> (number, number)
 
@@ -64,6 +74,8 @@ export type GameState = {
 	resumePhase: Phase?, -- where play continues once the debts are settled
 	auctionQueue: { number }, -- a bankrupt player's deeds waiting to be auctioned by the bank
 	winner: string?,
+	trade: PendingTrade?,
+	tradeOffers: { [string]: number }, -- offers each player has made this turn
 	events: { Event },
 	rollDice: DiceRoller,
 }

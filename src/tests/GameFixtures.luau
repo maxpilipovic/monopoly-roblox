@@ -47,6 +47,8 @@ function GameFixtures.bareState(playerCount: number): Types.GameState
 		resumePhase = nil,
 		auctionQueue = {},
 		winner = nil,
+		trade = nil,
+		tradeOffers = {},
 		events = {},
 		rollDice = GameFixtures.scriptedDice({}),
 	}
@@ -72,6 +74,14 @@ function GameFixtures.inDebt(state: Types.GameState, debtorId: string, amount: n
 	state.resumePhase = state.phase
 	state.phase = "Debt"
 	table.insert(state.debts, { debtor = debtorId, creditor = creditorId, amount = amount, reason = reason or "Tax" })
+end
+
+function GameFixtures.side(properties: { number }?, cash: number?, jailCards: number?)
+	return { properties = properties or {}, cash = cash or 0, jailCards = jailCards or 0 }
+end
+
+function GameFixtures.propose(state: Types.GameState, fromId: string, toId: string, give: any, get: any): (boolean, string?)
+	return Engine.act(state, fromId, { type = "ProposeTrade", offer = { to = toId, give = give, get = get } })
 end
 
 function GameFixtures.eventsOfType(state: Types.GameState, eventType: string): { Types.Event }
