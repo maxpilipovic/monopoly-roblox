@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 local PropertyRules = require(ReplicatedStorage.Shared.Rules.PropertyRules)
+local EventText = require(script.Parent.EventText)
 
 export type Button = {
 	label: string,
@@ -39,6 +40,8 @@ local function actingPlayer(snapshot: Protocol.Snapshot): string?
 		return nil
 	elseif snapshot.phase == "Debt" and snapshot.debt then
 		return snapshot.debt.debtor
+	elseif snapshot.phase == "Trade" and snapshot.trade then
+		return snapshot.trade.to
 	elseif snapshot.auction then
 		return snapshot.auction.currentBidder
 	end
@@ -94,6 +97,11 @@ function HudModel.buttons(snapshot: Protocol.Snapshot, localId: string): { Butto
 			return { { label = `Pay ${amount}`, action = { type = "PayDebt" } } }
 		end
 		return { { label = "Go bankrupt", confirm = "Confirm bankruptcy?", action = { type = "Bankrupt" } } }
+	elseif phase == "Trade" then
+		return {
+			{ label = "Accept", action = { type = "AcceptTrade" } },
+			{ label = "Decline", action = { type = "DeclineTrade" } },
+		}
 	elseif phase == "EndTurn" then
 		return { { label = "End turn", action = { type = "EndTurn" } } }
 	end
@@ -115,6 +123,14 @@ function HudModel.status(snapshot: Protocol.Snapshot, localId: string): string
 		end
 		return `Waiting for {names[debt.debtor] or debt.debtor} to raise ${debt.amount}…`
 	end
+	local trade = snapshot.trade
+	if snapshot.phase == "Trade" and trade then
+		local from = names[trade.from] or trade.from
+		if trade.to == localId then
+			return `{from} offers you a trade`
+		end
+		return `Waiting for {names[trade.to] or trade.to} to answer {from}'s offer`
+	end
 	local auction = snapshot.auction
 	if auction then
 		local tile = Tiles.at(auction.position).name
@@ -133,6 +149,30 @@ function HudModel.status(snapshot: Protocol.Snapshot, localId: string): string
 	return `Waiting for {names[snapshot.currentPlayer] or snapshot.currentPlayer}`
 end
 
+function HudModel.canTrade(snapshot: Protocol.Snapshot, localId: string): boolean
+	local phase = snapshot.phase
+	if actingPlayer(snapshot) ~= localId or snapshot.tradeOffersLeft <= 0 then
+		return false
+	elseif phase ~= "Roll" and phase ~= "EndTurn" and phase ~= "Debt" then
+		return false
+	end
+	for _, player in snapshot.players do
+		if player.id ~= localId and not player.bankrupt then
+			return true
+		end
+	end
+	return false
+end
+
+-- For the receiver of an open offer: what they would give and get, in words.
+function HudModel.tradeSummary(snapshot: Protocol.Snapshot, localId: string): { give: string, get: string }?
+	local trade = snapshot.trade
+	if snapshot.phase ~= "Trade" or not trade or trade.to ~= localId then
+		return nil
+	end
+	return { give = EventText.tradeSide(trade.get), get = EventText.tradeSide(trade.give) }
+end
+
 export type PropertyRow = {
 	position: number,
 	name: string,
@@ -144,7 +184,7 @@ export type PropertyRow = {
 
 local KIND_ORDER = { Property = 1, Railroad = 2, Utility = 3 }
 
-local function rulesView(snapshot: Protocol.Snapshot): PropertyRules.View
+function HudModel.rulesView(snapshot: Protocol.Snapshot): PropertyRules.View
 	local properties = {}
 	for _, property in snapshot.properties do
 		properties[property.position] = { owner = property.owner, houses = property.houses, mortgaged = property.mortgaged }
@@ -163,7 +203,7 @@ function HudModel.propertyRows(snapshot: Protocol.Snapshot, localId: string): { 
 		and snapshot.auction == nil
 		and (snapshot.phase == "Roll" or snapshot.phase == "EndTurn")
 	local canRaise = canImprove or HudModel.isDebtor(snapshot, localId)
-	local view = rulesView(snapshot)
+	local view = HudModel.rulesView(snapshot)
 
 	local rows = {}
 	for _, property in snapshot.properties do

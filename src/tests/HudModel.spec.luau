@@ -227,4 +227,44 @@ tests["names maps ids to display names"] = function()
 	Expect.equal(names.p2, "Player 2")
 end
 
+tests["the Trade button shows only when you may propose"] = function()
+	local state = GameFixtures.newGame(3, { { 2, 4 } })
+	assert(HudModel.canTrade(Snapshot.fromState(state), "p1"), "your roll")
+	assert(not HudModel.canTrade(Snapshot.fromState(state), "p2"), "someone else's turn")
+	state.tradeOffers.p1 = Engine.MAX_TRADE_OFFERS
+	assert(not HudModel.canTrade(Snapshot.fromState(state), "p1"), "no offers left")
+	state.tradeOffers.p1 = nil
+	Engine.getPlayer(state, "p2").bankrupt = true
+	Engine.getPlayer(state, "p3").bankrupt = true
+	assert(not HudModel.canTrade(Snapshot.fromState(state), "p1"), "nobody to trade with")
+	Engine.getPlayer(state, "p2").bankrupt = false
+	Engine.act(state, "p1", { type = "Roll" }) -- BuyDecision
+	assert(not HudModel.canTrade(Snapshot.fromState(state), "p1"), "mid-decision")
+
+	state = GameFixtures.newGame(2)
+	state.currentIndex = 2
+	GameFixtures.inDebt(state, "p1", 100)
+	assert(HudModel.canTrade(Snapshot.fromState(state), "p1"), "the debtor may trade")
+	assert(not HudModel.canTrade(Snapshot.fromState(state), "p2"), "the current player waits on the debt")
+end
+
+tests["the receiver sees the offer with Accept and Decline"] = function()
+	local state = GameFixtures.newGame(3)
+	GameFixtures.own(state, "p2", 39)
+	assert(GameFixtures.propose(state, "p1", "p2", GameFixtures.side(nil, 100), GameFixtures.side({ 39 })))
+	local snapshot = Snapshot.fromState(state)
+	local buttons = HudModel.buttons(snapshot, "p2")
+	Expect.equal(labels(buttons), "Accept|Decline")
+	Expect.equal(buttons[1].action.type, "AcceptTrade")
+	Expect.equal(buttons[2].action.type, "DeclineTrade")
+	Expect.equal(#HudModel.buttons(snapshot, "p1"), 0, "proposer waits")
+	Expect.equal(HudModel.status(snapshot, "p2"), "Player 1 offers you a trade")
+	Expect.equal(HudModel.status(snapshot, "p3"), "Waiting for Player 2 to answer Player 1's offer")
+	local summary = HudModel.tradeSummary(snapshot, "p2") :: any
+	Expect.equal(summary.give, "Boardwalk", "receiver gives")
+	Expect.equal(summary.get, "$100", "receiver gets")
+	Expect.equal(HudModel.tradeSummary(snapshot, "p1"), nil, "only for the receiver")
+	assert(not HudModel.canTrade(snapshot, "p1"), "no new offer while one is open")
+end
+
 return tests

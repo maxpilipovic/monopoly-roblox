@@ -15,6 +15,21 @@ local DEBT_REASONS = {
 	MortgageInterest = " in mortgage interest",
 }
 
+-- One side of a trade in words: "Park Place + $50 + 1 jail card", or "nothing".
+function EventText.tradeSide(side: { properties: { number }, cash: number, jailCards: number }): string
+	local parts = {}
+	for _, position in side.properties do
+		table.insert(parts, Tiles.at(position).name)
+	end
+	if side.cash > 0 then
+		table.insert(parts, `${side.cash}`)
+	end
+	if side.jailCards > 0 then
+		table.insert(parts, `{side.jailCards} jail card{if side.jailCards == 1 then "" else "s"}`)
+	end
+	return if #parts == 0 then "nothing" else table.concat(parts, " + ")
+end
+
 function EventText.describe(event: { [string]: any }, names: { [string]: string }): string?
 	local function name(id: string?): string
 		return if id then names[id] or id else "The bank"
@@ -87,6 +102,12 @@ function EventText.describe(event: { [string]: any }, names: { [string]: string 
 		return `{name(event.player)} went bankrupt to {if event.creditor then name(event.creditor) else "the bank"}`
 	elseif kind == "GameOver" then
 		return `{name(event.winner)} wins!`
+	elseif kind == "TradeProposed" then
+		return `{name(event.from)} offered {name(event.to)} {EventText.tradeSide(event.give)} for {EventText.tradeSide(event.get)}`
+	elseif kind == "TradeAccepted" then
+		return `{name(event.to)} accepted the trade`
+	elseif kind == "TradeDeclined" then
+		return `{name(event.to)} declined the trade`
 	elseif kind == "PlayerReplaced" then
 		return `{name(event.player)} left; a bot takes over`
 	end
