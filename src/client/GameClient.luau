@@ -38,6 +38,7 @@ function GameClient.start()
 	})
 
 	updateRemote.OnClientEvent:Connect(function(update: Protocol.Update)
+		hud:unlock()
 		tokens:apply(update)
 		buildings:apply(update.snapshot)
 		if update.snapshot then

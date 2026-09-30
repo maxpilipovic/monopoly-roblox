@@ -1,6 +1,7 @@
 --!strict
 -- The on-screen HUD: lobby panel, player list, status + action buttons, event log, and drawn cards.
 
+local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Cards = require(ReplicatedStorage.Shared.Board.Cards)
@@ -28,6 +29,10 @@ local OTHER_SWATCH = Color3.fromRGB(150, 150, 150)
 local DANGER_COLOR = Color3.fromRGB(200, 60, 60)
 local DEBT_TEXT_COLOR = Color3.fromRGB(255, 120, 120)
 local URGENT_COLOR = Color3.fromRGB(255, 90, 90)
+local ACTION_LOCK_SECONDS = 2 -- the server always answers; this only covers a lost reply
+-- Even after the answer, a double-click's second half must not land on the button drawn in the same spot.
+local MIN_CLICK_GAP = 0.35
+local ROW_BUTTON_WIDTH = 120
 
 export type Callbacks = {
 	onAction: (action: { [string]: any }) -> (),
@@ -71,6 +76,10 @@ export type HudView = typeof(setmetatable(
 		statusText: string,
 		statusColor: Color3,
 		matchLabel: TextLabel?,
+		sentAt: number?, -- when the last action went out
+		answered: boolean, -- whether the server has answered since
+		propertiesKey: string?, -- what the Properties panel last drew
+		tradeKey: string?, -- what the trade window last drew
 	},
 	HudView
 ))
@@ -145,6 +154,14 @@ end
 local function renderProperties(self: HudView, snapshot: Protocol.Snapshot, localId: string)
 	local panel = self.propertiesPanel
 	panel.Visible = self.propertiesOpen
+	local rows = if self.propertiesOpen then HudModel.propertyRows(snapshot, localId) else {}
+	local emptyText = HudModel.noPropertiesText(snapshot, localId)
+	-- Rebuild only when something shown changed: a rebuild resets the scroll and can swallow a click.
+	local key = HttpService:JSONEncode({ open = self.propertiesOpen, rows = rows, empty = emptyText })
+	if key == self.propertiesKey then
+		return
+	end
+	self.propertiesKey = key
 	for _, child in panel:GetChildren() do
 		if child:IsA("Frame") or child:IsA("TextLabel") then
 			child:Destroy()
@@ -154,10 +171,9 @@ local function renderProperties(self: HudView, snapshot: Protocol.Snapshot, loca
 		return
 	end
 
-	local rows = HudModel.propertyRows(snapshot, localId)
 	if #rows == 0 then
 		local empty = text("Empty", panel, UDim2.new(1, -16, 0, 30), 16)
-		empty.Text = "You don't own any property yet"
+		empty.Text = emptyText
 		return
 	end
 	for order, entry in rows do
@@ -182,7 +198,7 @@ local function renderProperties(self: HudView, snapshot: Protocol.Snapshot, loca
 		swatch.BackgroundColor3 = if group then group.color else OTHER_SWATCH
 		swatch.Parent = row
 
-		local label = text("Name", row, UDim2.fromOffset(190, 26), 15)
+		local label = text("Name", row, UDim2.fromOffset(170, 26), 15)
 		label.LayoutOrder = 1
 		label.TextXAlignment = Enum.TextXAlignment.Left
 		label.TextWrapped = false
@@ -191,9 +207,9 @@ local function renderProperties(self: HudView, snapshot: Protocol.Snapshot, loca
 
 		for i, entryButton in entry.buttons do
 			local b = button(entryButton.label, row, function()
-				self.callbacks.onAction(entryButton.action)
+				self:send(entryButton.action)
 			end)
-			b.Size = UDim2.fromOffset(92, 28)
+			b.Size = UDim2.fromOffset(ROW_BUTTON_WIDTH, 28)
 			b.TextSize = 13
 			b.LayoutOrder = 1 + i
 		end
@@ -208,6 +224,28 @@ local DISABLED_COLOR = Color3.fromRGB(40, 40, 44)
 local function renderTrade(self: HudView, snapshot: Protocol.Snapshot, localId: string)
 	local window = self.tradeWindow
 	window.Visible = self.tradeOpen
+	TradeBuilder.prune(self.trade, snapshot, localId)
+	local builder = self.trade
+	local ok, reason = TradeBuilder.check(snapshot, localId, builder)
+	local holdings = {}
+	for _, player in snapshot.players do
+		holdings[player.id] = { player.money, player.jailCards }
+	end
+	-- Rebuild only when something shown changed, so bot moves don't reset the scroll or eat clicks.
+	local key = HttpService:JSONEncode({
+		open = self.tradeOpen,
+		partners = TradeBuilder.partners(snapshot, localId),
+		builder = builder,
+		give = TradeBuilder.rows(snapshot, localId, builder.give),
+		get = if builder.partner then TradeBuilder.rows(snapshot, builder.partner, builder.get) else {},
+		ok = ok,
+		reason = reason,
+		holdings = holdings,
+	})
+	if key == self.tradeKey then
+		return
+	end
+	self.tradeKey = key
 	for _, child in window:GetChildren() do
 		if not child:IsA("UICorner") then
 			child:Destroy()
@@ -216,7 +254,6 @@ local function renderTrade(self: HudView, snapshot: Protocol.Snapshot, localId: 
 	if not self.tradeOpen then
 		return
 	end
-	local builder = self.trade
 	local function rerender()
 		self:render(self.snapshot, self.localId)
 	end
@@ -271,7 +308,7 @@ local function renderTrade(self: HudView, snapshot: Protocol.Snapshot, localId: 
 			local name = if row.mortgaged then `{row.name} (mortgaged)` else row.name
 			local label = if row.tradable then name else `{name} — {row.reason}`
 			local b = button(label, frame, function()
-				if row.tradable then
+				if TradeBuilder.canToggle(row) then
 					TradeBuilder.toggle(builder, sideName, row.position)
 					rerender()
 				end
@@ -279,9 +316,9 @@ local function renderTrade(self: HudView, snapshot: Protocol.Snapshot, localId: 
 			b.Size = UDim2.new(1, -8, 0, 28)
 			b.TextSize = 14
 			b.LayoutOrder = order
-			b.BackgroundColor3 = if not row.tradable
-				then DISABLED_COLOR
-				elseif row.selected then SELECTED_COLOR
+			b.BackgroundColor3 = if row.selected
+				then SELECTED_COLOR
+				elseif not row.tradable then DISABLED_COLOR
 				else UNSELECTED_COLOR
 		end
 
@@ -335,12 +372,12 @@ local function renderTrade(self: HudView, snapshot: Protocol.Snapshot, localId: 
 	footer.BackgroundTransparency = 1
 	footer.Parent = window
 	list(footer, Enum.FillDirection.Horizontal, 8)
-	local ok, reason = TradeBuilder.check(snapshot, localId, builder)
 	local hint = text("Hint", footer, UDim2.fromOffset(300, 40), 15)
 	hint.Text = if ok then "" else reason or ""
 	local send = button("Send offer", footer, function()
-		if TradeBuilder.check(snapshot, localId, builder) then
-			self.callbacks.onAction({ type = "ProposeTrade", offer = TradeBuilder.offer(builder) })
+		local current = self.snapshot
+		if current and TradeBuilder.check(current, localId, builder) then
+			self:send({ type = "ProposeTrade", offer = TradeBuilder.offer(builder) })
 			self.tradeOpen = false
 			self.trade = TradeBuilder.new()
 			rerender()
@@ -425,6 +462,10 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		statusText = "",
 		statusColor = TEXT_COLOR,
 		matchLabel = nil,
+		sentAt = nil,
+		answered = true,
+		propertiesKey = nil,
+		tradeKey = nil,
 	}, HudView)
 
 	local function changeSeats(delta: number)
@@ -492,7 +533,7 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 	-- Your properties, right side under the log; opened from the action bar.
 	local properties = Instance.new("ScrollingFrame")
 	properties.Name = "Properties"
-	properties.Size = UDim2.fromOffset(420, 360)
+	properties.Size = UDim2.fromOffset(460, 360)
 	properties.Position = UDim2.new(1, -12, 0, 224)
 	properties.AnchorPoint = Vector2.new(1, 0)
 	properties.BackgroundColor3 = PANEL_COLOR
@@ -592,6 +633,26 @@ function HudView.notice(self: HudView, message: string)
 	self:log({ `⚠ {message}` })
 end
 
+-- Sends one action, then ignores further clicks until the server answers, so a double-click can't
+-- act twice (e.g. roll again after doubles).
+function HudView.send(self: HudView, action: { [string]: any })
+	local sentAt = self.sentAt
+	if sentAt then
+		local elapsed = os.clock() - sentAt
+		if elapsed < MIN_CLICK_GAP or (not self.answered and elapsed < ACTION_LOCK_SECONDS) then
+			return
+		end
+	end
+	self.sentAt = os.clock()
+	self.answered = false
+	self.callbacks.onAction(action)
+end
+
+-- A server update arrived: clicks count again (once MIN_CLICK_GAP has passed).
+function HudView.unlock(self: HudView)
+	self.answered = true
+end
+
 function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: string)
 	self.snapshot = snapshot
 	self.localId = localId
@@ -610,6 +671,8 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		self.trade = TradeBuilder.new()
 		self.tradeWindow.Visible = false
 		self.offerPanel.Visible = false
+		self.propertiesKey = nil
+		self.tradeKey = nil
 	end
 
 	for _, child in self.playerList:GetChildren() do
@@ -655,7 +718,10 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 	if debtor and not self.wasDebtor then
 		self.propertiesOpen = true -- raising cash happens in the panel
 	end
-	self.wasDebtor = debtor
+	-- A trade made while in debt pauses the debt; it isn't a new one, so don't re-open the panel after it.
+	if snapshot.phase ~= "Trade" then
+		self.wasDebtor = debtor
+	end
 	if snapshot.phase == "GameOver" then
 		self.propertiesOpen = false
 	end
@@ -673,7 +739,7 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 				b.Text = confirm -- first click only arms it; any re-render disarms it
 				return
 			end
-			self.callbacks.onAction(entry.action)
+			self:send(entry.action)
 		end)
 		b.LayoutOrder = order
 		if entry.confirm then
