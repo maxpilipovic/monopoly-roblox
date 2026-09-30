@@ -226,4 +226,14 @@ tests["players who share a display name are told apart"] = function()
 	Expect.equal(table.concat(names, ","), "Sam,Sam (2),Ana,Sam (3)")
 end
 
+tests["isPlayer is true for anyone seated, even after they went bankrupt or left"] = function()
+	local session = GameSession.new(humans(2), 3, GameFixtures.scriptedDice({}))
+	assert(GameSession.isPlayer(session, "h1"), "seated")
+	Engine.getPlayer(session.state, "h1").bankrupt = true
+	assert(GameSession.isPlayer(session, "h1"), "bankrupt")
+	GameSession.replaceWithBot(session, "h2")
+	assert(GameSession.isPlayer(session, "h2"), "replaced by a bot")
+	assert(not GameSession.isPlayer(session, "watcher"), "spectator")
+end
+
 return tests

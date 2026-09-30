@@ -175,4 +175,8 @@ function GameSession.hasHumans(session: Session): boolean
 	return false
 end
 
+function GameSession.isPlayer(session: Session, playerId: string): boolean
+	return Engine.getPlayer(session.state, playerId) ~= nil
+end
+
 return GameSession

@@ -129,6 +129,8 @@ function refreshClock(actedBy: string?)
 			scheduleBots()
 		else
 			warn(`timeout for {actor} in phase {current.state.phase} did nothing`)
+			clock.deadline = nil -- don't leave a dead 0:00 on screen; the next move starts a fresh clock
+			broadcast()
 		end
 	end)
 end
@@ -151,12 +153,13 @@ local function onAction(player: Player, action: any)
 	end
 end
 
-local function onLobbyRequest(_player: Player, request: any)
+local function onLobbyRequest(player: Player, request: any)
 	if typeof(request) ~= "table" then
 		return
 	end
 	if request.type == "ReturnToLobby" then
-		if session and session.state.phase == "GameOver" then
+		-- Only players of the game that ended may cut its results screen short.
+		if session and session.state.phase == "GameOver" and GameSession.isPlayer(session, tostring(player.UserId)) then
 			session = nil
 			broadcast()
 		end
@@ -207,8 +210,9 @@ local function onPlayerRemoving(player: Player)
 		return
 	end
 	GameSession.replaceWithBot(session, playerId)
-	if not GameSession.hasHumans(session) then
-		session = nil -- everyone left: back to the lobby
+	-- Everyone left: back to the lobby. A finished game keeps its results screen for whoever is still watching.
+	if not GameSession.hasHumans(session) and session.state.phase ~= "GameOver" then
+		session = nil
 	end
 	refreshClock(nil)
 	broadcast()
