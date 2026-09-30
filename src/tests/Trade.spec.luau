@@ -222,4 +222,37 @@ tests["garbage offers change nothing"] = function()
 	Expect.equal(#state.events, 1, "only TurnStarted")
 end
 
+tests["a receiver off their turn who can't pay interest owes it, then the turn carries on"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.own(state, "p1", READING)
+	state.properties[READING].mortgaged = true
+	player(state, "p2").money = 5
+	proposed(state, "p1", "p2", side({ READING }), side())
+	act(state, "p2", ACCEPT)
+	Expect.equal(state.phase, "Debt")
+	Expect.equal(Engine.actingPlayer(state), "p2", "the receiver owes $10")
+	player(state, "p2").money = 20
+	act(state, "p2", { type = "PayDebt" })
+	Expect.equal(state.phase, "Roll", "back to p1's turn")
+	Expect.equal(Engine.currentPlayer(state).id, "p1")
+end
+
+tests["interest from a trade made during a debt queues behind that debt"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.own(state, "p1", BOARDWALK)
+	GameFixtures.own(state, "p2", READING)
+	state.properties[READING].mortgaged = true
+	player(state, "p1").money = 0
+	GameFixtures.inDebt(state, "p1", 50)
+	proposed(state, "p1", "p2", side({ BOARDWALK }), side({ READING }, 150)) -- $250 in value for $200
+	act(state, "p2", ACCEPT)
+	Expect.equal(state.phase, "Debt", "back to the debt")
+	Expect.equal(#state.debts, 2, "the $50, then the interest")
+	Expect.equal(state.debts[2].reason, "MortgageInterest")
+	act(state, "p1", { type = "PayDebt" })
+	act(state, "p1", { type = "PayDebt" })
+	Expect.equal(player(state, "p1").money, 90, "$150 - $50 - $10")
+	Expect.equal(state.phase, "Roll", "the turn resumes")
+end
+
 return tests

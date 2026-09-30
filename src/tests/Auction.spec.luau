@@ -116,4 +116,15 @@ tests["bankrupt players are left out of auctions"] = function()
 	Expect.equal(table.concat(started.bidders, ","), "p1,p3", "bidders")
 end
 
+tests["a refused bid or an out-of-turn pass changes nothing"] = function()
+	local state = declinedGame(3)
+	act(state, "p1", bid(20))
+	assert(not Engine.act(state, "p2", bid(15)), "low bid accepted")
+	assert(not Engine.act(state, "p3", PASS), "p3 passed out of turn")
+	Expect.equal(state.auction.highBid, 20, "high bid")
+	Expect.equal(state.auction.highBidder, "p1", "high bidder")
+	Expect.equal(Engine.currentBidder(state), "p2", "still p2")
+	Expect.equal(#state.auction.bidders, 3, "nobody dropped")
+end
+
 return tests

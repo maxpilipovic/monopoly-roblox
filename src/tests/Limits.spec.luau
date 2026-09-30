@@ -126,4 +126,16 @@ tests["marking time up after the game is over changes nothing"] = function()
 	Expect.equal(state.winReason, "RoundLimit")
 end
 
+tests["time running out waits for an auction to finish"] = function()
+	local state = GameFixtures.newGame(2, { { 2, 4 } })
+	act(state, "p1", { type = "Roll" })
+	act(state, "p1", { type = "Decline" })
+	Engine.markTimeUp(state)
+	act(state, "p1", { type = "PassBid" })
+	act(state, "p2", { type = "PassBid" })
+	Expect.equal(state.phase, "EndTurn", "the auction ended, the turn goes on")
+	act(state, "p1", { type = "EndTurn" })
+	Expect.equal(state.phase, "GameOver")
+end
+
 return tests

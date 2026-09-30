@@ -203,4 +203,16 @@ tests["a debt to a player who has since gone bankrupt is paid to the bank"] = fu
 	Expect.equal(paid[#paid].to, nil, "paid to the bank")
 end
 
+tests["a debt after doubles, once paid, gives the extra roll back"] = function()
+	local state = GameFixtures.newGame(2, { { 3, 3 } })
+	GameFixtures.own(state, "p2", 6)
+	player(state, "p1").money = 3
+	act(state, "p1", ROLL)
+	Expect.equal(state.phase, "Debt")
+	player(state, "p1").money = 10
+	act(state, "p1", PAY)
+	Expect.equal(state.phase, "Roll", "doubles: roll again")
+	Expect.equal(Engine.currentPlayer(state).id, "p1")
+end
+
 return tests

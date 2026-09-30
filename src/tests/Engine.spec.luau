@@ -203,4 +203,24 @@ tests["acting player is the current player, or the bidder during an auction"] = 
 	Expect.equal(Engine.actingPlayer(state), nil, "game over")
 end
 
+tests["end turn mid-decision and decline outside one are refused"] = function()
+	local state = GameFixtures.newGame(2, { { 2, 4 } })
+	assert(not Engine.act(state, "p1", { type = "Decline" }), "declined before rolling")
+	act(state, "p1", ROLL)
+	assert(not Engine.act(state, "p1", END_TURN), "ended turn with a purchase pending")
+	Expect.equal(state.phase, "BuyDecision")
+	act(state, "p1", BUY)
+	assert(not Engine.act(state, "p1", { type = "Decline" }), "declined after buying")
+	Expect.equal(state.phase, "EndTurn")
+end
+
+tests["landing on another player's railroad charges railroad rent"] = function()
+	local state = GameFixtures.newGame(2, { { 2, 3 } })
+	GameFixtures.own(state, "p2", 5)
+	GameFixtures.own(state, "p2", 15)
+	act(state, "p1", ROLL)
+	Expect.equal(money(state, "p1"), 1450, "two railroads: $50")
+	Expect.equal(money(state, "p2"), 1550)
+end
+
 return tests
