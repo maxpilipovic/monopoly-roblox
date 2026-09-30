@@ -10,11 +10,16 @@ local GameSession = require(script.Parent.Game.GameSession)
 local Snapshot = require(script.Parent.Game.Snapshot)
 local MatchSettings = require(ReplicatedStorage.Shared.Rules.MatchSettings)
 local TurnClock = require(script.Parent.Game.TurnClock)
+local Throttle = require(script.Parent.Game.Throttle)
 
 local GameService = {}
 
 GameService.BOT_DELAY = 0.8
 GameService.RESULTS_SECONDS = 15
+GameService.REFUSAL_SECONDS = 0.25 -- at most this often per player, so spam can't flood them with snapshots
+GameService.READY_SECONDS = 1
+local refusals = Throttle.new(GameService.REFUSAL_SECONDS)
+local readies = Throttle.new(GameService.READY_SECONDS)
 
 local session: GameSession.Session? = nil
 local updateRemote: RemoteEvent
@@ -130,10 +135,19 @@ end
 
 local function onAction(player: Player, action: any)
 	local playerId = tostring(player.UserId)
-	if session and GameSession.act(session, playerId, action) then
+	if not session then
+		return
+	end
+	local ok, err = GameSession.act(session, playerId, action)
+	if ok then
 		refreshClock(playerId)
 		broadcast()
 		scheduleBots()
+	elseif Throttle.allow(refusals, playerId, os.clock()) then
+		-- Only the sender hears why, with the current state so their HUD unlocks.
+		local update = currentUpdate({})
+		update.notice = err or "that isn't allowed now"
+		updateRemote:FireClient(player, update)
 	end
 end
 
@@ -186,10 +200,13 @@ local function onLobbyRequest(_player: Player, request: any)
 end
 
 local function onPlayerRemoving(player: Player)
+	local playerId = tostring(player.UserId)
+	Throttle.forget(refusals, playerId)
+	Throttle.forget(readies, playerId)
 	if not session then
 		return
 	end
-	GameSession.replaceWithBot(session, tostring(player.UserId))
+	GameSession.replaceWithBot(session, playerId)
 	if not GameSession.hasHumans(session) then
 		session = nil -- everyone left: back to the lobby
 	end
@@ -218,7 +235,9 @@ function GameService.start()
 	lobbyRemote.OnServerEvent:Connect(onLobbyRequest)
 	-- A client that just loaded gets the current state (its log starts empty).
 	readyRemote.OnServerEvent:Connect(function(player)
-		updateRemote:FireClient(player, currentUpdate({}))
+		if Throttle.allow(readies, tostring(player.UserId), os.clock()) then
+			updateRemote:FireClient(player, currentUpdate({}))
+		end
 	end)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 

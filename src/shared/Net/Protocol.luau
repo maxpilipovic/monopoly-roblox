@@ -80,6 +80,7 @@ export type Snapshot = {
 export type Update = {
 	snapshot: Snapshot?, -- nil while no game is running (lobby)
 	events: { { [string]: any } },
+	notice: string?, -- only to a player whose action was refused: why
 }
 
 local Protocol = {}

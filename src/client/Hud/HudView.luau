@@ -587,6 +587,11 @@ function HudView.log(self: HudView, lines: { string })
 	self.logLabel.Text = table.concat(self.logLines, "\n")
 end
 
+-- Why the server refused the local player's last action.
+function HudView.notice(self: HudView, message: string)
+	self:log({ `⚠ {message}` })
+end
+
 function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: string)
 	self.snapshot = snapshot
 	self.localId = localId

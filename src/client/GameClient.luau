@@ -59,6 +59,9 @@ function GameClient.start()
 			end
 			hud:log(lines)
 		end
+		if update.notice then
+			hud:notice(update.notice)
+		end
 		hud:render(update.snapshot, localId)
 	end)
 
