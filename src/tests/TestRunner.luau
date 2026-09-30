@@ -22,6 +22,11 @@ function TestRunner.run(filter: string?): string
 			table.insert(failures, `FAIL {module.Name} (load): {suite}`)
 			continue
 		end
+		if typeof(suite) ~= "table" then
+			failed += 1
+			table.insert(failures, `FAIL {module.Name} (load): returned a {typeof(suite)}, not a table of tests`)
+			continue
+		end
 
 		local names = {}
 		for name in suite do

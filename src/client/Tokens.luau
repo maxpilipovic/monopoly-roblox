@@ -62,12 +62,12 @@ local function hop(token: Token, goal: CFrame)
 		CFrame = token.part.CFrame:Lerp(goal, 0.5) + Vector3.new(0, HOP_HEIGHT, 0),
 	})
 	up:Play()
-	up.Completed:Wait()
+	task.wait(HOP_TIME / 2) -- not Completed:Wait(): a destroyed token's tween may never complete
 	local down = TweenService:Create(token.part, TweenInfo.new(HOP_TIME / 2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 		CFrame = goal,
 	})
 	down:Play()
-	down.Completed:Wait()
+	task.wait(HOP_TIME / 2)
 end
 
 -- The tiles a token hops through to play out a Moved event.
@@ -96,9 +96,12 @@ local function runQueue(token: Token)
 	end
 	token.moving = true
 	task.spawn(function()
-		while #token.queue > 0 do
+		while #token.queue > 0 and token.part.Parent do
 			local move = table.remove(token.queue, 1) :: Move
 			for _, position in Tokens.path(move) do
+				if not token.part.Parent then
+					break -- the token was removed (back to the lobby) mid-move
+				end
 				hop(token, standingCFrame(position, token.seat, move.style == "ToJail"))
 			end
 		end
