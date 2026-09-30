@@ -1,3 +1,5 @@
+Patch-up pass 2026-09-29: triaged in 2026-09-29-patch-up.md (fixed, moved to polish, or dropped with a reason).
+
 Trading (milestone 4 part 3): deferred review minors, from the final review on 2026-09-29.
 
 - a selected deed that becomes untradable (built while window open) can't be deselected — allow toggle when row.selected

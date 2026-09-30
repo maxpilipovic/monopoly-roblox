@@ -1,3 +1,5 @@
+Patch-up pass 2026-09-29: triaged in 2026-09-29-patch-up.md (fixed, moved to polish, or dropped with a reason).
+
 Speed options (milestone 5): deferred review minors, from the final review on 2026-09-29.
 
 - a timeout that does nothing leaves a dead clock showing 0:00 (no phase triggers it today) — clear the deadline and broadcast, or retry

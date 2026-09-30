@@ -1,3 +1,5 @@
+Patch-up pass 2026-09-29: triaged in 2026-09-29-patch-up.md (fixed, moved to polish, or dropped with a reason).
+
 Setup: Ruling: work on branch feat/board-and-camera in the main checkout instead of a separate worktree — rojo serve syncs C:\dev\Monopoly into Studio, and the tests run in Studio — cost if wrong: none; branch still isolates from main.
 Setup: Ruling: task-done script can't run the tests (they run in Studio via MCP execute_luau); ledger lines are written by hand with the MCP runner output — cost if wrong: none.
 Task 1: Ruling: RED failure message was "Requested module experienced an error while loading" rather than naming the missing Board.Tiles — Roblox wraps errors from nested requires; the cause (Board folder empty) was confirmed via the game tree — cost if wrong: none.

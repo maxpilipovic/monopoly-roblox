@@ -1,3 +1,5 @@
+Patch-up pass 2026-09-29: triaged in 2026-09-29-patch-up.md (fixed, moved to polish, or dropped with a reason).
+
 Task 5: Ruling: added ':: { any }' casts on mixed-type test tables in EventText.spec for strict mode — no behavior change — cost if wrong: none.
 Task 6: Ruling: playtest showed an empty world — StreamingEnabled with no characters streamed nothing. Added Board.ModelStreamingMode = Persistent (test "board always streams to every client" RED→GREEN) and player.ReplicationFocus = Board.Center in GameService (verified in playtest: 185 board parts on client) — cost if wrong: parts far from the board (none yet) wouldn't stream.
 Task 6: Ruling: visual fixes found in playtest, no unit test (layout-only): log label placeholder "Label" cleared; player list widened to 300px with truncation so the money column shows — cost if wrong: cosmetic.

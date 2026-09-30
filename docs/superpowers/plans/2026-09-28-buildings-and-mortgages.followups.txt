@@ -1,3 +1,5 @@
+Patch-up pass 2026-09-29: triaged in 2026-09-29-patch-up.md (fixed, moved to polish, or dropped with a reason).
+
 Setup: Ruling: work on branch feat/buildings-and-mortgages in the main checkout (Rojo syncs it into Studio, where tests run) — cost if wrong: none.
 Setup: Ruling: tests run in Studio via MCP; runner output saved to <workspace>/studio-tests.txt right before task-done, which checks it for ", 0 failed"; each run preceded by a Rojo sync check — cost if wrong: a stale file; overwritten every task.
 Task 1: Ruling: plan's refused(ok, reason, expected, label) helper was called as refused(rules.canX(...), expected, label) — a call mid-argument-list keeps only its first result, so every argument shifted; reordered to refused(label, expected, rules.canX(...)) — the implementation was already correct (failures showed the right reasons) — cost if wrong: none.

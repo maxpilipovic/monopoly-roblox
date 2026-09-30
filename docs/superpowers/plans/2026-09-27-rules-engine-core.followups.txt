@@ -1,3 +1,5 @@
+Patch-up pass 2026-09-29: triaged in 2026-09-29-patch-up.md (fixed, moved to polish, or dropped with a reason).
+
 Task 1: Ruling: rojo serve had stopped; restarted it from this session (background) and user reconnected — cost if wrong: sync stops when the session ends.
 Task 2: Ruling: malformed-actions test calls act(nil) explicitly — a nil inside the plan's table literal would never be iterated, so nil was untested — cost if wrong: none.
 Final: Ruling: Important "events don't record phase changes" — not fixed in engine; the networking contract (playable-in-studio plan) sends events + a full snapshot including phase every update — cost if wrong: an events-only consumer would need PhaseChanged later.

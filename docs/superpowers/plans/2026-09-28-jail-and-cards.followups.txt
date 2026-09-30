@@ -1,3 +1,5 @@
+Patch-up pass 2026-09-29: triaged in 2026-09-29-patch-up.md (fixed, moved to polish, or dropped with a reason).
+
 Setup: Ruling: work on branch feat/jail-and-cards in the main checkout, no worktree — Rojo serves this directory into Studio, where the tests run — cost if wrong: none (branch isolates the work).
 Setup: Ruling: tests run in Studio via MCP; the runner's output is saved to <workspace>/studio-tests.txt and task-done checks that file for ", 0 failed" — the suite cannot run from a shell — cost if wrong: a stale file could be re-checked; each task overwrites it right before task-done.
 Task 3: Ruling: Studio twice missed a Rojo patch (edits made just before/around a playtest toggle); verified each edited file's last change in the Edit DM before running, and forced a resync with a no-op content change — cost if wrong: a stale test run; each run is now preceded by a sync check.
