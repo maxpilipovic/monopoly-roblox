@@ -209,4 +209,21 @@ tests["sessions keep their settings and take the round limit from them"] = funct
 	Expect.equal(plain.state.timeUp, true)
 end
 
+tests["a timeout never plays for a bot seat"] = function()
+	local session = GameSession.new(humans(1), 2, GameFixtures.scriptedDice({}))
+	session.state.currentIndex = 2 -- bot1's turn
+	assert(not GameSession.timeout(session, "bot1"), "timed out a bot")
+	Expect.equal(session.state.phase, "Roll", "nothing played")
+end
+
+tests["players who share a display name are told apart"] = function()
+	local list = { { id = "h1", name = "Sam" }, { id = "h2", name = "Sam" }, { id = "h3", name = "Ana" }, { id = "h4", name = "Sam" } }
+	local session = GameSession.new(list, 4, GameFixtures.scriptedDice({}))
+	local names = {}
+	for _, player in session.state.players do
+		table.insert(names, player.name)
+	end
+	Expect.equal(table.concat(names, ","), "Sam,Sam (2),Ana,Sam (3)")
+end
+
 return tests

@@ -278,4 +278,18 @@ tests["a bot accepts gifts"] = function()
 	Expect.equal(botAnswer(state, side(nil, 10), side()), "AcceptTrade")
 end
 
+tests["a bot turns down mortgaged deeds whose interest it couldn't pay"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.own(state, "p1", 5) -- Reading: $10 interest on receipt
+	state.properties[5].mortgaged = true
+	Engine.getPlayer(state, "p2").money = 9
+	Expect.equal(botAnswer(state, side({ 5 }), side()), "DeclineTrade", "$9 can't cover $10")
+	Engine.act(state, "p2", { type = "DeclineTrade" })
+	Engine.getPlayer(state, "p2").money = 10
+	Expect.equal(botAnswer(state, side({ 5 }), side()), "AcceptTrade", "$10 covers it")
+	Engine.act(state, "p2", { type = "DeclineTrade" })
+	Engine.getPlayer(state, "p2").money = 0
+	Expect.equal(botAnswer(state, side({ 5 }, 10), side()), "AcceptTrade", "cash in the deal covers it")
+end
+
 return tests

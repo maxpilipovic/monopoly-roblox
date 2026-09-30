@@ -97,6 +97,17 @@ local function deedValue(state: Types.GameState, position: number): number
 end
 
 -- A deal is worth taking when what the bot gets is at least TRADE_MARGIN_TENTHS/10 of what it gives.
+-- Interest owed to the bank the moment mortgaged deeds change hands.
+local function interestDue(state: Types.GameState, positions: { number }): number
+	local total = 0
+	for _, position in positions do
+		if state.properties[position].mortgaged then
+			total += PropertyRules.unmortgageCost(position) - PropertyRules.mortgageValue(position)
+		end
+	end
+	return total
+end
+
 local function acceptsTrade(state: Types.GameState, me: Types.Player, trade: Types.PendingTrade): boolean
 	local offer = trade.offer
 	local received = offer.give.cash + offer.give.jailCards * Bot.JAIL_CARD_VALUE
@@ -108,6 +119,10 @@ local function acceptsTrade(state: Types.GameState, me: Types.Player, trade: Typ
 	for _, position in offer.get.properties do
 		local worth = deedValue(state, position)
 		given += if completesSet(state, trade.from, position, offer.get.properties, offer.give.properties) then 2 * worth else worth
+	end
+	-- Never take on interest it couldn't pay straight away (that would put it in debt).
+	if me.money + offer.give.cash - offer.get.cash < interestDue(state, offer.give.properties) then
+		return false
 	end
 	if given == 0 then
 		return true

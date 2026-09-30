@@ -38,8 +38,12 @@ function GameSession.new(
 	seats = math.clamp(math.floor(seats), math.max(playing, Engine.MIN_PLAYERS), Engine.MAX_PLAYERS)
 
 	local infos = {}
+	local nameCounts = {} -- players who share a display name become "Sam", "Sam (2)", ...
 	for i = 1, playing do
-		table.insert(infos, { id = humans[i].id, name = humans[i].name, isBot = false })
+		local base = humans[i].name
+		nameCounts[base] = (nameCounts[base] or 0) + 1
+		local name = if nameCounts[base] > 1 then `{base} ({nameCounts[base]})` else base
+		table.insert(infos, { id = humans[i].id, name = name, isBot = false })
 	end
 	local botNumber = 0
 	while #infos < seats do
@@ -125,7 +129,8 @@ end
 -- player doesn't cost everyone a full timer per mortgage; anywhere else it's one move.
 function GameSession.timeout(session: Session, playerId: string): boolean
 	local state = session.state
-	if Engine.actingPlayer(state) ~= playerId then
+	local player = Engine.getPlayer(state, playerId)
+	if not player or player.isBot or Engine.actingPlayer(state) ~= playerId then
 		return false
 	end
 	local inDebt = state.phase == "Debt"
