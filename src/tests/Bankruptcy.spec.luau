@@ -227,4 +227,35 @@ tests["a bot going bankrupt doesn't end the game while a human plays on"] = func
 	Expect.equal(Engine.currentPlayer(state).id, "p2")
 end
 
+tests["players who still owe money sit out a bankrupt player's auctions"] = function()
+	local state = owesTax(3)
+	GameFixtures.own(state, "p1", 1)
+	act(state, "p1", ROLL)
+	table.insert(state.debts, { debtor = "p3", creditor = nil, amount = 500, reason = "Card" })
+	act(state, "p1", BANKRUPT)
+	Expect.equal(state.phase, "Auction")
+	Expect.equal(table.concat(state.auction.bidders, ","), "p2", "p3 owes money")
+	act(state, "p2", { type = "PassBid" })
+	Expect.equal(state.properties[1], nil, "stays with the bank")
+	Expect.equal(state.phase, "Debt", "then p3's debt")
+	Expect.equal(Engine.actingPlayer(state), "p3")
+end
+
+-- Three players so the game goes on after p1's bankruptcy (with two, the last human going out ends it).
+tests["a bankruptcy auction nobody can bid in leaves the deed with the bank"] = function()
+	local state = owesTax(3)
+	GameFixtures.own(state, "p1", 1)
+	GameFixtures.own(state, "p1", 3)
+	act(state, "p1", ROLL)
+	table.insert(state.debts, { debtor = "p2", creditor = nil, amount = 500, reason = "Card" })
+	table.insert(state.debts, { debtor = "p3", creditor = nil, amount = 500, reason = "Card" })
+	act(state, "p1", BANKRUPT)
+	Expect.equal(state.auction, nil, "no auction waits on nobody")
+	Expect.equal(state.properties[1], nil, "Mediterranean stays with the bank")
+	Expect.equal(state.properties[3], nil, "Baltic stays with the bank")
+	Expect.equal(#GameFixtures.eventsOfType(state, "AuctionEnded"), 2, "each deed is settled")
+	Expect.equal(state.phase, "Debt", "on to the queued debts")
+	Expect.equal(Engine.actingPlayer(state), "p2")
+end
+
 return tests

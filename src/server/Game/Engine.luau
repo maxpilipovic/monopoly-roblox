@@ -188,7 +188,8 @@ end
 
 local function drawCard(state: GameState, player: Player, deck: string)
 	local cards = state.decks[deck]
-	local id = table.remove(cards, 1) :: string
+	local id = table.remove(cards, 1)
+	assert(id, `the {deck} deck is empty`) -- jail cards leave the deck, but never all 16
 	emit(state, { type = "CardDrawn", player = player.id, deck = deck, card = id })
 	local card = Cards.byId[id]
 	if card.effect.kind == "JailFree" then
@@ -402,13 +403,24 @@ function Engine.markTimeUp(state: GameState)
 end
 
 local function startAuction(state: GameState, position: number, fromBankruptcy: boolean?)
-	-- Everyone still in the game bids, starting with the player who declined.
+	-- Everyone still in the game bids, starting with the player who declined. A bankrupt player's
+	-- deeds are sold before the other debts are settled, so players who still owe money sit those out.
 	local bidders = {}
 	for offset = 0, #state.players - 1 do
 		local player = state.players[(state.currentIndex - 1 + offset) % #state.players + 1]
-		if not player.bankrupt then
+		if not player.bankrupt and not (fromBankruptcy and hasDebt(state, player.id)) then
 			table.insert(bidders, player.id)
 		end
+	end
+	if #bidders == 0 then
+		-- Nobody can bid: the deed stays with the bank.
+		emit(state, { type = "AuctionEnded", position = position, winner = nil, amount = 0 })
+		if fromBankruptcy then
+			resume(state)
+		else
+			finishMove(state)
+		end
+		return
 	end
 	state.auction = { position = position, highBid = 0, highBidder = nil, bidders = bidders, nextBidder = 1, fromBankruptcy = fromBankruptcy == true }
 	state.phase = "Auction"
