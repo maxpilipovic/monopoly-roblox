@@ -158,7 +158,8 @@ end
 
 function GameSession.replaceWithBot(session: Session, playerId: string)
 	local player = Engine.getPlayer(session.state, playerId)
-	if not player or player.isBot then
+	-- A finished game's results stay as they ended, even if its players leave.
+	if not player or player.isBot or session.state.phase == "GameOver" then
 		return
 	end
 	player.isBot = true

@@ -376,8 +376,8 @@ local function renderTrade(self: HudView, snapshot: Protocol.Snapshot, localId: 
 	hint.Text = if ok then "" else reason or ""
 	local send = button("Send offer", footer, function()
 		local current = self.snapshot
-		if current and TradeBuilder.check(current, localId, builder) then
-			self:send({ type = "ProposeTrade", offer = TradeBuilder.offer(builder) })
+		-- A swallowed click keeps the window and the offer, so nothing is lost.
+		if current and TradeBuilder.check(current, localId, builder) and self:send({ type = "ProposeTrade", offer = TradeBuilder.offer(builder) }) then
 			self.tradeOpen = false
 			self.trade = TradeBuilder.new()
 			rerender()
@@ -635,17 +635,19 @@ end
 
 -- Sends one action, then ignores further clicks until the server answers, so a double-click can't
 -- act twice (e.g. roll again after doubles).
-function HudView.send(self: HudView, action: { [string]: any })
+-- Returns whether it went out.
+function HudView.send(self: HudView, action: { [string]: any }): boolean
 	local sentAt = self.sentAt
 	if sentAt then
 		local elapsed = os.clock() - sentAt
 		if elapsed < MIN_CLICK_GAP or (not self.answered and elapsed < ACTION_LOCK_SECONDS) then
-			return
+			return false
 		end
 	end
 	self.sentAt = os.clock()
 	self.answered = false
 	self.callbacks.onAction(action)
+	return true
 end
 
 -- A server update arrived: clicks count again (once MIN_CLICK_GAP has passed).

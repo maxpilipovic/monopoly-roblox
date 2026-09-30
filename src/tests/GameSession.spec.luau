@@ -236,4 +236,16 @@ tests["isPlayer is true for anyone seated, even after they went bankrupt or left
 	assert(not GameSession.isPlayer(session, "watcher"), "spectator")
 end
 
+tests["leaving after the game is over leaves the results as they were"] = function()
+	local session = GameSession.new(humans(2), 2, GameFixtures.scriptedDice({}))
+	session.state.phase = "GameOver"
+	session.state.winner = "h1"
+	local events = #session.state.events
+	GameSession.replaceWithBot(session, "h1")
+	local h1 = Engine.getPlayer(session.state, "h1") :: any
+	Expect.equal(h1.name, "Human 1", "winner keeps their name")
+	assert(not h1.isBot, "no bot takes a finished seat")
+	Expect.equal(#session.state.events, events, "no PlayerReplaced line")
+end
+
 return tests

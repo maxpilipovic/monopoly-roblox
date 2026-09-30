@@ -375,4 +375,12 @@ tests["build buttons disappear when the bank is out of houses"] = function()
 	Expect.equal(rowLabels(rows[1]), "Mortgage +$30", "no +🏠")
 end
 
+tests["someone watching a bot-held seat is told what a spectator is told"] = function()
+	local state = GameFixtures.newGame(2)
+	local p1 = Engine.getPlayer(state, "p1") :: any
+	p1.isBot = true
+	local snapshot = Snapshot.fromState(state)
+	Expect.equal(HudModel.status(snapshot, "p1"), HudModel.status(snapshot, "watcher"), "not \"Your turn\"")
+end
+
 return tests

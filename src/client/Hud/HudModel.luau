@@ -109,6 +109,9 @@ function HudModel.status(snapshot: Protocol.Snapshot, localId: string): string
 		local prefix = EventText.WIN_PREFIX[snapshot.winReason or ""] or ""
 		return `{prefix}{if winner then names[winner] or winner else "Nobody"} wins!`
 	end
+	if not seated(snapshot, localId) then
+		localId = "" -- a bot holds their seat (or they never had one): they watch like any spectator
+	end
 	local debt = snapshot.debt
 	if snapshot.phase == "Debt" and debt then
 		if debt.debtor == localId then

@@ -1,0 +1,9 @@
+Patch-up pass (feat/patch-up) — deferred minors from the final review, 2026-09-30.
+
+- Name suffixes can still collide: a human literally named "Sam (2)" plus two "Sam"s gives two "Sam (2)"; a human named "Bot 1" matches a bot. Fix: check against names already taken. (GameSession.new)
+- Bot.luau: the "A deal is worth taking…" comment now sits above interestDue instead of acceptsTrade.
+- An empty bankruptcy auction logs only "Nobody bought X" — no line saying why nobody could bid.
+- Any update unlocks the click lock, not only the answer to your own action; MIN_CLICK_GAP covers the double-click case, so this is noted only.
+- MIN_CLICK_GAP (0.35 s) drops a second row action clicked sooner than that (e.g. mortgaging two deeds fast in Debt) with no notice.
+- Not verified by playtest (no second client over MCP): winner leaving at the results screen (Task 7), debt-trade panel re-open, deselecting a deed that became untradable, spectator Properties text (Task 9 steps 4, 5, 7).
+- Declined to judge by the reviewer: a bankrupt human watching is sent to the lobby when the last solvent human leaves (hasHumans ignores bankrupt humans); a timeout that does nothing leaves the actor untimed until the next move; the bot interest check ignores the bot's queued debts.
