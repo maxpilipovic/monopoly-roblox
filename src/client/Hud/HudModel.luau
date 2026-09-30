@@ -17,6 +17,7 @@ local HudModel = {}
 
 HudModel.BID_STEPS = { 10, 50, 100 }
 HudModel.JAIL_FINE = 50 -- mirrors Engine.JAIL_FINE (server-only)
+HudModel.JAIL_MAX_ATTEMPTS = 3 -- mirrors Engine.JAIL_MAX_ATTEMPTS (server-only)
 
 function HudModel.names(snapshot: Protocol.Snapshot): { [string]: string }
 	local names = {}
@@ -35,17 +36,10 @@ local function findPlayer(snapshot: Protocol.Snapshot, id: string): Protocol.Pla
 	return nil
 end
 
-local function actingPlayer(snapshot: Protocol.Snapshot): string?
-	if snapshot.phase == "GameOver" then
-		return nil
-	elseif snapshot.phase == "Debt" and snapshot.debt then
-		return snapshot.debt.debtor
-	elseif snapshot.phase == "Trade" and snapshot.trade then
-		return snapshot.trade.to
-	elseif snapshot.auction then
-		return snapshot.auction.currentBidder
-	end
-	return snapshot.currentPlayer
+-- The local player's seat, unless they're watching: not in the game, or a bot took their seat after they left.
+local function seated(snapshot: Protocol.Snapshot, localId: string): Protocol.PlayerView?
+	local me = findPlayer(snapshot, localId)
+	return if me and not me.isBot then me else nil
 end
 
 function HudModel.isDebtor(snapshot: Protocol.Snapshot, localId: string): boolean
@@ -53,8 +47,8 @@ function HudModel.isDebtor(snapshot: Protocol.Snapshot, localId: string): boolea
 end
 
 function HudModel.buttons(snapshot: Protocol.Snapshot, localId: string): { Button }
-	local me = findPlayer(snapshot, localId)
-	if not me or actingPlayer(snapshot) ~= localId then
+	local me = seated(snapshot, localId)
+	if not me or snapshot.acting ~= localId then
 		return {}
 	end
 
@@ -135,14 +129,18 @@ function HudModel.status(snapshot: Protocol.Snapshot, localId: string): string
 	local auction = snapshot.auction
 	if auction then
 		local tile = Tiles.at(auction.position).name
+		local yours = if auction.currentBidder == localId then " · your bid" else ""
 		if auction.highBidder then
-			return `Auction: {tile} — high bid ${auction.highBid} ({names[auction.highBidder]})`
+			return `Auction: {tile} — high bid ${auction.highBid} ({names[auction.highBidder]}){yours}`
 		end
-		return `Auction: {tile} — no bids yet`
+		return `Auction: {tile} — no bids yet{yours}`
 	end
 	if snapshot.currentPlayer == localId then
 		local me = findPlayer(snapshot, localId)
 		if me and me.inJail and snapshot.phase == "Roll" then
+			if me.jailAttempts >= HudModel.JAIL_MAX_ATTEMPTS - 1 then
+				return `Your turn — last try in jail: miss and you pay ${HudModel.JAIL_FINE}`
+			end
 			return "Your turn — you're in jail"
 		end
 		return "Your turn"
@@ -169,6 +167,9 @@ end
 -- The speed options in play, e.g. "Fast · Round 7 of 25" or "Relaxed · 23:10 left".
 function HudModel.matchLine(snapshot: Protocol.Snapshot, now: number): string?
 	local match = snapshot.match
+	if snapshot.phase == "GameOver" then
+		return nil -- the results screen says how it ended
+	end
 	local parts = {}
 	if match.timer ~= "Off" then
 		table.insert(parts, match.timer)
@@ -184,7 +185,7 @@ end
 
 function HudModel.canTrade(snapshot: Protocol.Snapshot, localId: string): boolean
 	local phase = snapshot.phase
-	if actingPlayer(snapshot) ~= localId or snapshot.tradeOffersLeft <= 0 then
+	if not seated(snapshot, localId) or snapshot.acting ~= localId or snapshot.tradeOffersLeft <= 0 then
 		return false
 	elseif phase ~= "Roll" and phase ~= "EndTurn" and phase ~= "Debt" then
 		return false
@@ -228,7 +229,7 @@ end
 
 -- The local player's deeds with the property actions they may take right now.
 function HudModel.propertyRows(snapshot: Protocol.Snapshot, localId: string): { PropertyRow }
-	local me = findPlayer(snapshot, localId)
+	local me = seated(snapshot, localId)
 	if not me then
 		return {}
 	end
@@ -293,6 +294,11 @@ function HudModel.propertyRows(snapshot: Protocol.Snapshot, localId: string): { 
 		return a.position < b.position
 	end)
 	return rows
+end
+
+-- What the Properties panel says when it has no rows.
+function HudModel.noPropertiesText(snapshot: Protocol.Snapshot, localId: string): string
+	return if seated(snapshot, localId) then "You don't own any property yet" else "You're not playing in this game"
 end
 
 -- The Properties toggle gives way during auctions, when the bid buttons need the whole bar

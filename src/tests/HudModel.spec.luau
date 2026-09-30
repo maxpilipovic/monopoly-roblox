@@ -326,4 +326,53 @@ tests["the results title says how the game ended"] = function()
 	Expect.equal(HudModel.status(Snapshot.fromState(state), "p1"), "Player 2 wins!")
 end
 
+tests["a player whose seat a bot took gets no buttons, rows or trade"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.own(state, "p1", 1)
+	local p1 = Engine.getPlayer(state, "p1") :: any
+	local snapshot = Snapshot.fromState(state)
+	Expect.equal(HudModel.noPropertiesText(snapshot, "p2"), "You don't own any property yet", "a player")
+	p1.isBot = true
+	snapshot = Snapshot.fromState(state)
+	Expect.equal(#HudModel.buttons(snapshot, "p1"), 0, "buttons")
+	Expect.equal(#HudModel.propertyRows(snapshot, "p1"), 0, "rows")
+	assert(not HudModel.canTrade(snapshot, "p1"), "trade")
+	Expect.equal(HudModel.noPropertiesText(snapshot, "p1"), "You're not playing in this game", "bot seat")
+	Expect.equal(HudModel.noPropertiesText(snapshot, "watcher"), "You're not playing in this game", "spectator")
+end
+
+tests["status tells you when it's your bid and when it's your last try in jail"] = function()
+	local state = GameFixtures.newGame(2, { { 2, 4 } })
+	Engine.act(state, "p1", { type = "Roll" })
+	Engine.act(state, "p1", { type = "Decline" })
+	local snapshot = Snapshot.fromState(state)
+	Expect.equal(HudModel.status(snapshot, "p1"), "Auction: Oriental Avenue — no bids yet · your bid", "bidder")
+	Expect.equal(HudModel.status(snapshot, "p2"), "Auction: Oriental Avenue — no bids yet", "waiting")
+
+	local jailed = GameFixtures.newGame(2)
+	local p1 = Engine.getPlayer(jailed, "p1") :: any
+	p1.inJail = true
+	p1.jailAttempts = 1
+	Expect.equal(HudModel.status(Snapshot.fromState(jailed), "p1"), "Your turn — you're in jail", "second try")
+	p1.jailAttempts = 2
+	Expect.equal(HudModel.status(Snapshot.fromState(jailed), "p1"), "Your turn — last try in jail: miss and you pay $50", "third try")
+	Expect.equal(HudModel.JAIL_MAX_ATTEMPTS, Engine.JAIL_MAX_ATTEMPTS, "mirrors the engine")
+end
+
+tests["the match line is gone once the game is over"] = function()
+	local state = GameFixtures.newGame(2)
+	state.phase = "GameOver"
+	state.winner = "p1"
+	Expect.equal(HudModel.matchLine(Snapshot.fromState(state, { timer = "Fast", length = "Minutes30", endsAt = 50 }), 0), nil)
+end
+
+tests["build buttons disappear when the bank is out of houses"] = function()
+	local state = GameFixtures.newGame(2)
+	GameFixtures.own(state, "p1", 1)
+	GameFixtures.own(state, "p1", 3)
+	state.bankHouses = 0
+	local rows = HudModel.propertyRows(Snapshot.fromState(state), "p1")
+	Expect.equal(rowLabels(rows[1]), "Mortgage +$30", "no +🏠")
+end
+
 return tests
