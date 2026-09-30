@@ -10,9 +10,9 @@ local PARK_PLACE, BOARDWALK, READING, ELECTRIC = 37, 39, 5, 12
 
 local function parties(): { [string]: TradeRules.Party }
 	return {
-		p1 = { id = "p1", name = "Player 1", money = 500, jailCards = 1, bankrupt = false },
-		p2 = { id = "p2", name = "Player 2", money = 300, jailCards = 0, bankrupt = false },
-		p3 = { id = "p3", name = "Player 3", money = 1500, jailCards = 0, bankrupt = true },
+		p1 = { id = "p1", name = "Player 1", money = 500, jailCards = 1, bankrupt = false, inDebt = false },
+		p2 = { id = "p2", name = "Player 2", money = 300, jailCards = 0, bankrupt = false, inDebt = false },
+		p3 = { id = "p3", name = "Player 3", money = 1500, jailCards = 0, bankrupt = true, inDebt = false },
 	}
 end
 
@@ -30,8 +30,12 @@ local function board()
 	return state
 end
 
-local function check(state, offer: any, expected: string?, label: string)
-	local ok, err = TradeRules.validate(state, parties(), "p1", offer)
+local function check(state, offer: any, expected: string?, label: string, debtor: string?)
+	local all = parties()
+	if debtor then
+		all[debtor].inDebt = true
+	end
+	local ok, err = TradeRules.validate(state, all, "p1", offer)
 	if expected then
 		assert(not ok, `{label}: accepted`)
 		Expect.equal(err, expected, label)
@@ -81,6 +85,36 @@ tests["cash and jail cards are limited to what each side has"] = function()
 	check(state, { to = "p2", give = side(), get = side(nil, 301) }, "Player 2 doesn't have that much cash", "get cash")
 	check(state, { to = "p2", give = side(nil, 0, 2), get = side() }, "you don't have that many jail cards", "give cards")
 	check(state, { to = "p2", give = side(nil, 10), get = side(nil, 0, 1) }, "Player 2 doesn't have that many jail cards", "get cards")
+end
+
+tests["deeds are worth their mortgage value, mortgaged or not, and jail cards $50"] = function()
+	local state = board()
+	Expect.equal(TradeRules.value(side({ PARK_PLACE, READING }, 20, 1)), 175 + 100 + 20 + 50)
+	state.properties[PARK_PLACE].mortgaged = true
+	Expect.equal(TradeRules.value(side({ PARK_PLACE })), 175, "mortgaged")
+	Expect.equal(TradeRules.value(side()), 0, "empty")
+end
+
+tests["a player in debt can't give away more value than they get"] = function()
+	local state = board()
+	local atLeast = "while in debt you must get at least $175 in value"
+	check(state, { to = "p2", give = side({ PARK_PLACE }), get = side() }, atLeast, "gift a deed", "p1")
+	check(state, { to = "p2", give = side({ PARK_PLACE }), get = side(nil, 174) }, atLeast, "cheap sale", "p1")
+	check(state, { to = "p2", give = side(nil, 10), get = side() }, "while in debt you must get at least $10 in value", "gift cash", "p1")
+	check(state, { to = "p2", give = side({ PARK_PLACE }), get = side(nil, 175) }, nil, "sale at mortgage value", "p1")
+	check(state, { to = "p2", give = side({ PARK_PLACE }), get = side({ BOARDWALK }) }, nil, "swap up", "p1")
+	check(state, { to = "p2", give = side(), get = side(nil, 50) }, nil, "a gift to the debtor", "p1")
+end
+
+tests["a receiver in debt must get at least what they give"] = function()
+	local state = board()
+	check(state, { to = "p2", give = side(nil, 100), get = side({ BOARDWALK }) }, "Player 2 is in debt and must get at least $200 in value", "cheap buy", "p2")
+	check(state, { to = "p2", give = side(nil, 0, 1), get = side(nil, 51) }, "Player 2 is in debt and must get at least $51 in value", "overpaid card", "p2")
+	check(state, { to = "p2", give = side(nil, 200), get = side({ BOARDWALK }) }, nil, "fair buy", "p2")
+end
+
+tests["players not in debt can trade at any price"] = function()
+	check(board(), { to = "p2", give = side({ PARK_PLACE }), get = side() }, nil, "gift")
 end
 
 tests["malformed offers are refused"] = function()

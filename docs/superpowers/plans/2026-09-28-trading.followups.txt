@@ -6,7 +6,6 @@ Trading (milestone 4 part 3): deferred review minors, from the final review on 2
 - Properties panel re-opens after each trade made from Debt (wasDebtor flips during Trade)
 - no test for a non-current receiver owing interest, or interest created while returnPhase is Debt (code handles both)
 - bots accept gifts of mortgaged deeds whose interest pushes them into debt
-- a debtor can give everything to another player before going bankrupt (design question for the user)
 - mortgage interest paid right after a trade isn't shown in the log
 - a human receiver can stall the proposer's turn; no withdraw — milestone 5 timer should default Trade to DeclineTrade
 - Protocol comment for tradeOffersLeft should say "the acting player's"

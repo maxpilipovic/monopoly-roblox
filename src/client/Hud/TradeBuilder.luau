@@ -98,6 +98,8 @@ function TradeBuilder.check(snapshot: Protocol.Snapshot, localId: string, builde
 	if not builder.partner then
 		return false, "pick a player"
 	end
+	-- The snapshot only shows the open debt; the server also checks debts still waiting in the queue.
+	local debtor = if snapshot.debt then snapshot.debt.debtor else nil
 	local parties = {}
 	for _, player in snapshot.players do
 		parties[player.id] = {
@@ -106,6 +108,7 @@ function TradeBuilder.check(snapshot: Protocol.Snapshot, localId: string, builde
 			money = player.money,
 			jailCards = player.jailCards,
 			bankrupt = player.bankrupt,
+			inDebt = player.id == debtor,
 		}
 	end
 	return TradeRules.validate(HudModel.rulesView(snapshot), parties, localId, TradeBuilder.offer(builder))

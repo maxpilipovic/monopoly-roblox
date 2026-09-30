@@ -24,11 +24,13 @@ export type Party = {
 	money: number,
 	jailCards: number,
 	bankrupt: boolean,
+	inDebt: boolean,
 }
 
 local TradeRules = {}
 
 local PURCHASABLE = { Property = true, Railroad = true, Utility = true }
+local JAIL_CARD_VALUE = 50
 
 -- Whole, finite and not negative. NaN fails `x == x`; infinity fails `x % 1 == 0` (inf % 1 is NaN).
 local function isCount(value: any): boolean
@@ -128,7 +130,25 @@ function TradeRules.validate(
 	elseif get.jailCards > to.jailCards then
 		return false, `{to.name} doesn't have that many jail cards`
 	end
+
+	-- Someone in debt can't hand their assets to another player on the way out.
+	local giveValue, getValue = TradeRules.value(give), TradeRules.value(get)
+	if from.inDebt and getValue < giveValue then
+		return false, `while in debt you must get at least ${giveValue} in value`
+	elseif to.inDebt and giveValue < getValue then
+		return false, `{to.name} is in debt and must get at least ${getValue} in value`
+	end
 	return true
+end
+
+-- What a side is worth for the debt check: cash at face value, each deed at its mortgage value
+-- (what the bank would give for it, mortgaged or not), each jail card $50.
+function TradeRules.value(side: Side): number
+	local total = side.cash + side.jailCards * JAIL_CARD_VALUE
+	for _, position in side.properties do
+		total += PropertyRules.mortgageValue(position)
+	end
+	return total
 end
 
 local function copySide(side: Side): Side

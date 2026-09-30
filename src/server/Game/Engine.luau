@@ -645,6 +645,7 @@ function Engine.tradeParties(state: GameState): { [string]: TradeRules.Party }
 			money = player.money,
 			jailCards = #player.jailCards,
 			bankrupt = player.bankrupt,
+			inDebt = hasDebt(state, player.id),
 		}
 	end
 	return parties

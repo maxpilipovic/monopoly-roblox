@@ -78,6 +78,17 @@ tests["check uses the trade rules, and a new partner clears the offer"] = functi
 	Expect.equal(builder.give.cash, 0, "cash cleared")
 end
 
+tests["check knows the player paying the open debt is in debt"] = function()
+	local state = game()
+	GameFixtures.inDebt(state, "p1", 1000)
+	local builder = TradeBuilder.new()
+	TradeBuilder.setPartner(builder, "p2")
+	TradeBuilder.toggle(builder, "give", 5)
+	local ok, err = TradeBuilder.check(Snapshot.fromState(state), "p1", builder)
+	assert(not ok, "debtor gift accepted")
+	Expect.equal(err, "while in debt you must get at least $100 in value")
+end
+
 tests["deed rows say which deeds are mortgaged"] = function()
 	local state = game()
 	state.properties[5].mortgaged = true

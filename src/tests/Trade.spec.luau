@@ -122,6 +122,26 @@ tests["a debtor can trade for cash and then pay"] = function()
 	Expect.equal(state.phase, "EndTurn")
 end
 
+tests["a debtor can't hand their deeds to another player"] = function()
+	local state = GameFixtures.newGame(3)
+	GameFixtures.own(state, "p1", BOARDWALK)
+	GameFixtures.inDebt(state, "p1", 1000)
+	local ok, err = propose(state, "p1", "p2", side({ BOARDWALK }), side())
+	assert(not ok, "gift accepted")
+	Expect.equal(err, "while in debt you must get at least $200 in value")
+	Expect.equal(state.phase, "Debt", "still in debt")
+end
+
+tests["a player with a queued debt can't sell cheap either"] = function()
+	local state = GameFixtures.newGame(3)
+	GameFixtures.own(state, "p2", BOARDWALK)
+	GameFixtures.inDebt(state, "p1", 1000)
+	table.insert(state.debts, { debtor = "p2", creditor = "p1", amount = 50, reason = "Card" })
+	local ok, err = propose(state, "p1", "p2", side(nil, 1), side({ BOARDWALK }))
+	assert(not ok, "cheap buy accepted")
+	Expect.equal(err, "Player 2 is in debt and must get at least $200 in value")
+end
+
 tests["only the receiver answers, and nothing else happens meanwhile"] = function()
 	local state = GameFixtures.newGame(3)
 	proposed(state, "p1", "p2", side(nil, 10), side())
