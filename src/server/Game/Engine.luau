@@ -113,10 +113,10 @@ local function sendToJail(state: GameState, player: Player, reason: string)
 	finishMove(state)
 end
 
-local function leaveJail(state: GameState, player: Player, reason: string)
+local function leaveJail(state: GameState, player: Player, reason: string, amount: number?)
 	player.inJail = false
 	player.jailAttempts = 0
-	emit(state, { type = "LeftJail", player = player.id, reason = reason })
+	emit(state, { type = "LeftJail", player = player.id, reason = reason, amount = amount })
 end
 
 local resolveLanding: (state: GameState, player: Player, rentRule: string?) -> ()
@@ -260,7 +260,7 @@ local function roll(state: GameState, player: Player)
 				return
 			end
 			charge(state, player, nil, Engine.JAIL_FINE, "JailFine")
-			leaveJail(state, player, if hasDebt(state, player.id) then "FineOwed" else "Fine")
+			leaveJail(state, player, if hasDebt(state, player.id) then "FineOwed" else "Fine", Engine.JAIL_FINE)
 		end
 		-- Getting out by the dice never earns another roll.
 		state.rollAgain = false
@@ -284,7 +284,7 @@ local function payJailFine(state: GameState, player: Player): (boolean, string?)
 		return false, "not enough money"
 	end
 	transfer(state, player.id, nil, Engine.JAIL_FINE, "JailFine")
-	leaveJail(state, player, "Fine")
+	leaveJail(state, player, "Fine", Engine.JAIL_FINE)
 	return true
 end
 

@@ -42,7 +42,7 @@ end
 
 function EventText.describe(event: { [string]: any }, names: { [string]: string }): string?
 	local function name(id: string?): string
-		return if id then names[id] or id else "The bank"
+		return if id then names[id] or id else "the bank"
 	end
 	local function tileName(position: number): string
 		return Tiles.at(position).name
@@ -52,7 +52,8 @@ function EventText.describe(event: { [string]: any }, names: { [string]: string 
 	if kind == "TurnStarted" then
 		return `{name(event.player)}'s turn`
 	elseif kind == "Rolled" then
-		return `{name(event.player)} rolled {event.dice[1]} + {event.dice[2]}`
+		local suffix = if event.forCard then " for the utility card" else ""
+		return `{name(event.player)} rolled {event.dice[1]} + {event.dice[2]}{suffix}`
 	elseif kind == "Paid" then
 		if event.reason == "Go" then
 			return `{name(event.to)} collected ${event.amount} for passing Go`
@@ -62,6 +63,8 @@ function EventText.describe(event: { [string]: any }, names: { [string]: string 
 			return `{name(event.from)} paid ${event.amount} tax`
 		elseif event.reason == "Card" and event.from and event.to then
 			return `{name(event.from)} paid ${event.amount} to {name(event.to)}`
+		elseif event.reason == "MortgageInterest" then
+			return `{name(event.from)} paid ${event.amount} mortgage interest`
 		end
 		return nil
 	elseif kind == "Bought" then
@@ -86,9 +89,9 @@ function EventText.describe(event: { [string]: any }, names: { [string]: string 
 		if event.reason == "Doubles" then
 			return `{name(event.player)} rolled doubles and got out of jail`
 		elseif event.reason == "Fine" then
-			return `{name(event.player)} paid $50 and got out of jail`
+			return `{name(event.player)} paid ${event.amount} and got out of jail`
 		elseif event.reason == "FineOwed" then
-			return `{name(event.player)} left jail owing the $50 fine`
+			return `{name(event.player)} left jail owing the ${event.amount} fine`
 		end
 		return `{name(event.player)} used a Get Out of Jail Free card`
 	elseif kind == "CardDrawn" then
@@ -108,6 +111,14 @@ function EventText.describe(event: { [string]: any }, names: { [string]: string 
 	elseif kind == "DebtOwed" then
 		local creditor = if event.creditor then name(event.creditor) else "the bank"
 		return `{name(event.debtor)} owes {creditor} ${event.amount}{DEBT_REASONS[event.reason] or ""}`
+	elseif kind == "DebtPaid" then
+		-- Rent, tax, interest and payments to players already get a line from their Paid event.
+		if event.reason == "JailFine" then
+			return `{name(event.debtor)} paid the ${event.amount} jail fine`
+		elseif event.reason == "Card" and not event.creditor then
+			return `{name(event.debtor)} paid ${event.amount} for a card`
+		end
+		return nil
 	elseif kind == "WentBankrupt" then
 		return `{name(event.player)} went bankrupt to {if event.creditor then name(event.creditor) else "the bank"}`
 	elseif kind == "GameOver" then

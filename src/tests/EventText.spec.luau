@@ -30,9 +30,14 @@ tests["describes the events players care about"] = function()
 		{ { type = "SentToJail", player = "p1", reason = "Card" }, "Ana went to jail" },
 		{ { type = "SentToJail", player = "p1", reason = "Doubles" }, "Ana rolled doubles three times and went to jail" },
 		{ { type = "LeftJail", player = "p1", reason = "Doubles" }, "Ana rolled doubles and got out of jail" },
-		{ { type = "LeftJail", player = "p1", reason = "Fine" }, "Ana paid $50 and got out of jail" },
+		{ { type = "LeftJail", player = "p1", reason = "Fine", amount = 50 }, "Ana paid $50 and got out of jail" },
 		{ { type = "LeftJail", player = "p1", reason = "Card" }, "Ana used a Get Out of Jail Free card" },
-		{ { type = "LeftJail", player = "p1", reason = "FineOwed" }, "Ana left jail owing the $50 fine" },
+		{ { type = "LeftJail", player = "p1", reason = "FineOwed", amount = 50 }, "Ana left jail owing the $50 fine" },
+		{ { type = "Rolled", player = "p1", dice = { 2, 5 }, forCard = true }, "Ana rolled 2 + 5 for the utility card" },
+		{ { type = "Paid", from = "p2", to = nil, amount = 10, reason = "MortgageInterest" }, "Bot 1 paid $10 mortgage interest" },
+		{ { type = "Paid", from = "p1", to = nil, amount = 6, reason = "Rent" }, "Ana paid $6 rent to the bank" },
+		{ { type = "DebtPaid", debtor = "p1", creditor = nil, amount = 50, reason = "JailFine" }, "Ana paid the $50 jail fine" },
+		{ { type = "DebtPaid", debtor = "p1", creditor = nil, amount = 15, reason = "Card" }, "Ana paid $15 for a card" },
 		{
 			{ type = "CardDrawn", player = "p1", deck = "CommunityChest", card = "chest.doctor" },
 			"Ana drew Community Chest: Doctor's fee. Pay $50.",
@@ -74,7 +79,9 @@ tests["skips events that have no log line"] = function()
 		{ type = "Paid", from = nil, to = "p1", amount = 100, reason = "Mortgage" },
 		{ type = "DebtPaid", debtor = "p1", creditor = "p2", amount = 6, reason = "Rent" },
 		{ type = "Paid", from = "p1", to = "p2", amount = 53, reason = "Bankruptcy" },
-		{ type = "Paid", from = "p2", to = nil, amount = 10, reason = "MortgageInterest" },
+		{ type = "DebtPaid", debtor = "p1", creditor = nil, amount = 200, reason = "Tax" },
+		{ type = "DebtPaid", debtor = "p1", creditor = "p2", amount = 50, reason = "Card" },
+		{ type = "DebtPaid", debtor = "p1", creditor = nil, amount = 10, reason = "MortgageInterest" },
 		{ type = "Mystery" },
 	} :: { any } do
 		Expect.equal(EventText.describe(event, NAMES), nil, event.type)

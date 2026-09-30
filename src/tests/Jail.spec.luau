@@ -168,4 +168,10 @@ tests["a jailed player still collects rent"] = function()
 	Expect.equal(p1.money, 1506, "rent while in jail")
 end
 
+tests["leaving jail by the fine records what was paid"] = function()
+	local state = jailed({})
+	act(state, "p1", PAY_FINE)
+	Expect.equal(GameFixtures.eventsOfType(state, "LeftJail")[1].amount, Engine.JAIL_FINE)
+end
+
 return tests
