@@ -51,6 +51,28 @@ function TradeBuilder.toggle(builder: Builder, sideName: SideName, position: num
 	end
 end
 
+-- A deed already in the offer can always be taken back out, even once it can't be traded.
+function TradeBuilder.canToggle(row: DeedRow): boolean
+	return row.tradable or row.selected
+end
+
+-- Drops deeds from the offer that their side no longer owns (sold, traded or lost since they were picked).
+function TradeBuilder.prune(builder: Builder, snapshot: Protocol.Snapshot, localId: string)
+	local owners = {}
+	for _, property in snapshot.properties do
+		owners[property.position] = property.owner
+	end
+	local function keepOwned(side: TradeRules.Side, ownerId: string?)
+		for i = #side.properties, 1, -1 do
+			if owners[side.properties[i]] ~= ownerId then
+				table.remove(side.properties, i)
+			end
+		end
+	end
+	keepOwned(builder.give, localId)
+	keepOwned(builder.get, builder.partner)
+end
+
 function TradeBuilder.stepCash(builder: Builder, sideName: SideName, delta: number, max: number)
 	local side = builder[sideName]
 	side.cash = math.clamp(side.cash + delta, 0, math.max(max, 0))

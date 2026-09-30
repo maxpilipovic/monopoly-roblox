@@ -98,4 +98,21 @@ tests["deed rows say which deeds are mortgaged"] = function()
 	Expect.equal(rows[2].mortgaged, false, "Baltic isn't")
 end
 
+tests["deeds that change hands drop out of the offer, and selected deeds can always be unpicked"] = function()
+	local state = game()
+	local builder = TradeBuilder.new()
+	TradeBuilder.setPartner(builder, "p2")
+	TradeBuilder.toggle(builder, "give", 5)
+	TradeBuilder.toggle(builder, "get", 39)
+	state.properties[5] = nil -- Reading went back to the bank
+	TradeBuilder.prune(builder, Snapshot.fromState(state), "p1")
+	Expect.equal(#builder.give.properties, 0, "Reading dropped")
+	Expect.equal(builder.get.properties[1], 39, "Boardwalk kept")
+
+	local row = { position = 1, name = "x", selected = true, mortgaged = false, tradable = false, reason = "sell the buildings in this set first" }
+	assert(TradeBuilder.canToggle(row), "a selected deed can be unpicked")
+	row.selected = false
+	assert(not TradeBuilder.canToggle(row), "an untradable deed can't be picked")
+end
+
 return tests
