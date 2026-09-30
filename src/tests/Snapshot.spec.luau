@@ -124,4 +124,28 @@ tests["snapshot carries the match settings, round and deadlines"] = function()
 	Expect.equal(Snapshot.fromState(state).winReason, "TimeLimit", "reason")
 end
 
+tests["snapshot names the acting player, jail attempts, and the bank for a bankrupt creditor"] = function()
+	local state = GameFixtures.newGame(3, { { 2, 4 } })
+	Expect.equal(Snapshot.fromState(state).acting, "p1", "roll")
+	Engine.act(state, "p1", { type = "Roll" })
+	Engine.act(state, "p1", { type = "Decline" })
+	Expect.equal(Snapshot.fromState(state).acting, "p1", "decliner bids first")
+	Engine.act(state, "p1", { type = "PassBid" })
+	Expect.equal(Snapshot.fromState(state).acting, "p2", "next bidder")
+
+	local jailed = GameFixtures.newGame(2)
+	local p1 = Engine.getPlayer(jailed, "p1") :: any
+	p1.inJail = true
+	p1.jailAttempts = 2
+	Expect.equal(Snapshot.fromState(jailed).players[1].jailAttempts, 2, "jail attempts")
+
+	local owing = GameFixtures.newGame(3)
+	GameFixtures.inDebt(owing, "p1", 100, "p2", "Rent")
+	Expect.equal((Snapshot.fromState(owing).debt :: any).creditor, "p2", "live creditor")
+	Engine.getPlayer(owing, "p2").bankrupt = true
+	Expect.equal((Snapshot.fromState(owing).debt :: any).creditor, nil, "bankrupt creditor: owed to the bank")
+	owing.phase = "GameOver"
+	Expect.equal(Snapshot.fromState(owing).acting, nil, "game over")
+end
+
 return tests

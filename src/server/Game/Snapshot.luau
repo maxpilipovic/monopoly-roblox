@@ -32,6 +32,7 @@ function Snapshot.fromState(state: Types.GameState, info: MatchInfo?): Protocol.
 			bankrupt = player.bankrupt,
 			inJail = player.inJail,
 			jailCards = #player.jailCards,
+			jailAttempts = player.jailAttempts,
 			seat = seat,
 			netWorth = PropertyRules.netWorth(state, player.id, player.money),
 		})
@@ -61,9 +62,17 @@ function Snapshot.fromState(state: Types.GameState, info: MatchInfo?): Protocol.
 	end
 
 	local openDebt = state.debts[1]
-	local debt: Protocol.DebtView? = if openDebt
-		then { debtor = openDebt.debtor, creditor = openDebt.creditor, amount = openDebt.amount, reason = openDebt.reason }
-		else nil
+	local debt: Protocol.DebtView? = nil
+	if openDebt then
+		-- A creditor who has gone bankrupt since is paid through the bank.
+		local creditor = if openDebt.creditor then Engine.getPlayer(state, openDebt.creditor) else nil
+		debt = {
+			debtor = openDebt.debtor,
+			creditor = if creditor and not creditor.bankrupt then creditor.id else nil,
+			amount = openDebt.amount,
+			reason = openDebt.reason,
+		}
+	end
 
 	local trade: Protocol.TradeView? = nil
 	if state.trade then
@@ -81,6 +90,7 @@ function Snapshot.fromState(state: Types.GameState, info: MatchInfo?): Protocol.
 	return {
 		phase = state.phase,
 		currentPlayer = Engine.currentPlayer(state).id,
+		acting = acting,
 		players = players,
 		properties = properties,
 		auction = auction,

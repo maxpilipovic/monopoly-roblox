@@ -10,6 +10,7 @@ export type PlayerView = {
 	bankrupt: boolean,
 	inJail: boolean,
 	jailCards: number, -- Get Out of Jail Free cards held
+	jailAttempts: number, -- failed doubles rolls this jail stay; the fine is forced after the third
 	seat: number, -- 1-based turn order; also picks the token spot and color
 	netWorth: number,
 }
@@ -30,7 +31,7 @@ export type AuctionView = {
 
 export type DebtView = {
 	debtor: string,
-	creditor: string?, -- nil = the bank
+	creditor: string?, -- nil = the bank (also when the creditor has since gone bankrupt)
 	amount: number,
 	reason: string,
 }
@@ -61,6 +62,7 @@ export type MatchView = {
 export type Snapshot = {
 	phase: string,
 	currentPlayer: string,
+	acting: string?, -- whoever the game is waiting on (bidder, debtor, trade receiver); nil once it's over
 	players: { PlayerView },
 	properties: { PropertyView },
 	auction: AuctionView?,
