@@ -2,6 +2,7 @@
 local StarterPlayer = game:GetService("StarterPlayer")
 local EventText = require(StarterPlayer.StarterPlayerScripts.Client.Hud.EventText)
 local Expect = require(script.Parent.Expect)
+local MapTestHelper = require(script.Parent.MapTestHelper)
 
 local tests = {}
 
@@ -90,6 +91,15 @@ end
 
 tests["unknown player ids fall back to the id"] = function()
 	Expect.equal(EventText.describe({ type = "TurnStarted", player = "ghost" }, NAMES), "ghost's turn")
+end
+
+tests["a College card is logged with its own text and deck title"] = function()
+	MapTestHelper.onCollege(function()
+		Expect.equal(
+			EventText.describe({ type = "CardDrawn", player = "p1", deck = "Chance", card = "college.chance.back3" }, NAMES),
+			"Ana drew Pop Quiz: Forgot your student ID. Go back 3 spaces."
+		)
+	end)
 end
 
 return tests

@@ -5,6 +5,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Cards = require(ReplicatedStorage.Shared.Board.Cards)
+local Maps = require(ReplicatedStorage.Shared.Board.Maps)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local Buildings = require(script.Parent.Buildings)
 local EventText = require(script.Parent.Hud.EventText)
@@ -32,7 +33,7 @@ function GameClient.start(hooks: Tokens.TokenHooks?)
 			actionRemote:FireServer(action)
 		end,
 		onStart = function(seats, settings)
-			lobbyRemote:FireServer({ type = "Start", seats = seats, timer = settings.timer, length = settings.length })
+			lobbyRemote:FireServer({ type = "Start", seats = seats, timer = settings.timer, length = settings.length, map = settings.map })
 		end,
 		onReturnToLobby = function()
 			lobbyRemote:FireServer({ type = "ReturnToLobby" })
@@ -41,6 +42,9 @@ function GameClient.start(hooks: Tokens.TokenHooks?)
 
 	updateRemote.OnClientEvent:Connect(function(update: Protocol.Update)
 		hud:unlock()
+		if update.snapshot then
+			Maps.use(update.snapshot.map) -- names and card text follow the game being shown
+		end
 		tokens:apply(update)
 		buildings:apply(update.snapshot)
 		markers:apply(update.snapshot)

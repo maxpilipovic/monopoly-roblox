@@ -419,7 +419,7 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 	gui.Parent = playerGui
 
 	-- Lobby: pick seats, start.
-	local lobby = panel("Lobby", UDim2.fromOffset(320, 250), UDim2.fromScale(0.5, 0.5), Vector2.new(0.5, 0.5), gui)
+	local lobby = panel("Lobby", UDim2.fromOffset(320, 300), UDim2.fromScale(0.5, 0.5), Vector2.new(0.5, 0.5), gui)
 	list(lobby, Enum.FillDirection.Vertical, 10)
 	local seatsLabel = text("Seats", lobby, UDim2.new(1, 0, 0, 30), 22)
 	seatsLabel.LayoutOrder = 1
@@ -505,6 +505,11 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		return MatchSettings.lengthLabel(self.settings.length)
 	end, function()
 		self.settings.length = MatchSettings.nextLength(self.settings.length)
+	end)
+	settingButton(5, function()
+		return MatchSettings.mapLabel(self.settings.map)
+	end, function()
+		self.settings.map = MatchSettings.nextMap(self.settings.map)
 	end)
 
 	self.playerList.AutomaticSize = Enum.AutomaticSize.Y

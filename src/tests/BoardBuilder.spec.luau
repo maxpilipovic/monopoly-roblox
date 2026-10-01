@@ -6,6 +6,7 @@ local ColorGroups = require(ReplicatedStorage.Shared.Board.ColorGroups)
 local Layout = require(ReplicatedStorage.Shared.Board.Layout)
 local BoardBuilder = require(ServerScriptService.Server.BoardBuilder)
 local Expect = require(script.Parent.Expect)
+local MapTestHelper = require(script.Parent.MapTestHelper)
 
 local tests = {}
 
@@ -91,6 +92,27 @@ tests["tile labels share one maximum text size"] = function()
 		end
 	end
 	Expect.equal(labels, 40, "every tile has a label")
+	holder:Destroy()
+end
+
+tests["relabel writes the active map's names onto the board"] = function()
+	local holder = Instance.new("Folder")
+	local model = BoardBuilder.build(holder)
+	local function label(position: number): string
+		for _, part in (model:FindFirstChild("Tiles") :: Folder):GetChildren() do
+			if part:GetAttribute("TilePosition") == position then
+				return (part:FindFirstChild("Label", true) :: TextLabel).Text
+			end
+		end
+		error(`no tile {position}`)
+	end
+	MapTestHelper.onCollege(function()
+		BoardBuilder.relabel(model)
+		Expect.equal(label(39), "Football Stadium\n$400", "college street")
+		Expect.equal(label(38), "Parking Ticket\nPay $100", "college tax")
+	end)
+	BoardBuilder.relabel(model)
+	Expect.equal(label(39), "Boardwalk\n$400", "back to Classic")
 	holder:Destroy()
 end
 

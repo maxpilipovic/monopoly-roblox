@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
+local BoardBuilder = require(script.Parent.BoardBuilder)
 local GameSession = require(script.Parent.Game.GameSession)
 local Snapshot = require(script.Parent.Game.Snapshot)
 local MatchSettings = require(ReplicatedStorage.Shared.Rules.MatchSettings)
@@ -196,6 +197,11 @@ local function onLobbyRequest(player: Player, request: any)
 		end)
 	end
 	session = started
+	-- The engine switched the map when the game was created; the board shows that map's names.
+	local board = workspace:FindFirstChild(BoardBuilder.MODEL_NAME)
+	if board and board:IsA("Model") then
+		BoardBuilder.relabel(board)
+	end
 	clock = TurnClock.new()
 	refreshClock(nil)
 	broadcast()

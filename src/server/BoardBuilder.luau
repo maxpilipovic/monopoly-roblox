@@ -151,4 +151,24 @@ function BoardBuilder.build(parent: Instance): Model
 	return model
 end
 
+-- Rewrites tile names for the active map (the shape, prices and colors are the same on every map).
+function BoardBuilder.relabel(model: Model)
+	local tiles = model:FindFirstChild("Tiles")
+	if not tiles then
+		return
+	end
+	for _, part in tiles:GetChildren() do
+		local position = part:GetAttribute("TilePosition")
+		if typeof(position) ~= "number" then
+			continue
+		end
+		local tile = Tiles.at(position)
+		part:SetAttribute("TileName", tile.name)
+		local label = part:FindFirstChild("Label", true)
+		if label and label:IsA("TextLabel") then
+			label.Text = labelText(tile)
+		end
+	end
+end
+
 return BoardBuilder
