@@ -43,7 +43,7 @@ local function special(name: string, kind: TileKind): Tile
 	return { position = -1, name = name, kind = kind }
 end
 
-local list: { Tile } = {
+local classic: { Tile } = {
 	special("Go", "Go"),
 	property("Mediterranean Avenue", "Brown", 60, { 2, 10, 30, 90, 160, 250 }),
 	special("Community Chest", "CommunityChest"),
@@ -86,20 +86,53 @@ local list: { Tile } = {
 	property("Boardwalk", "DarkBlue", 400, { 50, 200, 600, 1400, 1700, 2000 }),
 }
 
-for i, tile in list do
-	tile.position = i - 1
-	table.freeze(tile)
+-- Numbers a map's tiles 0-39 and freezes them.
+local function finish(tiles: { Tile }): { Tile }
+	for i, tile in tiles do
+		tile.position = i - 1
+		table.freeze(tile)
+	end
+	return table.freeze(tiles)
 end
-table.freeze(list)
+
+finish(classic)
+
+-- The college map: the classic board with campus names. Everything that affects play is copied.
+local COLLEGE_NAMES = {
+	"Orientation", "Freshman Dorm", "Student Union", "Basement Laundry", "Tuition",
+	"North Campus Shuttle", "Library Annex", "Pop Quiz", "Study Hall", "Writing Center",
+	"Dean's Office", "Art Studio", "Campus Wi-Fi", "Music Hall", "Theater",
+	"East Campus Shuttle", "Coffee Shop", "Student Union", "Bookstore", "Food Court",
+	"The Quad", "Chemistry Lab", "Pop Quiz", "Physics Lab", "Engineering Hall",
+	"South Campus Shuttle", "Fraternity Row", "Sorority Row", "Dining Hall", "Rec Center",
+	"Caught Cheating", "Business School", "Law School", "Student Union", "Medical School",
+	"West Campus Shuttle", "Pop Quiz", "President's House", "Parking Ticket", "Football Stadium",
+}
+assert(#COLLEGE_NAMES == #classic, "one college name per tile")
+
+local college: { Tile } = {}
+for i, tile in classic do
+	local copy = table.clone(tile)
+	copy.name = COLLEGE_NAMES[i]
+	table.insert(college, copy)
+end
+finish(college)
+
+local MAPS: { [string]: { Tile } } = { Classic = classic, College = college }
 
 local Tiles = {}
 
-Tiles.COUNT = #list
-Tiles.list = list
+Tiles.MAPS = table.freeze({ "Classic", "College" })
+Tiles.COUNT = #classic
+Tiles.list = classic -- the active map's tiles; switched by Tiles.use
+
+function Tiles.use(mapId: string)
+	Tiles.list = assert(MAPS[mapId], `unknown map {mapId}`)
+end
 
 function Tiles.at(position: number): Tile
 	assert(position % 1 == 0 and position >= 0 and position < Tiles.COUNT, `invalid board position {position}`)
-	return list[position + 1]
+	return Tiles.list[position + 1]
 end
 
 return Tiles
