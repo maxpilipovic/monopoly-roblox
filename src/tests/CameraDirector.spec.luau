@@ -65,6 +65,30 @@ tests["a jump to jail never takes the camera off the overhead view"] = function(
 	part:Destroy()
 end
 
+tests["a jump to jail by the token being watched sends the camera home instead of chasing it"] = function()
+	local part, other = token(), token()
+	local camera = CFrame.new(1, 2, 3)
+	-- Walked onto Go To Jail: the jump starts while the camera is still following the walk.
+	local state = CameraDirector.next(CameraDirector.initial(), { kind = "MoveStarted", part = part }, 0)
+	state = CameraDirector.next(state, { kind = "MoveStarted", part = part, style = "ToJail", camera = camera }, 1)
+	Expect.equal(state.mode, "Returning", "from following")
+	Expect.vectorNear((state.from :: CFrame).Position, camera.Position, "returns from where the camera was")
+	state = CameraDirector.next(state, { kind = "Hopped", part = part, from = 30, to = 10 }, 1)
+	Expect.equal(state.mode, "Returning", "the jump's hop is ignored")
+	-- Third doubles: the jump starts during the hold on the same token.
+	state = CameraDirector.next(CameraDirector.initial(), { kind = "MoveStarted", part = part }, 0)
+	state = CameraDirector.next(state, { kind = "MoveFinished", part = part }, 1)
+	state = CameraDirector.next(state, { kind = "MoveStarted", part = part, style = "ToJail", camera = camera }, 1.5)
+	Expect.equal(state.mode, "Returning", "from holding")
+	-- Someone else's jump leaves the token being followed alone.
+	state = CameraDirector.next(CameraDirector.initial(), { kind = "MoveStarted", part = part }, 0)
+	state = CameraDirector.next(state, { kind = "MoveStarted", part = other, style = "ToJail", camera = camera }, 0.5)
+	Expect.equal(state.mode, "Following", "another token's jump")
+	Expect.equal(state.part, part)
+	part:Destroy()
+	other:Destroy()
+end
+
 tests["a destroyed token sends the camera home"] = function()
 	local part = token()
 	local state = CameraDirector.next(CameraDirector.initial(), { kind = "MoveStarted", part = part }, 0)

@@ -26,7 +26,7 @@ export type State = {
 }
 
 export type Event =
-	{ kind: "MoveStarted", part: BasePart, style: string? }
+	{ kind: "MoveStarted", part: BasePart, style: string?, camera: CFrame? } -- camera: where it is now
 	| { kind: "Hopped", part: BasePart, from: number, to: number }
 	| { kind: "MoveFinished", part: BasePart }
 	| { kind: "Tick", camera: CFrame }
@@ -42,7 +42,12 @@ end
 function CameraDirector.next(state: State, event: Event, now: number): State
 	if event.kind == "MoveStarted" then
 		if event.style == "ToJail" then
-			return state -- a jump, not a walk: nothing to follow
+			-- A jump, not a walk: nothing to follow. If it's the token being watched (it walked onto
+			-- Go To Jail, or drew the card), let go of it rather than be dragged across the board.
+			if (state.mode == "Following" or state.mode == "Holding") and state.part == event.part then
+				return returning(state, event.camera or BoardCamera.chaseCFrame(event.part.Position, state.heading), now)
+			end
+			return state
 		end
 		return { mode = "Following", part = event.part, heading = state.heading, since = now, from = nil }
 	elseif event.kind == "Hopped" then
@@ -123,7 +128,12 @@ function CameraDirector.start(): Tokens.TokenHooks
 
 	return {
 		onMoveStarted = function(part, style)
-			state = CameraDirector.next(state, { kind = "MoveStarted", part = part, style = style }, os.clock())
+			local camera = workspace.CurrentCamera
+			state = CameraDirector.next(
+				state,
+				{ kind = "MoveStarted", part = part, style = style, camera = if camera then camera.CFrame else nil },
+				os.clock()
+			)
 		end,
 		onHop = function(part, from, to)
 			state = CameraDirector.next(state, { kind = "Hopped", part = part, from = from, to = to }, os.clock())
