@@ -1,0 +1,23 @@
+Polish milestone (plans A, B, C) — deferred review minors, 2026-10-01
+
+Fixed in the review pass:
+- Camera was dragged across the board by the jail jump when it was already following (or holding on) that token.
+
+Deferred minors:
+1. Action-bar inset is a fixed 16% of screen height but the bar is a fixed ~112 px: on short viewports (landscape phones, small windows) the bar still covers the bottom row. Suggested: inset = clamp(112 / viewport.Y, 0, 0.4).
+2. Overhead fit (30-step binary search) is recomputed every frame; cache by ViewportSize.
+3. The board keeps College labels in the lobby after a College game (relabel only runs on Start). Decide whether the lobby should show the last map.
+4. Deck title follows the active map, not the card's own map (EventText, HudView.showCard). No live path shows a wrong title today.
+5. MatchSettings and Tiles each list the map ids; no test keeps them in step.
+6. Engine.new switches the map before validating players, so a failed Engine.new still changes the active map.
+7. The Studio RunTests hook leaves the server's active map on Classic if run during a live College game (dev only).
+8. GameClient asserts on an unknown snapshot.map instead of falling back to Classic.
+9. Chase target bobs with each hop (uses the token's hopping Position); a flat position would be steadier.
+
+Not verified in a playtest:
+- Portrait phone overhead view (9:16 unit tests only).
+- A Classic game right after a College game in one server session (Engine unit test only).
+- Late joiner on a College game (no second client).
+- The jail-jump camera fix (unit test only).
+
+Open tuning question for the user: tile labels are capped at text size 40 and read smaller than before from the overhead view.
