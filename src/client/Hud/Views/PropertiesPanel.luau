@@ -13,7 +13,11 @@ local PropertiesPanel = {}
 PropertiesPanel.__index = PropertiesPanel
 
 local OTHER_SWATCH = Color3.fromRGB(150, 150, 150) -- railroads and utilities have no colour group
-local ROW_BUTTON_WIDTH = 112
+local ROW_BUTTON_WIDTH = 104
+local WIDTH = 440
+local MAX_HEIGHT = 360 -- ends above the action bar
+local HEADER_HEIGHT = 26
+local ROW_HEIGHT = 40
 local HOUSE_COLOR = Color3.fromRGB(47, 191, 113)
 local HOTEL_COLOR = Color3.fromRGB(229, 72, 77)
 
@@ -33,7 +37,7 @@ function PropertiesPanel.new(
 	send: (action: { [string]: any }) -> (),
 	inspect: ((position: number) -> ())?
 ): PropertiesPanel
-	local frame = Ui.panel("Properties", UDim2.fromOffset(470, 380), UDim2.new(1, -12, 0, 224), Vector2.new(1, 0), parent)
+	local frame = Ui.panel("Properties", UDim2.fromOffset(WIDTH, MAX_HEIGHT), UDim2.new(1, -12, 0, 224), Vector2.new(1, 0), parent)
 	frame.Visible = false
 	local scroll = Instance.new("ScrollingFrame")
 	scroll.Name = "Rows"
@@ -84,6 +88,12 @@ function PropertiesPanel.render(self: PropertiesPanel, open: boolean, groups: { 
 	end
 	self.key = key
 	Ui.clear(self.scroll)
+	-- As tall as its content, up to the cap: a short list shouldn't hang a big empty panel over the board.
+	local content = 16
+	for _, group in groups do
+		content += HEADER_HEIGHT + Theme.space.xs + #group.rows * (ROW_HEIGHT + Theme.space.xs)
+	end
+	self.frame.Size = UDim2.fromOffset(WIDTH, math.clamp(content, 64, MAX_HEIGHT))
 	if not open then
 		return
 	end
@@ -98,7 +108,7 @@ function PropertiesPanel.render(self: PropertiesPanel, open: boolean, groups: { 
 	for _, group in groups do
 		order += 1
 		local complete = group.owned == group.size
-		local header = Ui.frame(group.title, UDim2.new(1, -8, 0, 26), self.scroll)
+		local header = Ui.frame(group.title, UDim2.new(1, -8, 0, HEADER_HEIGHT), self.scroll)
 		header.LayoutOrder = order
 		local title = Ui.label("Title", header, UDim2.new(1, -70, 1, 0), 15, Theme.font.display)
 		title.Position = UDim2.fromOffset(4, 0)
@@ -113,7 +123,7 @@ function PropertiesPanel.render(self: PropertiesPanel, open: boolean, groups: { 
 
 		for _, entry in group.rows do
 			order += 1
-			local row = Ui.surface(entry.name, UDim2.new(1, -8, 0, 40), self.scroll)
+			local row = Ui.surface(entry.name, UDim2.new(1, -8, 0, ROW_HEIGHT), self.scroll)
 			row.LayoutOrder = order
 			Ui.list(row, Enum.FillDirection.Horizontal, 6, Enum.HorizontalAlignment.Left)
 			Ui.padding(row, { left = 6, right = 6 })
@@ -127,7 +137,7 @@ function PropertiesPanel.render(self: PropertiesPanel, open: boolean, groups: { 
 			swatch.Parent = row
 			Ui.corner(swatch, 3)
 
-			local label = Ui.label("Name", row, UDim2.fromOffset(if entry.mortgaged then 96 else 130, 28), 15)
+			local label = Ui.label("Name", row, UDim2.fromOffset(if entry.mortgaged then 96 else if entry.houses > 0 then 110 else 158, 28), 15)
 			label.LayoutOrder = 1
 			label.TextXAlignment = Enum.TextXAlignment.Left
 			label.TextWrapped = false
@@ -152,7 +162,9 @@ function PropertiesPanel.render(self: PropertiesPanel, open: boolean, groups: { 
 				local tag = Ui.pill("MORTGAGED", row, Theme.color.danger)
 				tag.LayoutOrder = 2
 			else
-				buildings(row, entry.houses)
+				if entry.houses > 0 then
+					buildings(row, entry.houses)
+				end
 			end
 
 			for i, entryButton in entry.buttons do
