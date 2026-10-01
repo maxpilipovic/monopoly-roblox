@@ -26,7 +26,7 @@ export type Entry = {
 }
 
 export type ActionBar = typeof(setmetatable(
-	{} :: { frame: Frame, status: TextLabel, buttons: Frame, dice: Dice.Dice },
+	{} :: { frame: Frame, status: TextLabel, buttons: Frame, dice: Dice.Dice, track: Frame, timer: Frame },
 	ActionBar
 ))
 
@@ -54,12 +54,40 @@ function ActionBar.new(parent: Instance): ActionBar
 	local buttons = Ui.frame("Buttons", UDim2.new(1, -2 * PADDING, 0, 48), frame)
 	buttons.Position = UDim2.fromOffset(PADDING, 50)
 	Ui.list(buttons, Enum.FillDirection.Horizontal, BUTTON_GAP)
-	return setmetatable({ frame = frame, status = status, buttons = buttons, dice = dice }, ActionBar)
+	-- The turn clock: a thin bar along the top edge that drains as the decision time runs out.
+	local track = Instance.new("Frame")
+	track.Name = "TimerTrack"
+	track.Size = UDim2.new(1, -32, 0, 4)
+	track.Position = UDim2.fromOffset(16, 4)
+	track.BackgroundColor3 = Theme.color.surfaceHigh
+	track.BorderSizePixel = 0
+	track.Visible = false
+	track.Parent = frame
+	Ui.corner(track, 2)
+	local timer = Instance.new("Frame")
+	timer.Name = "Timer"
+	timer.Size = UDim2.fromScale(1, 1)
+	timer.BackgroundColor3 = Theme.color.accent
+	timer.BorderSizePixel = 0
+	timer.Visible = false
+	timer.Parent = track
+	Ui.corner(timer, 2)
+	return setmetatable({ frame = frame, status = status, buttons = buttons, dice = dice, track = track, timer = timer }, ActionBar)
 end
 
 function ActionBar.setStatus(self: ActionBar, text: string, color: Color3)
 	self.status.Text = text
 	self.status.TextColor3 = color
+end
+
+-- Shows how much of the decision time is left (0-1); nil hides the clock.
+function ActionBar.setTimer(self: ActionBar, fraction: number?, urgent: boolean)
+	self.track.Visible = fraction ~= nil
+	self.timer.Visible = fraction ~= nil
+	if fraction then
+		self.timer.Size = UDim2.fromScale(math.clamp(fraction, 0, 1), 1)
+		self.timer.BackgroundColor3 = if urgent then Theme.color.danger else Theme.color.accent
+	end
 end
 
 -- Replaces the buttons. They share the row: if their preferred widths don't fit, all shrink evenly.

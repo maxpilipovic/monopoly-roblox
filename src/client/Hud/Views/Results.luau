@@ -1,6 +1,9 @@
 --!strict
 -- The final standings, centre screen once the game is over.
 
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TokenLayout = require(ReplicatedStorage.Shared.Board.TokenLayout)
 local HudModel = require(script.Parent.Parent.HudModel)
 local Theme = require(script.Parent.Parent.Theme)
 local Ui = require(script.Parent.Parent.Ui)
@@ -14,7 +17,12 @@ local RANK_COLORS = {
 	Color3.fromRGB(205, 133, 79), -- bronze
 }
 
-export type Results = typeof(setmetatable({} :: { frame: Frame, title: TextLabel, rows: Frame }, Results))
+local CONFETTI_PIECES = 48
+
+export type Results = typeof(setmetatable(
+	{} :: { frame: Frame, title: TextLabel, rows: Frame, confetti: Frame, celebrated: boolean },
+	Results
+))
 
 function Results.new(parent: Instance, onBack: () -> ()): Results
 	local frame = Ui.panel("Results", UDim2.fromOffset(420, 0), UDim2.fromScale(0.5, 0.45), Vector2.new(0.5, 0.5), parent)
@@ -37,7 +45,40 @@ function Results.new(parent: Instance, onBack: () -> ()): Results
 	back.Size = UDim2.fromOffset(220, 48)
 	back.LayoutOrder = 3
 
-	return setmetatable({ frame = frame, title = title, rows = rows }, Results)
+	-- Confetti falls over the whole screen, behind the results card and never in the way of a click.
+	local confetti = Ui.frame("Confetti", UDim2.fromScale(1, 1), parent)
+	confetti.ZIndex = 8
+	confetti.ClipsDescendants = true
+	frame.ZIndex = 9
+
+	return setmetatable({ frame = frame, title = title, rows = rows, confetti = confetti, celebrated = false }, Results)
+end
+
+-- A burst of paper in the seat colours, falling from the top of the screen.
+local function celebrate(self: Results)
+	for _ = 1, CONFETTI_PIECES do
+		local piece = Instance.new("Frame")
+		piece.Name = "Piece"
+		piece.Size = UDim2.fromOffset(math.random(8, 14), math.random(12, 20))
+		piece.AnchorPoint = Vector2.new(0.5, 0.5)
+		local x = math.random()
+		piece.Position = UDim2.fromScale(x, -0.05 - math.random() * 0.3)
+		piece.Rotation = math.random(0, 360)
+		piece.BackgroundColor3 = if math.random() < 0.3
+			then Theme.color.accent
+			else TokenLayout.SEAT_COLORS[math.random(1, #TokenLayout.SEAT_COLORS)]
+		piece.BorderSizePixel = 0
+		piece.Parent = self.confetti
+		Ui.corner(piece, 2)
+		local seconds = 1.8 + math.random() * 1.6
+		TweenService:Create(piece, TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			Position = UDim2.fromScale(x + (math.random() - 0.5) * 0.2, 1.1),
+			Rotation = piece.Rotation + math.random(-360, 360),
+		}):Play()
+		task.delay(seconds, function()
+			piece:Destroy()
+		end)
+	end
 end
 
 -- A nil title hides the results.
@@ -45,7 +86,13 @@ function Results.render(self: Results, title: string?, standings: { HudModel.Sta
 	Ui.setVisible(self.frame, title ~= nil)
 	Ui.clear(self.rows)
 	if not title then
+		self.celebrated = false
+		Ui.clear(self.confetti)
 		return
+	end
+	if not self.celebrated then
+		self.celebrated = true -- once per game over, not on every re-render
+		celebrate(self)
 	end
 	self.title.Text = title
 	for rank, standing in standings do

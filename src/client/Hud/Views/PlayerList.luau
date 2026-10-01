@@ -1,7 +1,9 @@
 --!strict
 -- Who's playing, top left: a row per player with their token colour, cash and standing in the game.
+-- Cash counts to its new value and the change floats off the row.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 local TokenLayout = require(ReplicatedStorage.Shared.Board.TokenLayout)
 local HudModel = require(script.Parent.Parent.HudModel)
 local Theme = require(script.Parent.Parent.Theme)
@@ -12,24 +14,42 @@ PlayerList.__index = PlayerList
 
 local WIDTH = 300
 local ROW_HEIGHT = 46
+local ROW_GAP = 4
+local PADDING = 8
+local COUNT_SECONDS = 0.4
+local FLOAT_SECONDS = 1.4
 
-export type PlayerList = typeof(setmetatable({} :: { frame: Frame, rows: Frame, matchLabel: TextLabel }, PlayerList))
+export type PlayerList = typeof(setmetatable(
+	{} :: {
+		frame: Frame,
+		rows: Frame,
+		floaters: Frame,
+		matchLabel: TextLabel,
+		shown: { [string]: number }, -- the cash each row last displayed
+	},
+	PlayerList
+))
 
 function PlayerList.new(parent: Instance): PlayerList
 	local frame = Ui.panel("Players", UDim2.fromOffset(WIDTH, 0), UDim2.fromOffset(12, 12), Vector2.zero, parent)
 	frame.AutomaticSize = Enum.AutomaticSize.Y
-	Ui.list(frame, Enum.FillDirection.Vertical, Theme.space.xs)
-	Ui.padding(frame, Theme.space.s)
-	local rows = Ui.frame("Rows", UDim2.new(1, 0, 0, 0), frame)
+	local content = Ui.frame("Content", UDim2.new(1, 0, 0, 0), frame)
+	content.AutomaticSize = Enum.AutomaticSize.Y
+	Ui.list(content, Enum.FillDirection.Vertical, ROW_GAP)
+	Ui.padding(content, PADDING)
+	local rows = Ui.frame("Rows", UDim2.new(1, 0, 0, 0), content)
 	rows.AutomaticSize = Enum.AutomaticSize.Y
 	rows.LayoutOrder = 1
-	Ui.list(rows, Enum.FillDirection.Vertical, Theme.space.xs)
-	local matchLabel = Ui.label("Match", frame, UDim2.new(1, -8, 0, 20), Theme.textSize.small, Theme.font.body)
+	Ui.list(rows, Enum.FillDirection.Vertical, ROW_GAP)
+	local matchLabel = Ui.label("Match", content, UDim2.new(1, -8, 0, 20), Theme.textSize.small, Theme.font.body)
 	matchLabel.TextColor3 = Theme.color.textDim
 	matchLabel.TextXAlignment = Enum.TextXAlignment.Left
 	matchLabel.LayoutOrder = 2
 	matchLabel.Visible = false
-	return setmetatable({ frame = frame, rows = rows, matchLabel = matchLabel }, PlayerList)
+	-- Floaters live outside the rows, which are rebuilt on every update.
+	local floaters = Ui.frame("Floaters", UDim2.fromScale(1, 0), frame)
+	floaters.ZIndex = 2
+	return setmetatable({ frame = frame, rows = rows, floaters = floaters, matchLabel = matchLabel, shown = {} }, PlayerList)
 end
 
 local function subline(row: HudModel.PlayerRow): string
@@ -41,9 +61,46 @@ local function subline(row: HudModel.PlayerRow): string
 	return `{row.deeds} propert{if row.deeds == 1 then "y" else "ies"}`
 end
 
-function PlayerList.render(self: PlayerList, rows: { HudModel.PlayerRow })
+local function float(self: PlayerList, index: number, delta: number)
+	local label = Ui.label("Floater", self.floaters, UDim2.fromOffset(100, 20), 17, Theme.font.display)
+	local y = PADDING + (index - 1) * (ROW_HEIGHT + ROW_GAP) + 2
+	label.AnchorPoint = Vector2.new(1, 0)
+	label.Position = UDim2.new(1, -18, 0, y)
+	label.TextXAlignment = Enum.TextXAlignment.Right
+	label.TextWrapped = false
+	label.TextColor3 = if delta > 0 then Theme.color.moneyUp else Theme.color.moneyDown
+	label.Text = if delta > 0 then `+${delta}` else `−${-delta}`
+	local outline = Ui.stroke(label, Theme.color.panel, 2, 0.2)
+	outline.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+	TweenService:Create(outline, TweenInfo.new(FLOAT_SECONDS), { Transparency = 1 }):Play()
+	TweenService:Create(label, TweenInfo.new(FLOAT_SECONDS, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = UDim2.new(1, -18, 0, y - 20),
+		TextTransparency = 1,
+	}):Play()
+	task.delay(FLOAT_SECONDS, function()
+		label:Destroy()
+	end)
+end
+
+-- Counts a money label from what the row last showed to its new value.
+local function count(self: PlayerList, label: TextLabel, id: string, from: number, to: number)
+	local value = Instance.new("NumberValue")
+	value.Value = from
+	value.Parent = label -- dies with the label when the rows are rebuilt
+	value.Changed:Connect(function(now)
+		local shown = math.round(now)
+		self.shown[id] = shown
+		label.Text = `${shown}`
+	end)
+	TweenService:Create(value, TweenInfo.new(COUNT_SECONDS, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Value = to }):Play()
+end
+
+-- `deltas` are the cash changes since the last update (player id -> amount); each one floats.
+function PlayerList.render(self: PlayerList, rows: { HudModel.PlayerRow }, deltas: { [string]: number }?)
 	Ui.clear(self.rows)
-	for _, row in rows do
+	local present = {}
+	for index, row in rows do
+		present[row.id] = true
 		local frame = Ui.surface(row.id, UDim2.new(1, 0, 0, ROW_HEIGHT), self.rows)
 		frame.LayoutOrder = row.seat
 		frame.BackgroundColor3 = if row.isCurrent then Theme.color.surfaceHigh else Theme.color.surface
@@ -100,8 +157,14 @@ function PlayerList.render(self: PlayerList, rows: { HudModel.PlayerRow })
 			money.Text = "BANKRUPT"
 			money.TextSize = 13
 			money.TextColor3 = Theme.color.textDim
+			self.shown[row.id] = row.money
 		else
-			money.Text = `${row.money}`
+			local from = self.shown[row.id] or row.money
+			self.shown[row.id] = from
+			money.Text = `${from}`
+			if from ~= row.money then
+				count(self, money, row.id, from, row.money)
+			end
 		end
 
 		if row.inJail and not row.bankrupt then
@@ -109,12 +172,28 @@ function PlayerList.render(self: PlayerList, rows: { HudModel.PlayerRow })
 			jail.AnchorPoint = Vector2.new(1, 0.5)
 			jail.Position = UDim2.new(1, -82, 0.5, 0)
 		end
+
+		local delta = if deltas then deltas[row.id] else nil
+		if delta and delta ~= 0 then
+			float(self, index, delta)
+		end
+	end
+	for id in self.shown do
+		if not present[id] then
+			self.shown[id] = nil
+		end
 	end
 end
 
 function PlayerList.setMatchLine(self: PlayerList, line: string?)
 	self.matchLabel.Visible = line ~= nil
 	self.matchLabel.Text = line or ""
+end
+
+-- A new game starts from its own numbers, not the last game's.
+function PlayerList.reset(self: PlayerList)
+	table.clear(self.shown)
+	Ui.clear(self.floaters)
 end
 
 return PlayerList

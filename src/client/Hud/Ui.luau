@@ -216,6 +216,65 @@ function Ui.press(button: TextButton)
 	end
 end
 
+export type ChipState = "normal" | "selected" | "disabled"
+
+-- A deed as a chip: its set's colour down the left edge and its name; a gold outline and a tick
+-- when picked, dimmed when it can't be used. With no handler it's only a label.
+function Ui.chip(text: string, parent: Instance, color: Color3?, state: ChipState, onClick: (() -> ())?): TextButton
+	local chip = Instance.new("TextButton")
+	chip.Name = text
+	chip.Size = UDim2.new(1, 0, 0, 32)
+	chip.AutoButtonColor = false
+	chip.Active = onClick ~= nil
+	chip.BorderSizePixel = 0
+	chip.BackgroundColor3 = if state == "selected" then Theme.color.surfaceHigh
+		elseif state == "disabled" then Theme.color.disabled
+		else Theme.color.secondary
+	chip.Text = text
+	chip.TextTransparency = 1 -- the label draws it; Text is kept for lookups
+	chip.Parent = parent
+	chip:SetAttribute("State", state)
+	Ui.corner(chip, Theme.radius.pill)
+	if state == "selected" then
+		Ui.stroke(chip, Theme.color.accent, 2, 0)
+	else
+		Ui.stroke(chip, Theme.color.stroke, 1, 0.9)
+	end
+
+	local swatch = Instance.new("Frame")
+	swatch.Name = "Swatch"
+	swatch.Size = UDim2.new(0, 6, 1, -10)
+	swatch.Position = UDim2.fromOffset(6, 5)
+	swatch.BackgroundColor3 = color or Theme.color.textDim
+	swatch.BorderSizePixel = 0
+	swatch.Parent = chip
+	Ui.corner(swatch, 3)
+
+	local label = Ui.label("Text", chip, UDim2.new(1, -44, 1, 0), 14)
+	label.Position = UDim2.fromOffset(18, 0)
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.TextWrapped = false
+	label.TextTruncate = Enum.TextTruncate.AtEnd
+	label.TextColor3 = if state == "disabled" then Theme.color.textDim else Theme.color.text
+	label.Text = text
+
+	if state == "selected" then
+		local tick = Ui.dot(chip, Theme.color.accent, 14)
+		tick.Name = "Tick"
+		tick.AnchorPoint = Vector2.new(1, 0.5)
+		tick.Position = UDim2.new(1, -8, 0.5, 0)
+	end
+
+	if onClick then
+		handlers[chip] = onClick
+		chip.Destroying:Connect(function()
+			handlers[chip] = nil
+		end)
+		chip.Activated:Connect(onClick)
+	end
+	return chip
+end
+
 -- A small rounded tag: "YOU", "JAIL", "2/3".
 function Ui.pill(text: string, parent: Instance, color: Color3, textColor: Color3?): TextLabel
 	local pill = Instance.new("TextLabel")

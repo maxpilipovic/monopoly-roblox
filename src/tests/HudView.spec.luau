@@ -4,6 +4,7 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local Engine = require(ServerScriptService.Server.Game.Engine)
 local Snapshot = require(ServerScriptService.Server.Game.Snapshot)
 local HudView = require(StarterPlayer.StarterPlayerScripts.Client.Hud.HudView)
+local Ui = require(StarterPlayer.StarterPlayerScripts.Client.Hud.Ui)
 local GameFixtures = require(script.Parent.GameFixtures)
 local Expect = require(script.Parent.Expect)
 
@@ -71,6 +72,21 @@ local function hasButton(root: Instance, text: string): boolean
 	return false
 end
 
+local function findButton(root: Instance, text: string): TextButton
+	for _, child in root:GetDescendants() do
+		if child:IsA("TextButton") and child.Text == text then
+			return child
+		end
+	end
+	error(`no "{text}" button`)
+end
+
+local function textOf(root: Instance, name: string): string
+	local label = root:FindFirstChild(name, true)
+	assert(label and label:IsA("TextLabel"), `no {name} label`)
+	return label.Text
+end
+
 tests["the lobby offers seats, the three settings and Start"] = function()
 	withHud(function(hud)
 		hud:render(nil, "p1")
@@ -125,8 +141,17 @@ tests["the receiver of a trade sees the offer with Accept and Decline"] = functi
 		hud:render(Snapshot.fromState(state), "p2")
 		Expect.equal(actions(hud), "Accept|Decline|Properties")
 		Expect.equal(hud.offerCard.frame.Visible, true, "offer shown")
+		Expect.equal(textOf(hud.offerCard.frame, "Title"), "Player 1 offers you a trade")
+		assert(hud.offerCard.frame:FindFirstChild("Boardwalk", true), "the deed is shown as a chip")
+
 		hud:render(Snapshot.fromState(state), "p1")
-		Expect.equal(hud.offerCard.frame.Visible, false, "only the receiver sees it")
+		Expect.equal(hud.offerCard.frame.Visible, true, "the proposer sees it too")
+		Expect.equal(textOf(hud.offerCard.frame, "Title"), "Your offer to Player 2")
+		Expect.equal(actions(hud), "Properties", "but can only wait")
+
+		hud:render(Snapshot.fromState(state), "p3")
+		Expect.equal(textOf(hud.offerCard.frame, "Title"), "Player 1 offers Player 2 a trade")
+		Expect.equal(actions(hud), "Properties", "a bystander only watches")
 	end)
 end
 
@@ -226,12 +251,6 @@ tests["the HUD scales to the viewport, drops the log on narrow screens, and repo
 	end)
 end
 
-local function textOf(root: Instance, name: string): string
-	local label = root:FindFirstChild(name, true)
-	assert(label and label:IsA("TextLabel"), `no {name} label`)
-	return label.Text
-end
-
 tests["buying and bidding show the tile's deed"] = function()
 	withHud(function(hud)
 		local state = GameFixtures.newGame(2, { { 2, 4 } })
@@ -304,6 +323,101 @@ tests["the dice show the last roll and the status line doesn't repeat it"] = fun
 		hud:render(Snapshot.fromState(state), "p1")
 		Expect.equal(hud.actionBar.dice.frame.Visible, true)
 		Expect.equal(hud.actionBar.status.Text, "Your turn")
+	end)
+end
+
+tests["properties are listed under their set with how much of it you own"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(2)
+		GameFixtures.own(state, "p1", 1)
+		GameFixtures.own(state, "p1", 5)
+		hud:render(Snapshot.fromState(state), "p1")
+		hud:toggleProperties()
+		local panel = hud.propertiesPanel.frame
+		Expect.equal(textOf(panel:FindFirstChild("Brown", true) :: Instance, "Title"), "Brown")
+		Expect.equal(textOf(panel:FindFirstChild("Brown", true) :: Instance, "Owned"), "1/2")
+		Expect.equal(textOf(panel:FindFirstChild("Railroads", true) :: Instance, "Owned"), "1/4")
+		assert(panel:FindFirstChild("Mediterranean Avenue", true), "the street's row")
+		assert(hasButton(panel, "Mortgage +$30"), "its action")
+	end)
+end
+
+tests["the trade window shows deeds as chips and marks the ones picked"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(2)
+		GameFixtures.own(state, "p1", 39)
+		GameFixtures.own(state, "p2", 1)
+		hud:render(Snapshot.fromState(state), "p1")
+		hud:toggleTrade()
+		local window = hud.tradeWindow.frame
+		Ui.press(findButton(window, "Player 2"))
+		assert(findButton(window, "Boardwalk"), "my deed")
+		assert(findButton(window, "Mediterranean Avenue"), "their deed")
+		Expect.equal(findButton(window, "Boardwalk"):GetAttribute("State"), "normal")
+		Ui.press(findButton(window, "Boardwalk"))
+		Expect.equal(findButton(hud.tradeWindow.frame, "Boardwalk"):GetAttribute("State"), "selected")
+		Expect.equal(#hud.trade.give.properties, 1, "in the offer")
+	end)
+end
+
+tests["the turn banner plays when the turn becomes yours, and only then"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(2)
+		hud:render(Snapshot.fromState(state), "p2")
+		Expect.equal(hud.turnBanner.frame.Visible, false, "someone else's turn")
+		state.currentIndex = 2
+		hud:render(Snapshot.fromState(state), "p2")
+		Expect.equal(hud.turnBanner.frame.Visible, true, "now it's mine")
+	end)
+	withHud(function(hud)
+		hud:render(Snapshot.fromState(GameFixtures.newGame(2)), "watcher")
+		Expect.equal(hud.turnBanner.frame.Visible, false, "never for a spectator")
+	end)
+end
+
+tests["a change in cash floats off the player's row"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(2)
+		hud:render(Snapshot.fromState(state), "p1")
+		Expect.equal(hud.playerList.frame:FindFirstChild("Floater", true), nil, "a new game floats nothing")
+		Engine.getPlayer(state, "p2").money = 1700
+		hud:render(Snapshot.fromState(state), "p1")
+		local floater = hud.playerList.frame:FindFirstChild("Floater", true)
+		assert(floater and floater:IsA("TextLabel"), "floater shown")
+		Expect.equal(floater.Text, "+$200")
+	end)
+end
+
+tests["the timer bar drains with the turn and hides without a timer"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(2)
+		hud:render(Snapshot.fromState(state), "p1")
+		Expect.equal(hud.actionBar.timer.Visible, false, "no timer in play")
+		local now = workspace:GetServerTimeNow()
+		hud:render(Snapshot.fromState(state, { timer = "Fast", length = "Off", turnDeadline = now + 10 }), "p1")
+		hud:tick()
+		Expect.equal(hud.actionBar.timer.Visible, true)
+		Expect.near(hud.actionBar.timer.Size.X.Scale, 0.5, "half the time left", 0.05)
+	end)
+end
+
+tests["the winner gets confetti once"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(2)
+		state.phase = "GameOver"
+		state.winner = "p1"
+		hud:render(Snapshot.fromState(state), "p1")
+		local function confetti(): number
+			local count = 0
+			for _, child in hud.results.confetti:GetChildren() do
+				count += 1
+			end
+			return count
+		end
+		local first = confetti()
+		assert(first > 0, "confetti thrown")
+		hud:render(Snapshot.fromState(state), "p1")
+		assert(confetti() <= first, "not thrown again on a re-render")
 	end)
 end
 

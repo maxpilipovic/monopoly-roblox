@@ -2,6 +2,8 @@
 -- What the HUD should show for a snapshot: a status line and the buttons the local player may press.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ColorGroups = require(ReplicatedStorage.Shared.Board.ColorGroups)
+local MatchSettings = require(ReplicatedStorage.Shared.Rules.MatchSettings)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 local PropertyRules = require(ReplicatedStorage.Shared.Rules.PropertyRules)
@@ -260,6 +262,102 @@ function HudModel.tradeSummary(snapshot: Protocol.Snapshot, localId: string): { 
 	return { give = EventText.tradeSide(trade.get, view), get = EventText.tradeSide(trade.give, view) }
 end
 
+export type Chip = { position: number, name: string, color: Color3?, mortgaged: boolean }
+export type OfferSide = { title: string, chips: { Chip }, cash: number, jailCards: number }
+export type Offer = { title: string, left: OfferSide, right: OfferSide }
+
+local function offerSide(title: string, side: Protocol.TradeSideView, mortgaged: { [number]: boolean }): OfferSide
+	local positions = table.clone(side.properties)
+	table.sort(positions)
+	local chips = {}
+	for _, position in positions do
+		local tile = Tiles.at(position)
+		local group = if tile.group then ColorGroups[tile.group] else nil
+		table.insert(chips, {
+			position = position,
+			name = tile.name,
+			color = if group then group.color else nil,
+			mortgaged = mortgaged[position] == true,
+		})
+	end
+	return { title = title, chips = chips, cash = side.cash, jailCards = side.jailCards }
+end
+
+-- The open offer as this viewer should read it: the receiver and the proposer see "You give / You
+-- get", everyone else sees who gives what.
+function HudModel.tradeOffer(snapshot: Protocol.Snapshot, localId: string): Offer?
+	local trade = snapshot.trade
+	if snapshot.phase ~= "Trade" or not trade then
+		return nil
+	end
+	local names = HudModel.names(snapshot)
+	local from, to = names[trade.from] or trade.from, names[trade.to] or trade.to
+	local mortgaged = {}
+	for _, property in snapshot.properties do
+		mortgaged[property.position] = property.mortgaged
+	end
+	if trade.to == localId then
+		return {
+			title = `{from} offers you a trade`,
+			left = offerSide("You give", trade.get, mortgaged),
+			right = offerSide("You get", trade.give, mortgaged),
+		}
+	elseif trade.from == localId then
+		return {
+			title = `Your offer to {to}`,
+			left = offerSide("You give", trade.give, mortgaged),
+			right = offerSide("You get", trade.get, mortgaged),
+		}
+	end
+	return {
+		title = `{from} offers {to} a trade`,
+		left = offerSide(`{from} gives`, trade.give, mortgaged),
+		right = offerSide(`{to} gives`, trade.get, mortgaged),
+	}
+end
+
+-- Cash changes between two snapshots, for players in both. No previous snapshot: nothing to show.
+function HudModel.moneyDeltas(previous: Protocol.Snapshot?, next: Protocol.Snapshot): { [string]: number }
+	local deltas = {}
+	if previous then
+		local before = {}
+		for _, player in previous.players do
+			before[player.id] = player.money
+		end
+		for _, player in next.players do
+			local was = before[player.id]
+			if was and was ~= player.money then
+				deltas[player.id] = player.money - was
+			end
+		end
+	end
+	return deltas
+end
+
+-- Whether the turn has just become the local player's (doubles keep the turn; that isn't a new one).
+function HudModel.becameMyTurn(previous: Protocol.Snapshot?, next: Protocol.Snapshot, localId: string): boolean
+	if not seated(next, localId) or next.phase ~= "Roll" or next.currentPlayer ~= localId then
+		return false
+	end
+	return previous == nil or previous.currentPlayer ~= localId
+end
+
+-- The share (0-1) of the acting player's decision time that's left; nil when no clock is running.
+function HudModel.timerFraction(snapshot: Protocol.Snapshot, now: number): number?
+	local deadline = snapshot.match.turnDeadline
+	if not deadline then
+		return nil
+	end
+	local total = MatchSettings.timerSeconds({ timer = snapshot.match.timer, length = snapshot.match.length, map = snapshot.map })
+	if snapshot.phase == "Auction" then
+		total = MatchSettings.bidSeconds(total)
+	end
+	if total <= 0 then
+		return nil
+	end
+	return math.clamp((deadline - now) / total, 0, 1)
+end
+
 export type PropertyRow = {
 	position: number,
 	name: string,
@@ -346,6 +444,44 @@ function HudModel.propertyRows(snapshot: Protocol.Snapshot, localId: string): { 
 		return a.position < b.position
 	end)
 	return rows
+end
+
+export type PropertyGroup = {
+	key: string, -- colour group, or "Railroad" / "Utility"
+	title: string,
+	color: Color3?,
+	owned: number,
+	size: number, -- how many tiles make the full set
+	rows: { PropertyRow },
+}
+
+local KIND_TITLES = { Railroad = "Railroads", Utility = "Utilities" }
+local KIND_SIZES = { Railroad = 4, Utility = 2 }
+
+-- Property rows gathered into their sets, in the order the sets first appear.
+function HudModel.propertyGroups(rows: { PropertyRow }): { PropertyGroup }
+	local groups: { PropertyGroup } = {}
+	local byKey: { [string]: PropertyGroup } = {}
+	for _, row in rows do
+		local group = byKey[row.group]
+		if not group then
+			local colorGroup = ColorGroups[row.group]
+			group = {
+				key = row.group,
+				-- "LightBlue" -> "Light Blue"
+				title = KIND_TITLES[row.group] or (row.group:gsub("(%l)(%u)", "%1 %2")),
+				color = if colorGroup then colorGroup.color else nil,
+				owned = 0,
+				size = KIND_SIZES[row.group] or #PropertyRules.groupPositions(row.group),
+				rows = {},
+			}
+			byKey[row.group] = group
+			table.insert(groups, group)
+		end
+		group.owned += 1
+		table.insert(group.rows, row)
+	end
+	return groups
 end
 
 -- What the Properties panel says when it has no rows.

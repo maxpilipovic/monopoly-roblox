@@ -4,6 +4,7 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local Engine = require(ServerScriptService.Server.Game.Engine)
 local Snapshot = require(ServerScriptService.Server.Game.Snapshot)
 local HudModel = require(StarterPlayer.StarterPlayerScripts.Client.Hud.HudModel)
+local ColorGroups = require(game:GetService("ReplicatedStorage").Shared.Board.ColorGroups)
 local GameFixtures = require(script.Parent.GameFixtures)
 local Expect = require(script.Parent.Expect)
 
@@ -419,6 +420,112 @@ tests["the deed in focus is the tile being bought or auctioned"] = function()
 	state.phase = "GameOver"
 	state.auction = nil
 	Expect.equal(HudModel.deedFocus(Snapshot.fromState(state)), nil, "game over")
+end
+
+local function sideText(side): string
+	local chips = {}
+	for _, chip in side.chips do
+		table.insert(chips, chip.name .. (if chip.mortgaged then "*" else ""))
+	end
+	return `{side.title}: [{table.concat(chips, ",")}] ${side.cash} cards={side.jailCards}`
+end
+
+tests["an open offer reads from each viewer's side of the table"] = function()
+	local state = GameFixtures.newGame(3)
+	GameFixtures.own(state, "p2", 39)
+	GameFixtures.own(state, "p2", 5)
+	state.properties[5].mortgaged = true
+	Expect.equal(HudModel.tradeOffer(Snapshot.fromState(state), "p1"), nil, "no offer open")
+	assert(GameFixtures.propose(state, "p1", "p2", GameFixtures.side(nil, 100), GameFixtures.side({ 39, 5 })))
+	local snapshot = Snapshot.fromState(state)
+
+	local receiver = HudModel.tradeOffer(snapshot, "p2") :: HudModel.Offer
+	Expect.equal(receiver.title, "Player 1 offers you a trade")
+	Expect.equal(sideText(receiver.left), "You give: [Reading Railroad*,Boardwalk] $0 cards=0")
+	Expect.equal(sideText(receiver.right), "You get: [] $100 cards=0")
+	Expect.equal(receiver.left.chips[2].color, ColorGroups.DarkBlue.color, "chips carry their set colour")
+	Expect.equal(receiver.left.chips[1].color, nil, "railroads have none")
+
+	local proposer = HudModel.tradeOffer(snapshot, "p1") :: HudModel.Offer
+	Expect.equal(proposer.title, "Your offer to Player 2")
+	Expect.equal(sideText(proposer.left), "You give: [] $100 cards=0")
+	Expect.equal(sideText(proposer.right), "You get: [Reading Railroad*,Boardwalk] $0 cards=0")
+
+	local watcher = HudModel.tradeOffer(snapshot, "p3") :: HudModel.Offer
+	Expect.equal(watcher.title, "Player 1 offers Player 2 a trade")
+	Expect.equal(watcher.left.title, "Player 1 gives")
+	Expect.equal(watcher.right.title, "Player 2 gives")
+	Expect.equal(watcher.left.cash, 100)
+end
+
+tests["properties group into their sets with how much of each is owned"] = function()
+	local state = GameFixtures.newGame(2)
+	for _, position in { 1, 6, 8, 9, 5, 15, 12 } do
+		GameFixtures.own(state, "p1", position)
+	end
+	local groups = HudModel.propertyGroups(HudModel.propertyRows(Snapshot.fromState(state), "p1"))
+	local summary = {}
+	for _, group in groups do
+		table.insert(summary, `{group.title} {group.owned}/{group.size} rows={#group.rows}`)
+	end
+	Expect.equal(
+		table.concat(summary, " | "),
+		"Brown 1/2 rows=1 | Light Blue 3/3 rows=3 | Railroads 2/4 rows=2 | Utilities 1/2 rows=1"
+	)
+	Expect.equal(groups[1].color, ColorGroups.Brown.color)
+	Expect.equal(groups[3].color, nil)
+	Expect.equal(groups[2].rows[1].name, "Oriental Avenue")
+	Expect.equal(#HudModel.propertyGroups({}), 0)
+end
+
+tests["money deltas are the cash changes of players in both snapshots"] = function()
+	local state = GameFixtures.newGame(3)
+	local before = Snapshot.fromState(state)
+	Engine.getPlayer(state, "p1").money = 1700
+	Engine.getPlayer(state, "p2").money = 1450
+	local after = Snapshot.fromState(state)
+	local deltas = HudModel.moneyDeltas(before, after)
+	Expect.equal(deltas.p1, 200)
+	Expect.equal(deltas.p2, -50)
+	Expect.equal(deltas.p3, nil, "no change, no entry")
+	Expect.equal(next(HudModel.moneyDeltas(nil, after)), nil, "a new game shows nothing")
+	table.remove(before.players, 1)
+	Expect.equal(HudModel.moneyDeltas(before, after).p1, nil, "a player who wasn't there before")
+end
+
+tests["the turn banner is for the moment the turn becomes yours"] = function()
+	local state = GameFixtures.newGame(2, { { 3, 3 }, { 1, 2 } })
+	local start = Snapshot.fromState(state)
+	Expect.equal(HudModel.becameMyTurn(nil, start, "p1"), true, "first turn of the game")
+	Expect.equal(HudModel.becameMyTurn(nil, start, "p2"), false, "not theirs")
+	Expect.equal(HudModel.becameMyTurn(start, start, "p1"), false, "already theirs")
+	Expect.equal(HudModel.becameMyTurn(nil, start, "watcher"), false, "spectator")
+
+	Engine.act(state, "p1", { type = "Roll" }) -- doubles onto Oriental Avenue
+	local deciding = Snapshot.fromState(state)
+	Expect.equal(HudModel.becameMyTurn(start, deciding, "p1"), false, "mid-turn")
+	Engine.act(state, "p1", { type = "Buy" })
+	local again = Snapshot.fromState(state)
+	Expect.equal(again.phase, "Roll", "doubles: rolls again")
+	Expect.equal(HudModel.becameMyTurn(deciding, again, "p1"), false, "doubles isn't a new turn")
+
+	local other = table.clone(start)
+	other.currentPlayer = "p2"
+	Expect.equal(HudModel.becameMyTurn(other, start, "p1"), true, "after someone else")
+end
+
+tests["the timer fraction is the share of the decision time left"] = function()
+	local state = GameFixtures.newGame(2, { { 2, 4 } })
+	Expect.equal(HudModel.timerFraction(Snapshot.fromState(state), 100), nil, "no timer")
+	local info = { timer = "Fast", length = "Off", turnDeadline = 110 }
+	Expect.near(HudModel.timerFraction(Snapshot.fromState(state, info), 100) :: number, 0.5, "10 of 20 s left")
+	Expect.near(HudModel.timerFraction(Snapshot.fromState(state, info), 85) :: number, 1, "never above full")
+	Expect.near(HudModel.timerFraction(Snapshot.fromState(state, info), 130) :: number, 0, "never below empty")
+	Engine.act(state, "p1", { type = "Roll" })
+	Engine.act(state, "p1", { type = "Decline" })
+	-- Fast is 20 s a turn; a bid gets a third of that, rounded up: 7 s.
+	Expect.near(HudModel.timerFraction(Snapshot.fromState(state, info), 103) :: number, 1, "auction: 7 of 7 s left")
+	Expect.near(HudModel.timerFraction(Snapshot.fromState(state, info), 106.5) :: number, 0.5, "auction: half")
 end
 
 return tests

@@ -76,4 +76,34 @@ tests["a pill shows its text on its colour"] = function()
 	holder:Destroy()
 end
 
+tests["a chip shows a deed: plain, picked or unavailable"] = function()
+	local holder = Instance.new("Frame")
+	local clicks = 0
+	local function click()
+		clicks += 1
+	end
+	local plain = Ui.chip("Boardwalk", holder, Color3.fromRGB(0, 114, 187), "normal", click)
+	Expect.equal(plain.Text, "Boardwalk", "text mirrored for lookups")
+	Expect.equal(plain.Name, "Boardwalk")
+	Expect.equal(plain:GetAttribute("State"), "normal")
+	Expect.equal((plain:FindFirstChild("Swatch") :: Frame).BackgroundColor3, Color3.fromRGB(0, 114, 187))
+	Expect.equal(plain:FindFirstChild("Tick"), nil, "no tick until picked")
+	Ui.press(plain)
+	Expect.equal(clicks, 1)
+
+	local picked = Ui.chip("Park Place", holder, nil, "selected", click)
+	assert(picked:FindFirstChild("Tick"), "a tick when picked")
+	Expect.equal((picked:FindFirstChildOfClass("UIStroke") :: UIStroke).Color, Theme.color.accent, "gold outline")
+
+	local off = Ui.chip("Reading Railroad", holder, nil, "disabled", click)
+	Expect.equal(off:GetAttribute("State"), "disabled")
+	Ui.press(off)
+	Expect.equal(clicks, 2, "the caller decides what a click on a disabled chip does")
+
+	local static = Ui.chip("Short Line", holder, nil, "normal", nil)
+	Ui.press(static)
+	Expect.equal(clicks, 2, "a chip without a handler does nothing")
+	holder:Destroy()
+end
+
 return tests

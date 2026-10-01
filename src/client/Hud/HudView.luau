@@ -26,6 +26,7 @@ local PropertiesPanel = require(script.Parent.Views.PropertiesPanel)
 local Results = require(script.Parent.Views.Results)
 local Toasts = require(script.Parent.Views.Toasts)
 local TradeWindow = require(script.Parent.Views.TradeWindow)
+local TurnBanner = require(script.Parent.Views.TurnBanner)
 
 local CARD_SECONDS = 5
 local ACTION_LOCK_SECONDS = 2 -- the server always answers; this only covers a lost reply
@@ -33,7 +34,7 @@ local ACTION_LOCK_SECONDS = 2 -- the server always answers; this only covers a l
 local MIN_CLICK_GAP = 0.35
 local CONFIRM_WIDTH = 220
 local ABOVE_BAR = ActionBar.MARGIN + ActionBar.HEIGHT + 8 -- where panels that sit on the action bar start
-local OFFER_HEIGHT = 84
+local OFFER_ROOM = 200 -- toasts clear the offer card (its height varies with the offer) when one is up
 
 export type Callbacks = {
 	onAction: (action: { [string]: any }) -> (),
@@ -59,6 +60,7 @@ export type HudView = typeof(setmetatable(
 		propertiesPanel: PropertiesPanel.PropertiesPanel,
 		tradeWindow: TradeWindow.TradeWindow,
 		offerCard: OfferCard.OfferCard,
+		turnBanner: TurnBanner.TurnBanner,
 		cardReveal: CardReveal.CardReveal,
 		deedCard: DeedCard.DeedCard,
 		deed: DeedModel.Deed?, -- what the deed card should show when no card is in the way
@@ -125,6 +127,7 @@ local function refreshTimers(self: HudView)
 		if countdown then `{self.statusText} · {countdown}` else self.statusText,
 		if urgent then Theme.color.danger else self.statusColor
 	)
+	self.actionBar:setTimer(HudModel.timerFraction(snapshot, now), urgent)
 	self.playerList:setMatchLine(HudModel.matchLine(snapshot, now))
 end
 
@@ -160,6 +163,7 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		propertiesPanel = nil :: any,
 		tradeWindow = nil :: any,
 		offerCard = OfferCard.new(root, ABOVE_BAR),
+		turnBanner = TurnBanner.new(root),
 		cardReveal = nil :: any,
 		deedCard = nil :: any,
 		deed = nil,
@@ -389,6 +393,7 @@ local function actionEntries(self: HudView, snapshot: Protocol.Snapshot, localId
 end
 
 function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: string)
+	local previous = self.snapshot
 	self.snapshot = snapshot
 	self.localId = localId
 	Ui.setVisible(self.lobby.frame, snapshot == nil)
@@ -406,6 +411,9 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		self.propertiesPanel:reset()
 		self.logFeed:clear() -- the next game starts with a fresh log
 		self.toasts:clear()
+		self.turnBanner:hide()
+		self.playerList:reset()
+		self.actionBar:setTimer(nil, false)
 		self.wasDebtor = false
 		self.results:render(nil, {})
 		self.tradeOpen = false
@@ -416,7 +424,10 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		return
 	end
 
-	self.playerList:render(HudModel.playerRows(snapshot, localId))
+	self.playerList:render(HudModel.playerRows(snapshot, localId), HudModel.moneyDeltas(previous, snapshot))
+	if HudModel.becameMyTurn(previous, snapshot, localId) then
+		self.turnBanner:play()
+	end
 
 	self.actionBar.dice:show(snapshot.lastRoll, self.tumbleNext)
 	self.tumbleNext = false
@@ -443,15 +454,15 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 	self.actionBar:setButtons(actionEntries(self, snapshot, localId))
 	self.propertiesPanel:render(
 		self.propertiesOpen,
-		HudModel.propertyRows(snapshot, localId),
+		HudModel.propertyGroups(HudModel.propertyRows(snapshot, localId)),
 		HudModel.noPropertiesText(snapshot, localId)
 	)
 	self.tradeWindow:render(self.tradeOpen, snapshot, localId, self.trade)
 
-	local summary = HudModel.tradeSummary(snapshot, localId)
-	self.offerCard:render(summary)
+	local offer = HudModel.tradeOffer(snapshot, localId)
+	self.offerCard:render(offer)
 	-- Toasts sit on whatever is stacked above the action bar.
-	self.toasts.frame.Position = UDim2.new(0.5, 0, 1, -(ABOVE_BAR + if summary then OFFER_HEIGHT + 8 else 0))
+	self.toasts.frame.Position = UDim2.new(0.5, 0, 1, -(ABOVE_BAR + if offer then OFFER_ROOM else 0))
 
 	if snapshot.phase == "GameOver" then
 		self.inspected = nil
