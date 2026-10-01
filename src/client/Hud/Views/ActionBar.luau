@@ -3,6 +3,7 @@
 
 local Theme = require(script.Parent.Parent.Theme)
 local Ui = require(script.Parent.Parent.Ui)
+local Dice = require(script.Parent.Dice)
 
 local ActionBar = {}
 ActionBar.__index = ActionBar
@@ -14,6 +15,7 @@ ActionBar.MARGIN = 12 -- gap to the screen's bottom edge
 local BUTTON_GAP = 8
 local BUTTON_WIDTH = 150
 local PADDING = 12
+local SIDE_ROOM = 92 -- kept clear either side of the status line: the dice sit on the right
 
 export type Entry = {
 	label: string,
@@ -23,7 +25,10 @@ export type Entry = {
 	onClick: (button: TextButton) -> (),
 }
 
-export type ActionBar = typeof(setmetatable({} :: { frame: Frame, status: TextLabel, buttons: Frame }, ActionBar))
+export type ActionBar = typeof(setmetatable(
+	{} :: { frame: Frame, status: TextLabel, buttons: Frame, dice: Dice.Dice },
+	ActionBar
+))
 
 function ActionBar.new(parent: Instance): ActionBar
 	local frame = Ui.panel(
@@ -33,14 +38,23 @@ function ActionBar.new(parent: Instance): ActionBar
 		Vector2.new(0.5, 1),
 		parent
 	)
-	local status = Ui.label("Status", frame, UDim2.new(1, -2 * PADDING, 0, 30), 20)
-	status.Position = UDim2.fromOffset(PADDING, 10)
+	local status = Ui.label("Status", frame, UDim2.new(1, -2 * (PADDING + SIDE_ROOM), 0, 30), 20)
+	status.Position = UDim2.fromOffset(PADDING + SIDE_ROOM, 10)
+	-- Long lines (an auction with a long street name) shrink to fit rather than lose their end.
+	status.TextScaled = true
+	local statusLimit = Instance.new("UITextSizeConstraint")
+	statusLimit.MaxTextSize = 20
+	statusLimit.MinTextSize = 12
+	statusLimit.Parent = status
+	local dice = Dice.new(frame)
+	dice.frame.AnchorPoint = Vector2.new(1, 0)
+	dice.frame.Position = UDim2.new(1, -PADDING - 4, 0, 8)
 	status.TextWrapped = false
 	status.TextTruncate = Enum.TextTruncate.AtEnd
 	local buttons = Ui.frame("Buttons", UDim2.new(1, -2 * PADDING, 0, 48), frame)
 	buttons.Position = UDim2.fromOffset(PADDING, 50)
 	Ui.list(buttons, Enum.FillDirection.Horizontal, BUTTON_GAP)
-	return setmetatable({ frame = frame, status = status, buttons = buttons }, ActionBar)
+	return setmetatable({ frame = frame, status = status, buttons = buttons, dice = dice }, ActionBar)
 end
 
 function ActionBar.setStatus(self: ActionBar, text: string, color: Color3)

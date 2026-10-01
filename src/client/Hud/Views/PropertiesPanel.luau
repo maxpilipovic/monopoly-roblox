@@ -15,11 +15,21 @@ local OTHER_SWATCH = Color3.fromRGB(150, 150, 150) -- railroads and utilities ha
 local ROW_BUTTON_WIDTH = 120
 
 export type PropertiesPanel = typeof(setmetatable(
-	{} :: { frame: Frame, scroll: ScrollingFrame, send: (action: { [string]: any }) -> (), key: string? },
+	{} :: {
+		frame: Frame,
+		scroll: ScrollingFrame,
+		send: (action: { [string]: any }) -> (),
+		inspect: ((position: number) -> ())?,
+		key: string?,
+	},
 	PropertiesPanel
 ))
 
-function PropertiesPanel.new(parent: Instance, send: (action: { [string]: any }) -> ()): PropertiesPanel
+function PropertiesPanel.new(
+	parent: Instance,
+	send: (action: { [string]: any }) -> (),
+	inspect: ((position: number) -> ())?
+): PropertiesPanel
 	local frame = Ui.panel("Properties", UDim2.fromOffset(470, 360), UDim2.new(1, -12, 0, 224), Vector2.new(1, 0), parent)
 	frame.Visible = false
 	local scroll = Instance.new("ScrollingFrame")
@@ -34,7 +44,7 @@ function PropertiesPanel.new(parent: Instance, send: (action: { [string]: any })
 	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	scroll.Parent = frame
 	Ui.list(scroll, Enum.FillDirection.Vertical, Theme.space.xs, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Top)
-	return setmetatable({ frame = frame, scroll = scroll, send = send, key = nil }, PropertiesPanel)
+	return setmetatable({ frame = frame, scroll = scroll, send = send, inspect = inspect, key = nil }, PropertiesPanel)
 end
 
 function PropertiesPanel.render(self: PropertiesPanel, open: boolean, rows: { HudModel.PropertyRow }, emptyText: string)
@@ -78,6 +88,19 @@ function PropertiesPanel.render(self: PropertiesPanel, open: boolean, rows: { Hu
 		label.TextTruncate = Enum.TextTruncate.AtEnd
 		label.Text = `{entry.name}  {HudModel.buildingText(entry)}`
 		label.TextColor3 = if entry.mortgaged then Theme.color.textDim else Theme.color.text
+		local inspect = self.inspect
+		if inspect then
+			-- The name is the way to the deed.
+			local open = Instance.new("TextButton")
+			open.Name = "Inspect"
+			open.Size = UDim2.fromScale(1, 1)
+			open.BackgroundTransparency = 1
+			open.Text = ""
+			open.Parent = label
+			open.Activated:Connect(function()
+				inspect(entry.position)
+			end)
+		end
 
 		for i, entryButton in entry.buttons do
 			local button = Ui.button(entryButton.label, row, function()

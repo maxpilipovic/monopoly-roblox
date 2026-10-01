@@ -4,10 +4,11 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local Cards = require(ReplicatedStorage.Shared.Board.Cards)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local MatchSettings = require(ReplicatedStorage.Shared.Rules.MatchSettings)
+local CardFace = require(script.Parent.CardFace)
 local CardQueue = require(script.Parent.CardQueue)
+local DeedModel = require(script.Parent.DeedModel)
 local HudModel = require(script.Parent.HudModel)
 local Layout = require(script.Parent.Layout)
 local LogFormat = require(script.Parent.LogFormat)
@@ -15,6 +16,8 @@ local Theme = require(script.Parent.Theme)
 local TradeBuilder = require(script.Parent.TradeBuilder)
 local Ui = require(script.Parent.Ui)
 local ActionBar = require(script.Parent.Views.ActionBar)
+local CardReveal = require(script.Parent.Views.CardReveal)
+local DeedCard = require(script.Parent.Views.DeedCard)
 local Lobby = require(script.Parent.Views.Lobby)
 local LogFeed = require(script.Parent.Views.LogFeed)
 local OfferCard = require(script.Parent.Views.OfferCard)
@@ -25,10 +28,6 @@ local Toasts = require(script.Parent.Views.Toasts)
 local TradeWindow = require(script.Parent.Views.TradeWindow)
 
 local CARD_SECONDS = 5
-local CARD_COLORS = {
-	Chance = Theme.color.chance,
-	CommunityChest = Theme.color.chest,
-}
 local ACTION_LOCK_SECONDS = 2 -- the server always answers; this only covers a lost reply
 -- Even after the answer, a double-click's second half must not land on the button drawn in the same spot.
 local MIN_CLICK_GAP = 0.35
@@ -60,9 +59,13 @@ export type HudView = typeof(setmetatable(
 		propertiesPanel: PropertiesPanel.PropertiesPanel,
 		tradeWindow: TradeWindow.TradeWindow,
 		offerCard: OfferCard.OfferCard,
-		card: Frame,
-		cardTitle: TextLabel,
-		cardText: TextLabel,
+		cardReveal: CardReveal.CardReveal,
+		deedCard: DeedCard.DeedCard,
+		deed: DeedModel.Deed?, -- what the deed card should show when no card is in the way
+		deedNote: string?,
+		deedClosable: boolean,
+		inspected: number?, -- a deed the player opened from their properties
+		tumbleNext: boolean, -- a roll just arrived: the dice tumble on the next render
 		cards: CardQueue.Queue,
 		propertiesOpen: boolean,
 		tradeOpen: boolean,
@@ -80,13 +83,33 @@ export type HudView = typeof(setmetatable(
 	HudView
 ))
 
-local function updateCard(self: HudView)
+-- The board's empty centre holds one thing at a time: a drawn card, else the deed in question.
+local function updateCentre(self: HudView)
 	local card = CardQueue.current(self.cards, os.clock())
-	self.card.Visible = card ~= nil
-	if card then
-		self.cardTitle.BackgroundColor3 = CARD_COLORS[card.deck] or Theme.color.secondary
-		self.cardTitle.Text = Cards.DECK_TITLES[card.deck] or card.deck
-		self.cardText.Text = card.text
+	self.cardReveal:show(if card then card.face else nil)
+	self.deedCard:render(if card then nil else self.deed, self.deedNote, self.deedClosable)
+end
+
+-- Works out which deed (if any) the snapshot calls for: the tile being bought or auctioned, else
+-- one the player opened themselves.
+local function chooseDeed(self: HudView, snapshot: Protocol.Snapshot?)
+	self.deed, self.deedNote, self.deedClosable = nil, nil, false
+	if not snapshot or snapshot.phase == "GameOver" or self.tradeOpen then
+		return
+	end
+	local focus = HudModel.deedFocus(snapshot)
+	local position = focus or self.inspected
+	if not position then
+		return
+	end
+	self.deed = DeedModel.of(position, snapshot)
+	self.deedClosable = focus == nil
+	local auction = snapshot.auction
+	if focus and auction then
+		local names = HudModel.names(snapshot)
+		self.deedNote = if auction.highBidder
+			then `High bid ${auction.highBid} — {names[auction.highBidder] or auction.highBidder}`
+			else "No bids yet"
 	end
 end
 
@@ -137,9 +160,13 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		propertiesPanel = nil :: any,
 		tradeWindow = nil :: any,
 		offerCard = OfferCard.new(root, ABOVE_BAR),
-		card = nil :: any,
-		cardTitle = nil :: any,
-		cardText = nil :: any,
+		cardReveal = nil :: any,
+		deedCard = nil :: any,
+		deed = nil,
+		deedNote = nil,
+		deedClosable = false,
+		inspected = nil,
+		tumbleNext = false,
 		cards = CardQueue.new(CARD_SECONDS),
 		propertiesOpen = false,
 		tradeOpen = false,
@@ -157,6 +184,8 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 
 	self.propertiesPanel = PropertiesPanel.new(root, function(action)
 		self:send(action)
+	end, function(position)
+		self:inspect(position)
 	end)
 	self.tradeWindow = TradeWindow.new(root, {
 		send = function(action)
@@ -170,25 +199,17 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		changed = rerender,
 	})
 
-	-- Drawn card popup, under the top edge.
-	local card = Ui.panel("Card", UDim2.fromOffset(380, 140), UDim2.new(0.5, 0, 0, 12), Vector2.new(0.5, 0), root)
-	card.BackgroundColor3 = Theme.color.paper
-	card.BackgroundTransparency = 0
-	card.Visible = false
-	self.cardTitle = Ui.label("Title", card, UDim2.new(1, -16, 0, 32), Theme.textSize.heading, Theme.font.display)
-	self.cardTitle.Position = UDim2.fromOffset(8, 8)
-	self.cardTitle.BackgroundTransparency = 0
-	Ui.corner(self.cardTitle, Theme.radius.pill)
-	self.cardText = Ui.label("Text", card, UDim2.new(1, -24, 1, -56), Theme.textSize.body)
-	self.cardText.Position = UDim2.fromOffset(12, 48)
-	self.cardText.TextColor3 = Theme.color.ink
-	self.card = card
+	self.deedCard = DeedCard.new(root, function()
+		self:inspect(nil)
+	end)
+	self.cardReveal = CardReveal.new(root, function()
+		self:dismissCard()
+	end)
 
 	table.insert(
 		self.connections,
 		RunService.Heartbeat:Connect(function()
-			updateCard(self)
-			refreshTimers(self)
+			self:tick()
 		end)
 	)
 
@@ -243,13 +264,41 @@ function HudView.destroy(self: HudView)
 	self.gui:Destroy()
 end
 
--- Queues a drawn card; it appears at `notBefore` (os.clock time) or after the cards ahead of it.
-function HudView.showCard(self: HudView, deck: string, body: string, notBefore: number)
-	CardQueue.push(self.cards, deck, body, notBefore)
+-- What changes between server updates: the card on show, the countdown, the match clock.
+function HudView.tick(self: HudView)
+	updateCentre(self)
+	refreshTimers(self)
 end
 
-function HudView.log(self: HudView, lines: { string })
-	local players = if self.snapshot then self.snapshot.players else {}
+-- Queues a drawn card; it appears at `notBefore` (os.clock time) or after the cards ahead of it.
+function HudView.showCard(self: HudView, cardId: string, drawer: string, notBefore: number)
+	local face = CardFace.of(cardId, drawer)
+	if face then
+		CardQueue.push(self.cards, face.deck, face.text, notBefore, face)
+	end
+end
+
+-- Sends the card on show away early.
+function HudView.dismissCard(self: HudView)
+	CardQueue.dismiss(self.cards, os.clock())
+	updateCentre(self)
+end
+
+-- A roll just arrived: the dice tumble into it on the next render.
+function HudView.diceRolled(self: HudView)
+	self.tumbleNext = true
+end
+
+-- Pins the deed of a property the player wants to look at (nil unpins).
+function HudView.inspect(self: HudView, position: number?)
+	self.inspected = position
+	chooseDeed(self, self.snapshot)
+	updateCentre(self)
+end
+
+-- `players` names whose names to colour; defaults to the game on screen.
+function HudView.log(self: HudView, lines: { string }, players: { Protocol.PlayerView }?)
+	players = players or (if self.snapshot then self.snapshot.players else {})
 	local rich = {}
 	for _, line in lines do
 		table.insert(rich, LogFormat.rich(line, players))
@@ -348,7 +397,11 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 	self.logFeed.frame.Visible = snapshot ~= nil and not self.narrow
 	if not snapshot then
 		table.clear(self.cards.items) -- back in the lobby: drop cards still waiting
-		self.card.Visible = false
+		self.inspected = nil
+		chooseDeed(self, nil)
+		updateCentre(self)
+		self.actionBar.dice:show(nil, false)
+		self.tumbleNext = false
 		self.propertiesOpen = false
 		self.propertiesPanel:reset()
 		self.logFeed:clear() -- the next game starts with a fresh log
@@ -365,9 +418,9 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 
 	self.playerList:render(HudModel.playerRows(snapshot, localId))
 
-	local roll = snapshot.lastRoll
-	local dice = if roll then `   🎲 {roll[1]} + {roll[2]}` else ""
-	self.statusText = HudModel.status(snapshot, localId) .. dice
+	self.actionBar.dice:show(snapshot.lastRoll, self.tumbleNext)
+	self.tumbleNext = false
+	self.statusText = HudModel.status(snapshot, localId)
 	local debtor = HudModel.isDebtor(snapshot, localId)
 	self.statusColor = if debtor then Theme.color.moneyDown else Theme.color.text
 	refreshTimers(self)
@@ -399,6 +452,12 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 	self.offerCard:render(summary)
 	-- Toasts sit on whatever is stacked above the action bar.
 	self.toasts.frame.Position = UDim2.new(0.5, 0, 1, -(ABOVE_BAR + if summary then OFFER_HEIGHT + 8 else 0))
+
+	if snapshot.phase == "GameOver" then
+		self.inspected = nil
+	end
+	chooseDeed(self, snapshot)
+	updateCentre(self)
 
 	if snapshot.phase == "GameOver" then
 		self.results:render(HudModel.status(snapshot, localId), HudModel.standings(snapshot))

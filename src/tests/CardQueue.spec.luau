@@ -40,4 +40,27 @@ tests["a card drawn later starts fresh, not in the past"] = function()
 	Expect.equal(CardQueue.current(queue, 20) and CardQueue.current(queue, 20).deck, "Chance", "deck kept")
 end
 
+tests["dismissing ends the card on show; the next still waits for its token"] = function()
+	local queue = CardQueue.new(5)
+	CardQueue.push(queue, "Chance", "first", 0)
+	CardQueue.push(queue, "Chance", "second", 0)
+	CardQueue.push(queue, "CommunityChest", "third", 20)
+	Expect.equal(shown(queue, 1), "first")
+	CardQueue.dismiss(queue, 1)
+	Expect.equal(shown(queue, 1), "second", "the next card starts at once")
+	Expect.equal(shown(queue, 5.9), "second", "and gets its full time")
+	CardQueue.dismiss(queue, 6)
+	Expect.equal(shown(queue, 6), nil, "the third's token hasn't arrived")
+	CardQueue.dismiss(queue, 7)
+	Expect.equal(#queue.items, 1, "dismissing with nothing showing drops nothing")
+	Expect.equal(shown(queue, 20), "third")
+end
+
+tests["a queued card carries its face"] = function()
+	local queue = CardQueue.new(5)
+	local face = { id = "chance.go" } :: any
+	CardQueue.push(queue, "Chance", "text", 0, face)
+	Expect.equal((CardQueue.current(queue, 1) :: any).face, face)
+end
+
 return tests

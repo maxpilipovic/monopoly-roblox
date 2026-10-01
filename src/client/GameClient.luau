@@ -3,6 +3,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Cards = require(ReplicatedStorage.Shared.Board.Cards)
 local Maps = require(ReplicatedStorage.Shared.Board.Maps)
@@ -58,20 +59,33 @@ function GameClient.start(hooks: Tokens.TokenHooks?)
 				if line then
 					table.insert(lines, line)
 				end
+				if event.type == "Rolled" then
+					hud:diceRolled()
+				end
 				if event.type == "Moved" then
 					travel[event.player] = (travel[event.player] or 0) + Tokens.moveSeconds(event)
 				elseif event.type == "CardDrawn" and Cards.byId[event.card] then
 					-- Show the card once the token has reached the card tile.
-					hud:showCard(event.deck, Cards.byId[event.card].text, now + (travel[event.player] or 0))
+					hud:showCard(event.card, names[event.player] or event.player, now + (travel[event.player] or 0))
 				end
 			end
-			hud:log(lines)
+			hud:log(lines, update.snapshot.players)
 		end
 		if update.notice then
 			hud:notice(update.notice)
 		end
 		hud:render(update.snapshot, localId)
 	end)
+
+	-- Studio only: tooling previews a card reveal by setting the HUD's PreviewCard attribute to a card id.
+	if RunService:IsStudio() then
+		hud.gui:GetAttributeChangedSignal("PreviewCard"):Connect(function()
+			local id = hud.gui:GetAttribute("PreviewCard")
+			if typeof(id) == "string" then
+				hud:showCard(id, localPlayer.Name, os.clock())
+			end
+		end)
+	end
 
 	hud:render(nil, localId)
 	readyRemote:FireServer()

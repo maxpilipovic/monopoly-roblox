@@ -226,4 +226,85 @@ tests["the HUD scales to the viewport, drops the log on narrow screens, and repo
 	end)
 end
 
+local function textOf(root: Instance, name: string): string
+	local label = root:FindFirstChild(name, true)
+	assert(label and label:IsA("TextLabel"), `no {name} label`)
+	return label.Text
+end
+
+tests["buying and bidding show the tile's deed"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(2, { { 2, 4 } })
+		hud:render(Snapshot.fromState(state), "p1")
+		Expect.equal(hud.deedCard.frame.Visible, false, "nothing to decide yet")
+
+		Engine.act(state, "p1", { type = "Roll" })
+		hud:render(Snapshot.fromState(state), "p1")
+		Expect.equal(hud.deedCard.frame.Visible, true, "buy decision")
+		Expect.equal(textOf(hud.deedCard.frame, "Name"), "Oriental Avenue")
+
+		Engine.act(state, "p1", { type = "Decline" })
+		local auction = Snapshot.fromState(state)
+		hud:render(auction, auction.acting :: string)
+		Expect.equal(hud.deedCard.frame.Visible, true, "auction")
+		Expect.equal(textOf(hud.deedCard.frame, "Note"), "No bids yet")
+		Engine.act(state, auction.acting :: string, { type = "Bid", amount = 20 })
+		hud:render(Snapshot.fromState(state), "p1")
+		assert(textOf(hud.deedCard.frame, "Note"):find("$20", 1, true), `bid note: {textOf(hud.deedCard.frame, "Note")}`)
+
+		hud:render(nil, "p1")
+		Expect.equal(hud.deedCard.frame.Visible, false, "lobby")
+	end)
+end
+
+tests["a drawn card takes the centre until it is dismissed"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(2, { { 2, 4 } })
+		Engine.act(state, "p1", { type = "Roll" })
+		hud:render(Snapshot.fromState(state), "p1")
+		hud:showCard("chance.dividend", "Player 1", os.clock())
+		hud:tick()
+		Expect.equal(hud.cardReveal.frame.Visible, true, "card shown")
+		Expect.equal(hud.deedCard.frame.Visible, false, "the deed waits behind the card")
+		hud:dismissCard()
+		hud:tick()
+		Expect.equal(hud.cardReveal.frame.Visible, false, "dismissed")
+		Expect.equal(hud.deedCard.frame.Visible, true, "the deed is back")
+
+		hud:showCard("chest.go", "Player 2", os.clock())
+		hud:tick()
+		Expect.equal(hud.cardReveal.frame.Visible, true)
+		hud:render(nil, "p1")
+		hud:tick()
+		Expect.equal(hud.cardReveal.frame.Visible, false, "the lobby drops cards")
+	end)
+end
+
+tests["inspecting a property pins its deed until it is closed"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(2)
+		GameFixtures.own(state, "p1", 39)
+		hud:render(Snapshot.fromState(state), "p1")
+		hud:inspect(39)
+		Expect.equal(hud.deedCard.frame.Visible, true)
+		Expect.equal(textOf(hud.deedCard.frame, "Name"), "Boardwalk")
+		hud:render(Snapshot.fromState(state), "p1")
+		Expect.equal(hud.deedCard.frame.Visible, true, "a render keeps it")
+		hud:inspect(nil)
+		Expect.equal(hud.deedCard.frame.Visible, false)
+	end)
+end
+
+tests["the dice show the last roll and the status line doesn't repeat it"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(2, { { 2, 4 } })
+		hud:render(Snapshot.fromState(state), "p1")
+		Expect.equal(hud.actionBar.dice.frame.Visible, false, "nothing rolled yet")
+		Engine.act(state, "p1", { type = "Roll" })
+		hud:render(Snapshot.fromState(state), "p1")
+		Expect.equal(hud.actionBar.dice.frame.Visible, true)
+		Expect.equal(hud.actionBar.status.Text, "Your turn")
+	end)
+end
+
 return tests

@@ -162,6 +162,7 @@ Cards.DECKS = table.freeze({ "Chance", "CommunityChest" } :: { DeckName })
 type MapCards = { list: { Card }, idsByDeck: { [string]: { string } }, titles: { [string]: string } }
 
 local byId: { [string]: Card } = {}
+local titleById: { [string]: string } = {} -- each card's deck title on its own map
 
 local function buildMap(chance: { Entry }, chest: { Entry }, titles: { [string]: string }): MapCards
 	local list: { Card } = {}
@@ -173,6 +174,7 @@ local function buildMap(chance: { Entry }, chest: { Entry }, titles: { [string]:
 			table.freeze(card)
 			table.insert(list, card)
 			byId[card.id] = card
+			titleById[card.id] = titles[deck]
 			table.insert(ids, card.id)
 		end
 		idsByDeck[deck] = table.freeze(ids)
@@ -198,6 +200,11 @@ function Cards.use(mapId: string)
 	active = assert(MAPS[mapId], `unknown map {mapId}`)
 	Cards.list = active.list
 	Cards.DECK_TITLES = active.titles
+end
+
+-- The deck title a card was printed with ("Pop Quiz" for a college Chance card), whatever map is active.
+function Cards.titleFor(cardId: string): string?
+	return titleById[cardId]
 end
 
 -- A new array of the active map's card ids for a deck, in listed order (callers may shuffle it).

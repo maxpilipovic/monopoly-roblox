@@ -6,6 +6,7 @@ export type Card = {
 	deck: string,
 	text: string,
 	notBefore: number, -- earliest time it may appear
+	face: any?, -- what the card reveal draws (a CardFace.Face); the queue only carries it
 }
 
 export type Queue = {
@@ -20,8 +21,8 @@ function CardQueue.new(seconds: number): Queue
 	return { seconds = seconds, items = {}, freeAt = -math.huge }
 end
 
-function CardQueue.push(queue: Queue, deck: string, text: string, notBefore: number)
-	table.insert(queue.items, { deck = deck, text = text, notBefore = notBefore })
+function CardQueue.push(queue: Queue, deck: string, text: string, notBefore: number, face: any?)
+	table.insert(queue.items, { deck = deck, text = text, notBefore = notBefore, face = face })
 end
 
 -- The card to show at `now`, or nil; drops cards whose time is over.
@@ -38,6 +39,14 @@ function CardQueue.current(queue: Queue, now: number): Card?
 		table.remove(queue.items, 1)
 	end
 	return nil
+end
+
+-- The player waved the card away: it ends now, and the next may start (once its token has arrived).
+function CardQueue.dismiss(queue: Queue, now: number)
+	if CardQueue.current(queue, now) then
+		table.remove(queue.items, 1)
+		queue.freeAt = now
+	end
 end
 
 return CardQueue

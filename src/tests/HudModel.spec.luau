@@ -409,4 +409,16 @@ tests["player rows carry what the player list shows, in seat order"] = function(
 	end
 end
 
+tests["the deed in focus is the tile being bought or auctioned"] = function()
+	local state = GameFixtures.newGame(2, { { 2, 4 } })
+	Expect.equal(HudModel.deedFocus(Snapshot.fromState(state)), nil, "rolling")
+	Engine.act(state, "p1", { type = "Roll" })
+	Expect.equal(HudModel.deedFocus(Snapshot.fromState(state)), 6, "buy decision: Oriental Avenue")
+	Engine.act(state, "p1", { type = "Decline" })
+	Expect.equal(HudModel.deedFocus(Snapshot.fromState(state)), 6, "auction")
+	state.phase = "GameOver"
+	state.auction = nil
+	Expect.equal(HudModel.deedFocus(Snapshot.fromState(state)), nil, "game over")
+end
+
 return tests

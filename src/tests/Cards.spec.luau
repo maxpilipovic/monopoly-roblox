@@ -76,4 +76,16 @@ tests["idsFor returns a fresh list each time"] = function()
 	Expect.equal(Cards.DECK_TITLES.CommunityChest, "Community Chest")
 end
 
+tests["a card's deck title comes from its own map"] = function()
+	Expect.equal(Cards.titleFor("chance.go"), "Chance")
+	Expect.equal(Cards.titleFor("chest.go"), "Community Chest")
+	Expect.equal(Cards.titleFor("college.chance.go"), "Pop Quiz")
+	Expect.equal(Cards.titleFor("college.chest.go"), "Student Union")
+	Expect.equal(Cards.titleFor("nope"), nil)
+	Cards.use("College")
+	local classicOnCollege = Cards.titleFor("chance.go")
+	Cards.use("Classic")
+	Expect.equal(classicOnCollege, "Chance", "whatever map is active")
+end
+
 return tests

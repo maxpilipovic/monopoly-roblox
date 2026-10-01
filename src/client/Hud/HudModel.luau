@@ -224,6 +224,17 @@ function HudModel.playerRows(snapshot: Protocol.Snapshot, localId: string): { Pl
 	return rows
 end
 
+-- The tile whose deed everyone should be looking at: the one being bought or auctioned.
+function HudModel.deedFocus(snapshot: Protocol.Snapshot): number?
+	if snapshot.auction then
+		return snapshot.auction.position
+	elseif snapshot.phase == "BuyDecision" then
+		local current = findPlayer(snapshot, snapshot.currentPlayer)
+		return if current then current.position else nil
+	end
+	return nil
+end
+
 function HudModel.canTrade(snapshot: Protocol.Snapshot, localId: string): boolean
 	local phase = snapshot.phase
 	if not seated(snapshot, localId) or snapshot.acting ~= localId or snapshot.tradeOffersLeft <= 0 then
