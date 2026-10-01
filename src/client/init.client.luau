@@ -1,6 +1,5 @@
 --!strict
-local BoardCamera = require(script.BoardCamera)
+local CameraDirector = require(script.CameraDirector)
 local GameClient = require(script.GameClient)
 
-BoardCamera.start()
-GameClient.start()
+GameClient.start(CameraDirector.start())

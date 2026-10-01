@@ -15,7 +15,7 @@ local Tokens = require(script.Parent.Tokens)
 
 local GameClient = {}
 
-function GameClient.start()
+function GameClient.start(hooks: Tokens.TokenHooks?)
 	local localPlayer = Players.LocalPlayer
 	local localId = tostring(localPlayer.UserId)
 	local remotes = ReplicatedStorage:WaitForChild(Protocol.REMOTES_FOLDER)
@@ -24,7 +24,7 @@ function GameClient.start()
 	local updateRemote = remotes:WaitForChild(Protocol.UPDATE) :: RemoteEvent
 	local readyRemote = remotes:WaitForChild(Protocol.READY) :: RemoteEvent
 
-	local tokens = Tokens.new(workspace)
+	local tokens = Tokens.new(workspace, hooks)
 	local buildings = Buildings.new(workspace)
 	local markers = OwnerMarkers.new(workspace)
 	local hud = HudView.new(localPlayer:WaitForChild("PlayerGui"), {

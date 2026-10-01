@@ -28,13 +28,23 @@ Tokens.__index = Tokens
 Tokens.HOP_TIME = 0.18
 local HOP_TIME = Tokens.HOP_TIME
 
-export type TokensView = typeof(setmetatable({} :: { folder: Folder, tokens: { [string]: Token } }, Tokens))
+-- Optional listeners for the camera: a move begins, each hop, and the token's queue runs dry.
+export type TokenHooks = {
+	onMoveStarted: (part: BasePart, style: string?) -> (),
+	onHop: (part: BasePart, from: number, to: number) -> (),
+	onMoveFinished: (part: BasePart) -> (),
+}
 
-function Tokens.new(parent: Instance): TokensView
+export type TokensView = typeof(setmetatable(
+	{} :: { folder: Folder, tokens: { [string]: Token }, hooks: TokenHooks? },
+	Tokens
+))
+
+function Tokens.new(parent: Instance, hooks: TokenHooks?): TokensView
 	local folder = Instance.new("Folder")
 	folder.Name = "Tokens"
 	folder.Parent = parent
-	return setmetatable({ folder = folder, tokens = {} }, Tokens)
+	return setmetatable({ folder = folder, tokens = {}, hooks = hooks }, Tokens)
 end
 
 local function standingCFrame(position: number, seat: number, jailed: boolean?): CFrame
@@ -90,22 +100,34 @@ function Tokens.moveSeconds(move: Move): number
 end
 
 -- Plays queued moves one after another, one hop per tile.
-local function runQueue(token: Token)
+local function runQueue(self: TokensView, token: Token)
 	if token.moving then
 		return
 	end
 	token.moving = true
 	task.spawn(function()
+		local hooks = self.hooks
 		while #token.queue > 0 and token.part.Parent do
 			local move = table.remove(token.queue, 1) :: Move
+			if hooks then
+				hooks.onMoveStarted(token.part, move.style)
+			end
+			local previous = move.from
 			for _, position in Tokens.path(move) do
 				if not token.part.Parent then
 					break -- the token was removed (back to the lobby) mid-move
 				end
+				if hooks then
+					hooks.onHop(token.part, previous, position)
+				end
 				hop(token, standingCFrame(position, token.seat, move.style == "ToJail"))
+				previous = position
 			end
 		end
 		token.moving = false
+		if hooks then
+			hooks.onMoveFinished(token.part)
+		end
 		-- Settle on the server's position, in case a change arrived without a move to animate.
 		if token.part.Parent then
 			token.part.CFrame = standingCFrame(token.position, token.seat, token.inJail)
@@ -162,7 +184,7 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 		local token = event.type == "Moved" and self.tokens[event.player]
 		if token then
 			table.insert(token.queue, { from = event.from, to = event.to, style = event.style })
-			runQueue(token)
+			runQueue(self, token)
 		end
 	end
 

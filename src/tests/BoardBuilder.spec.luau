@@ -78,4 +78,20 @@ tests["rebuilding replaces the existing board"] = function()
 	scratch:Destroy()
 end
 
+tests["tile labels share one maximum text size"] = function()
+	local holder = Instance.new("Folder")
+	local model = BoardBuilder.build(holder)
+	local labels = 0
+	for _, label in model:GetDescendants() do
+		if label:IsA("TextLabel") and label.Name == "Label" then
+			labels += 1
+			local constraint = label:FindFirstChildOfClass("UITextSizeConstraint")
+			assert(constraint, `{label:GetFullName()} has no size constraint`)
+			Expect.equal(constraint.MaxTextSize, BoardBuilder.LABEL_MAX_TEXT_SIZE, "max size")
+		end
+	end
+	Expect.equal(labels, 40, "every tile has a label")
+	holder:Destroy()
+end
+
 return tests

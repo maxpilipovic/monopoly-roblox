@@ -10,6 +10,7 @@ local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 local BoardBuilder = {}
 
 BoardBuilder.MODEL_NAME = "Board"
+BoardBuilder.LABEL_MAX_TEXT_SIZE = 40
 
 local TILE_COLOR = Color3.fromRGB(214, 234, 214)
 local BASE_COLOR = Color3.fromRGB(35, 35, 35)
@@ -72,6 +73,11 @@ local function addLabel(part: BasePart, text: string, topInset: number)
 	padding.PaddingLeft = UDim.new(0, 4)
 	padding.PaddingRight = UDim.new(0, 4)
 	padding.Parent = label
+
+	-- TextScaled alone makes short names huge and long ones tiny; cap it so the board reads evenly.
+	local sizeLimit = Instance.new("UITextSizeConstraint")
+	sizeLimit.MaxTextSize = BoardBuilder.LABEL_MAX_TEXT_SIZE
+	sizeLimit.Parent = label
 end
 
 local function buildTile(tile: Tiles.Tile, parent: Instance)
