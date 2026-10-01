@@ -148,4 +148,11 @@ tests["snapshot names the acting player, jail attempts, and the bank for a bankr
 	Expect.equal(Snapshot.fromState(owing).acting, nil, "game over")
 end
 
+tests["the snapshot says which map is in play"] = function()
+	Expect.equal(Snapshot.fromState(GameFixtures.newGame(2)).map, "Classic")
+	local state = GameFixtures.newGame(2)
+	state.map = "College"
+	Expect.equal(Snapshot.fromState(state).map, "College")
+end
+
 return tests

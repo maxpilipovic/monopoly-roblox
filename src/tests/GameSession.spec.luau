@@ -4,6 +4,8 @@ local Engine = require(ServerScriptService.Server.Game.Engine)
 local GameSession = require(ServerScriptService.Server.Game.GameSession)
 local GameFixtures = require(script.Parent.GameFixtures)
 local Expect = require(script.Parent.Expect)
+local Maps = require(game:GetService("ReplicatedStorage").Shared.Board.Maps)
+local MatchSettings = require(game:GetService("ReplicatedStorage").Shared.Rules.MatchSettings)
 
 local tests = {}
 
@@ -246,6 +248,13 @@ tests["leaving after the game is over leaves the results as they were"] = functi
 	Expect.equal(h1.name, "Human 1", "winner keeps their name")
 	assert(not h1.isBot, "no bot takes a finished seat")
 	Expect.equal(#session.state.events, events, "no PlayerReplaced line")
+end
+
+tests["the session starts the map from the settings"] = function()
+	local session = GameSession.new(humans(1), 2, GameFixtures.scriptedDice({}), nil, MatchSettings.validate({ map = "College" }))
+	local map = session.state.map
+	Maps.use("Classic")
+	Expect.equal(map, "College")
 end
 
 return tests

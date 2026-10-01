@@ -53,7 +53,7 @@ function GameSession.new(
 
 	local chosen = settings or MatchSettings.validate(nil)
 	return {
-		state = Engine.new(infos, rollDice, shuffle, MatchSettings.roundLimit(chosen)),
+		state = Engine.new(infos, rollDice, shuffle, MatchSettings.roundLimit(chosen), chosen.map),
 		eventCursor = 0,
 		settings = chosen,
 		endsAt = nil,

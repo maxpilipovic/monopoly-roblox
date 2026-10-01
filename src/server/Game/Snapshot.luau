@@ -89,6 +89,7 @@ function Snapshot.fromState(state: Types.GameState, info: MatchInfo?): Protocol.
 
 	return {
 		phase = state.phase,
+		map = state.map,
 		currentPlayer = Engine.currentPlayer(state).id,
 		acting = acting,
 		players = players,

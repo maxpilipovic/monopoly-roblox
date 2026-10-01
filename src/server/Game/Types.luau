@@ -62,6 +62,7 @@ export type GameState = {
 	players: { Player },
 	currentIndex: number,
 	phase: Phase,
+	map: string, -- the board in play (Maps id)
 	properties: { [number]: Ownership }, -- keyed by board position; absent = owned by the bank
 	lastRoll: { number }?,
 	doublesCount: number, -- doubles rolled so far this turn

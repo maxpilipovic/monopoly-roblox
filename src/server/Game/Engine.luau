@@ -5,6 +5,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 local Cards = require(ReplicatedStorage.Shared.Board.Cards)
+local Maps = require(ReplicatedStorage.Shared.Board.Maps)
 local PropertyRules = require(ReplicatedStorage.Shared.Rules.PropertyRules)
 local TradeRules = require(ReplicatedStorage.Shared.Rules.TradeRules)
 local Rent = require(script.Parent.Rent)
@@ -770,11 +771,21 @@ local function actInDebt(state: GameState, player: Player, action: Types.Action)
 	return false, "pay your debt first"
 end
 
-function Engine.new(players: { PlayerInfo }, rollDice: Types.DiceRoller, shuffle: Types.Shuffler?, roundLimit: number?): GameState
+function Engine.new(
+	players: { PlayerInfo },
+	rollDice: Types.DiceRoller,
+	shuffle: Types.Shuffler?,
+	roundLimit: number?,
+	map: string?
+): GameState
 	assert(
 		#players >= Engine.MIN_PLAYERS and #players <= Engine.MAX_PLAYERS,
 		`a game needs {Engine.MIN_PLAYERS}-{Engine.MAX_PLAYERS} players, got {#players}`
 	)
+
+	-- One game at a time: the board data follows the game being started.
+	local mapId = map or Maps.DEFAULT
+	Maps.use(mapId)
 
 	local seen = {}
 	local playerStates = {}
@@ -807,6 +818,7 @@ function Engine.new(players: { PlayerInfo }, rollDice: Types.DiceRoller, shuffle
 		players = playerStates,
 		currentIndex = 1,
 		phase = "Roll",
+		map = mapId,
 		properties = {},
 		lastRoll = nil,
 		doublesCount = 0,

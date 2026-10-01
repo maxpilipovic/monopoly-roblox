@@ -35,6 +35,7 @@ function GameFixtures.bareState(playerCount: number): Types.GameState
 		players = players,
 		currentIndex = 1,
 		phase = "Roll",
+		map = "Classic",
 		properties = {},
 		lastRoll = nil,
 		doublesCount = 0,

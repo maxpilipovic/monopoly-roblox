@@ -61,6 +61,7 @@ export type MatchView = {
 -- Arrays only (RemoteEvents drop sparse numeric keys).
 export type Snapshot = {
 	phase: string,
+	map: string, -- Maps id; clients switch to it before drawing
 	currentPlayer: string,
 	acting: string?, -- whoever the game is waiting on (bidder, debtor, trade receiver); nil once it's over
 	players: { PlayerView },

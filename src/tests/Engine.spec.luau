@@ -3,6 +3,8 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Engine = require(ServerScriptService.Server.Game.Engine)
 local GameFixtures = require(script.Parent.GameFixtures)
 local Expect = require(script.Parent.Expect)
+local Maps = require(game:GetService("ReplicatedStorage").Shared.Board.Maps)
+local Tiles = require(game:GetService("ReplicatedStorage").Shared.Board.Tiles)
 
 local tests = {}
 
@@ -221,6 +223,41 @@ tests["landing on another player's railroad charges railroad rent"] = function()
 	act(state, "p1", ROLL)
 	Expect.equal(money(state, "p1"), 1450, "two railroads: $50")
 	Expect.equal(money(state, "p2"), 1550)
+end
+
+local function players(count: number)
+	local infos = {}
+	for i = 1, count do
+		table.insert(infos, { id = `p{i}`, name = `Player {i}`, isBot = false })
+	end
+	return infos
+end
+
+tests["a new game without a map is Classic, even after a College game"] = function()
+	local college = Engine.new(players(2), GameFixtures.scriptedDice({}), nil, nil, "College")
+	local ok, err = pcall(function()
+		Expect.equal(college.map, "College")
+		Expect.equal(college.decks.Chance[1], "college.chance.dividend", "college cards dealt")
+		Expect.equal(Tiles.at(39).name, "Football Stadium")
+	end)
+	local classic = GameFixtures.newGame(2) -- no map given
+	Expect.equal(classic.map, "Classic")
+	Expect.equal(Maps.current(), "Classic", "switched back")
+	Expect.equal(classic.decks.Chance[1], "chance.dividend")
+	assert(ok, err)
+end
+
+tests["a College game plays like a Classic one"] = function()
+	local state = Engine.new(players(2), GameFixtures.scriptedDice({ { 1, 2 } }), nil, nil, "College")
+	local ok, err = pcall(function()
+		act(state, "p1", ROLL) -- to 3: Basement Laundry, $60 like Baltic
+		Expect.equal(state.phase, "BuyDecision")
+		act(state, "p1", BUY)
+		Expect.equal(money(state, "p1"), 1440)
+		Expect.equal(state.properties[3].owner, "p1")
+	end)
+	Maps.use("Classic")
+	assert(ok, err)
 end
 
 return tests
