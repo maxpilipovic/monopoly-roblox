@@ -67,4 +67,18 @@ tests["seconds, limits and labels"] = function()
 	Expect.equal(MatchSettings.lengthLabel("Off"), "Length: Off")
 end
 
+tests["the map defaults to Classic, validates, cycles and labels"] = function()
+	Expect.equal(MatchSettings.DEFAULT.map, "Classic", "default")
+	Expect.equal(MatchSettings.validate({ map = "College" }).map, "College", "known map kept")
+	for i, raw in { nil, 5, { map = 5 }, { map = "college" }, { map = "__index" } } :: { any } do
+		Expect.equal(MatchSettings.validate(raw).map, "Classic", `garbage #{i}`)
+	end
+	Expect.equal(MatchSettings.nextMap("Classic"), "College")
+	Expect.equal(MatchSettings.nextMap("College"), "Classic", "wraps")
+	Expect.equal(MatchSettings.mapLabel("College"), "Map: College")
+	local chosen = MatchSettings.validate({ timer = "Fast", length = "Rounds15", map = "College" })
+	Expect.equal(chosen.timer, "Fast", "other options untouched")
+	Expect.equal(chosen.length, "Rounds15", "other options untouched")
+end
+
 return tests

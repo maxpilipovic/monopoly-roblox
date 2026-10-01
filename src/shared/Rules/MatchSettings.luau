@@ -5,6 +5,7 @@
 export type Settings = {
 	timer: string, -- "Off" | "Relaxed" | "Fast"
 	length: string, -- "Off" | "Rounds15" | "Rounds25" | "Rounds40" | "Minutes30" | "Minutes45" | "Minutes60"
+	map: string, -- "Classic" | "College"
 }
 
 local MatchSettings = {}
@@ -15,7 +16,10 @@ local LENGTHS = { "Off", "Rounds15", "Rounds25", "Rounds40", "Minutes30", "Minut
 local ROUNDS = { Rounds15 = 15, Rounds25 = 25, Rounds40 = 40 }
 local MINUTES = { Minutes30 = 30, Minutes45 = 45, Minutes60 = 60 }
 
-MatchSettings.DEFAULT = table.freeze({ timer = "Relaxed", length = "Off" }) :: Settings
+-- A literal rather than Maps.IDS so this stays a leaf module; keep the two lists the same.
+local MAPS = { "Classic", "College" }
+
+MatchSettings.DEFAULT = table.freeze({ timer = "Relaxed", length = "Off", map = "Classic" }) :: Settings
 
 local function isOneOf(value: any, options: { string }): boolean
 	return typeof(value) == "string" and table.find(options, value) ~= nil
@@ -24,7 +28,8 @@ end
 function MatchSettings.validate(raw: any): Settings
 	local timer = if typeof(raw) == "table" and isOneOf(raw.timer, TIMERS) then raw.timer else MatchSettings.DEFAULT.timer
 	local length = if typeof(raw) == "table" and isOneOf(raw.length, LENGTHS) then raw.length else MatchSettings.DEFAULT.length
-	return { timer = timer, length = length }
+	local map = if typeof(raw) == "table" and isOneOf(raw.map, MAPS) then raw.map else MatchSettings.DEFAULT.map
+	return { timer = timer, length = length, map = map }
 end
 
 local function nextIn(options: { string }, id: string): string
@@ -38,6 +43,14 @@ end
 
 function MatchSettings.nextLength(id: string): string
 	return nextIn(LENGTHS, id)
+end
+
+function MatchSettings.nextMap(id: string): string
+	return nextIn(MAPS, id)
+end
+
+function MatchSettings.mapLabel(id: string): string
+	return `Map: {id}`
 end
 
 function MatchSettings.timerLabel(id: string): string
