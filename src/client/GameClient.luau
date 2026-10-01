@@ -10,6 +10,7 @@ local Buildings = require(script.Parent.Buildings)
 local EventText = require(script.Parent.Hud.EventText)
 local HudModel = require(script.Parent.Hud.HudModel)
 local HudView = require(script.Parent.Hud.HudView)
+local OwnerMarkers = require(script.Parent.OwnerMarkers)
 local Tokens = require(script.Parent.Tokens)
 
 local GameClient = {}
@@ -25,6 +26,7 @@ function GameClient.start()
 
 	local tokens = Tokens.new(workspace)
 	local buildings = Buildings.new(workspace)
+	local markers = OwnerMarkers.new(workspace)
 	local hud = HudView.new(localPlayer:WaitForChild("PlayerGui"), {
 		onAction = function(action)
 			actionRemote:FireServer(action)
@@ -41,6 +43,7 @@ function GameClient.start()
 		hud:unlock()
 		tokens:apply(update)
 		buildings:apply(update.snapshot)
+		markers:apply(update.snapshot)
 		if update.snapshot then
 			local names = HudModel.names(update.snapshot)
 			local lines = {}
