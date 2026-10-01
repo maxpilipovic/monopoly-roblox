@@ -114,4 +114,21 @@ tests["the target is the chase view while following and the overhead view at res
 	part:Destroy()
 end
 
+tests["the overhead inset comes from the HUD when it reports one"] = function()
+	Expect.near(CameraDirector.insetFrom(nil), CameraDirector.DEFAULT_INSET, "no gui yet")
+	local playerGui = Instance.new("Folder")
+	Expect.near(CameraDirector.insetFrom(playerGui), CameraDirector.DEFAULT_INSET, "no HUD yet")
+	local hud = Instance.new("ScreenGui")
+	hud.Name = "MonopolyHud"
+	hud.Parent = playerGui
+	Expect.near(CameraDirector.insetFrom(playerGui), CameraDirector.DEFAULT_INSET, "no attribute yet")
+	hud:SetAttribute("BottomInset", 0.25)
+	Expect.near(CameraDirector.insetFrom(playerGui), 0.25, "reported")
+	hud:SetAttribute("BottomInset", 5)
+	Expect.near(CameraDirector.insetFrom(playerGui), CameraDirector.DEFAULT_INSET, "out of range")
+	hud:SetAttribute("BottomInset", "lots")
+	Expect.near(CameraDirector.insetFrom(playerGui), CameraDirector.DEFAULT_INSET, "not a number")
+	playerGui:Destroy()
+end
+
 return tests

@@ -3,6 +3,7 @@
 -- token, holds on where it lands, then eases back. The state machine (`next`, `target`) is pure;
 -- `start` feeds it frames and token events.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -90,22 +91,39 @@ function CameraDirector.target(state: State, now: number, overhead: CFrame): CFr
 end
 
 local FOLLOW_SHARPNESS = 6 -- higher = the camera catches up with a hopping token faster
-local ACTION_BAR_INSET = 0.16 -- share of the screen's height the action bar covers at the bottom
+
+CameraDirector.DEFAULT_INSET = 0.16 -- used until the HUD says how much of the screen its action bar covers
+CameraDirector.HUD_NAME = "MonopolyHud"
+local MAX_INSET = 0.4
+
+-- The share of the screen's height to keep clear at the bottom: what the HUD reports, if it's sane.
+function CameraDirector.insetFrom(playerGui: Instance?): number
+	local hud = if playerGui then playerGui:FindFirstChild(CameraDirector.HUD_NAME) else nil
+	local inset = if hud then hud:GetAttribute("BottomInset") else nil
+	if typeof(inset) == "number" and inset >= 0 and inset <= MAX_INSET then
+		return inset
+	end
+	return CameraDirector.DEFAULT_INSET
+end
 
 -- Takes over the camera for good and returns the hooks Tokens should call.
 function CameraDirector.start(): Tokens.TokenHooks
 	local state = CameraDirector.initial()
+	local localPlayer = Players.LocalPlayer
 
+	-- The fit is a search; redo it only when the screen or the HUD's bar changes.
+	local fitted: CFrame? = nil
+	local fittedFor = ""
 	local function overhead(camera: Camera): CFrame
 		local viewport = camera.ViewportSize
-		local aspect = if viewport.Y > 0 then viewport.X / viewport.Y else 16 / 9
-		return BoardCamera.getOverheadCFrame(
-			Layout.ORIGIN.Position,
-			Layout.BOARD_SIZE,
-			BoardCamera.FIELD_OF_VIEW,
-			aspect,
-			ACTION_BAR_INSET
-		)
+		local inset = CameraDirector.insetFrom(if localPlayer then localPlayer:FindFirstChild("PlayerGui") else nil)
+		local key = `{viewport.X}x{viewport.Y}:{inset}`
+		if not fitted or key ~= fittedFor then
+			local aspect = if viewport.Y > 0 then viewport.X / viewport.Y else 16 / 9
+			fitted = BoardCamera.getOverheadCFrame(Layout.ORIGIN.Position, Layout.BOARD_SIZE, BoardCamera.FIELD_OF_VIEW, aspect, inset)
+			fittedFor = key
+		end
+		return fitted :: CFrame
 	end
 
 	RunService:BindToRenderStep("BoardCamera", Enum.RenderPriority.Camera.Value + 1, function(dt: number)
