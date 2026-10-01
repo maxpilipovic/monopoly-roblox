@@ -186,6 +186,44 @@ function HudModel.matchLine(snapshot: Protocol.Snapshot, now: number): string?
 	return if #parts > 0 then table.concat(parts, " · ") else nil
 end
 
+export type PlayerRow = {
+	id: string,
+	name: string,
+	seat: number,
+	money: number,
+	bankrupt: boolean,
+	inJail: boolean,
+	isYou: boolean,
+	isCurrent: boolean,
+	deeds: number, -- how many properties they own
+}
+
+-- One row per player for the player list, in seat order.
+function HudModel.playerRows(snapshot: Protocol.Snapshot, localId: string): { PlayerRow }
+	local deeds = {}
+	for _, property in snapshot.properties do
+		deeds[property.owner] = (deeds[property.owner] or 0) + 1
+	end
+	local rows = {}
+	for _, player in snapshot.players do
+		table.insert(rows, {
+			id = player.id,
+			name = player.name,
+			seat = player.seat,
+			money = player.money,
+			bankrupt = player.bankrupt,
+			inJail = player.inJail,
+			isYou = player.id == localId,
+			isCurrent = player.id == snapshot.currentPlayer and snapshot.phase ~= "GameOver",
+			deeds = deeds[player.id] or 0,
+		})
+	end
+	table.sort(rows, function(a, b)
+		return a.seat < b.seat
+	end)
+	return rows
+end
+
 function HudModel.canTrade(snapshot: Protocol.Snapshot, localId: string): boolean
 	local phase = snapshot.phase
 	if not seated(snapshot, localId) or snapshot.acting ~= localId or snapshot.tradeOffersLeft <= 0 then

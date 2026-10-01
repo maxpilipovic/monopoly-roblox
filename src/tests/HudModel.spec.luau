@@ -383,4 +383,30 @@ tests["someone watching a bot-held seat is told what a spectator is told"] = fun
 	Expect.equal(HudModel.status(snapshot, "p1"), HudModel.status(snapshot, "watcher"), "not \"Your turn\"")
 end
 
+tests["player rows carry what the player list shows, in seat order"] = function()
+	local state = GameFixtures.newGame(3)
+	GameFixtures.own(state, "p2", 1)
+	GameFixtures.own(state, "p2", 3)
+	GameFixtures.own(state, "p3", 5)
+	state.players[2].inJail = true
+	state.players[3].bankrupt = true
+	local rows = HudModel.playerRows(Snapshot.fromState(state), "p2")
+	Expect.equal(#rows, 3)
+	Expect.equal(rows[1].id, "p1")
+	Expect.equal(rows[1].seat, 1)
+	Expect.equal(rows[1].isCurrent, true, "p1 is up")
+	Expect.equal(rows[1].isYou, false)
+	Expect.equal(rows[1].deeds, 0)
+	Expect.equal(rows[2].isYou, true)
+	Expect.equal(rows[2].isCurrent, false)
+	Expect.equal(rows[2].inJail, true)
+	Expect.equal(rows[2].deeds, 2)
+	Expect.equal(rows[2].money, 1500)
+	Expect.equal(rows[3].bankrupt, true)
+	Expect.equal(rows[3].deeds, 1)
+	for _, row in HudModel.playerRows(Snapshot.fromState(state), "watcher") do
+		Expect.equal(row.isYou, false, "a spectator is nobody's row")
+	end
+end
+
 return tests
