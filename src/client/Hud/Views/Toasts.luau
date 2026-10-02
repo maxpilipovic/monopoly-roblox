@@ -17,6 +17,7 @@ function Toasts.new(parent: Instance, bottomOffset: number): Toasts
 	frame.AnchorPoint = Vector2.new(0.5, 1)
 	frame.Position = UDim2.new(0.5, 0, 1, -bottomOffset)
 	frame.AutomaticSize = Enum.AutomaticSize.Y
+	frame.ZIndex = 30 -- a refusal must be readable over any panel
 	Ui.list(frame, Enum.FillDirection.Vertical, Theme.space.xs, nil, Enum.VerticalAlignment.Bottom)
 	return setmetatable({ frame = frame }, Toasts)
 end

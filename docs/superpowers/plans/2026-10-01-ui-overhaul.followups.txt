@@ -1,0 +1,32 @@
+UI overhaul + pacing — deferred items, 2026-10-01
+
+Fixed in the review pass:
+- Trade window overlapped the player list, log and properties panel; panels let clicks through to what was under them. (Window narrowed and centred above the bar; trade and properties take turns; panels are Active.)
+- HUD scale came from the camera viewport, not the space the HUD has (Roblox's top bar), so tall panels could reach the action bar. (Scale from the ScreenGui's size; the properties panel's max height follows the canvas.)
+- Toasts could be hidden behind the trade window / offer card. (ZIndex above every panel; positioned from the offer card's real height.)
+- Offer card grew without limit. (Four chips a side, then "+N more".)
+- A card drawn on the last turn covered the results; an empty action bar sat under them.
+
+Important, deferred (needs its own pass):
+1. Narrow / phone-portrait layout. The spec asks for compact player rows and full-width centre windows; only the log is hidden today. On a 390x844 phone the trade window is clipped and the player list and properties panel meet in the middle. Never playtested on a phone.
+
+Minor, deferred:
+2. Log can run under the properties panel when eight long lines wrap.
+3. Dismissing a card mid-flip can leave the next card zero-width for its face-down moment (cancel the tween in CardReveal.show).
+4. Row / step button labels may truncate ("Unmortgage $110" at 104 px); five action buttons in jail shrink to 128 px ("Try for doubles").
+5. JAIL pill can sit on a long name in the player list; trade owner label has no width cap.
+6. Deed name label may lose a second line for long names (North Carolina Avenue).
+7. An inspected deed (and its close button) rebuilds on every render; a bot update between press and release can eat the click.
+8. LogFormat colours a player's name inside other words (a player called "Go" or "Park").
+9. Timer bar is wrong under the Studio TimerSeconds override (Studio only).
+10. College map still says "Railroads" / "RAILROAD" in the properties panel and deed caption.
+11. Visual gaps against the spec: no panel shadow, panels don't fade out, hover lightens instead of lifting, the chip tick is a gold dot.
+12. MAX_INSET is defined in both CameraDirector and Hud/Layout.
+13. Sounds (need uploaded audio assets).
+
+Pacing notes:
+- Timings live in src/shared/Rules/Pacing.luau (hop 0.26 s, dice 1 s, landing 0.6 s, card 2.6 s, bot think 1 s). Tune there; server and client both read them.
+- A human's turn clock is credited with the time their move takes to play.
+- Not playtested: two cards in one move, a jail jump, and an update arriving while another is still playing (covered by Pacing unit tests and the queueing code path only).
+
+Not verified in a playtest: receiver's and bystander's offer card, a properties panel with several sets and houses, toasts, auction deed note, narrow layout.

@@ -37,7 +37,7 @@ local ACTION_LOCK_SECONDS = 2 -- the server always answers; this only covers a l
 local MIN_CLICK_GAP = 0.35
 local CONFIRM_WIDTH = 220
 local ABOVE_BAR = ActionBar.MARGIN + ActionBar.HEIGHT + 8 -- where panels that sit on the action bar start
-local OFFER_ROOM = 200 -- toasts clear the offer card (its height varies with the offer) when one is up
+local PROPERTIES_TOP = PropertiesPanel.TOP
 
 export type Callbacks = {
 	onAction: (action: { [string]: any }) -> (),
@@ -233,47 +233,37 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		end)
 	)
 
-	-- Fit the screen now and whenever it changes (rotation, window resize, a replaced camera).
+	-- Fit the space the HUD really has (the screen less Roblox's top bar) now and whenever it changes.
 	local function fit()
-		local camera = workspace.CurrentCamera
-		if camera then
-			self:applyViewport(camera.ViewportSize)
+		local size = gui.AbsoluteSize
+		if size.X > 0 and size.Y > 0 then
+			local camera = workspace.CurrentCamera
+			self:applyViewport(size, if camera then camera.ViewportSize.Y else nil)
 		end
 	end
-	local viewportConnection: RBXScriptConnection? = nil
-	local function watchCamera()
-		if viewportConnection then
-			viewportConnection:Disconnect()
-			viewportConnection = nil
-		end
-		local camera = workspace.CurrentCamera
-		if camera then
-			viewportConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
-		end
-		fit()
-	end
-	table.insert(self.connections, workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchCamera))
-	watchCamera()
-	gui.Destroying:Connect(function()
-		if viewportConnection then
-			viewportConnection:Disconnect()
-		end
-	end)
+	table.insert(self.connections, gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit))
+	fit()
 
 	self.playerList.frame.Visible = false
 	self.actionBar.frame.Visible = false
 	return self
 end
 
--- Scales the HUD to the screen and tells the camera how much of it the action bar covers.
-function HudView.applyViewport(self: HudView, viewport: Vector2)
+-- Scales the HUD to the space it has and tells the camera how much of the screen the action bar
+-- covers. `screenHeight` is the whole screen's height when the HUD's space is less (the top bar).
+function HudView.applyViewport(self: HudView, viewport: Vector2, screenHeight: number?)
 	local scale = Layout.scale(viewport)
 	self.rootScale.Scale = scale
-	-- The root is scaled too, so size it to cover the whole screen once scaled.
+	-- The root is scaled too, so size it to cover the whole space once scaled.
 	self.root.Size = UDim2.fromScale(1 / scale, 1 / scale)
 	self.narrow = Layout.isNarrow(viewport)
 	self.logFeed.frame.Visible = not self.narrow and self.snapshot ~= nil
-	self.gui:SetAttribute("BottomInset", Layout.bottomInset(ActionBar.HEIGHT, ActionBar.MARGIN, scale, viewport.Y))
+	-- On a short screen the canvas is shorter than designed: tall panels must still end above the bar.
+	self.propertiesPanel:setMaxHeight(math.floor(viewport.Y / scale) - PROPERTIES_TOP - ABOVE_BAR)
+	self.gui:SetAttribute(
+		"BottomInset",
+		Layout.bottomInset(ActionBar.HEIGHT, ActionBar.MARGIN, scale, screenHeight or viewport.Y)
+	)
 end
 
 function HudView.destroy(self: HudView)
@@ -288,6 +278,10 @@ end
 function HudView.tick(self: HudView)
 	updateCentre(self)
 	refreshTimers(self)
+	-- Toasts sit on whatever is stacked above the action bar; the offer card's height varies.
+	local offer = self.offerCard.frame
+	local offerRoom = if offer.Visible then offer.AbsoluteSize.Y / self.rootScale.Scale + 8 else 0
+	self.toasts.frame.Position = UDim2.new(0.5, 0, 1, -(ABOVE_BAR + offerRoom))
 end
 
 -- Queues a drawn card; it appears at `notBefore` (os.clock time) or after the cards ahead of it.
@@ -339,6 +333,9 @@ end
 
 -- Pins the deed of a property the player wants to look at (nil unpins).
 function HudView.inspect(self: HudView, position: number?)
+	if position and self.tradeOpen then
+		return -- the trade window has the centre; a deed pinned now would pop up when it closes
+	end
 	self.inspected = position
 	chooseDeed(self, self.snapshot)
 	updateCentre(self)
@@ -383,6 +380,11 @@ end
 
 function HudView.toggleProperties(self: HudView)
 	self.propertiesOpen = not self.propertiesOpen
+	if self.propertiesOpen and self.tradeOpen then
+		-- They share the screen; one at a time.
+		self.tradeOpen = false
+		self.trade = TradeBuilder.new()
+	end
 	self:render(self.snapshot, self.localId)
 end
 
@@ -390,6 +392,9 @@ function HudView.toggleTrade(self: HudView)
 	self.tradeOpen = not self.tradeOpen
 	if not self.tradeOpen then
 		self.trade = TradeBuilder.new()
+	else
+		self.propertiesOpen = false -- they share the screen; one at a time
+		self.inspected = nil
 	end
 	self:render(self.snapshot, self.localId)
 end
@@ -500,6 +505,9 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		self.trade = TradeBuilder.new()
 	end
 
+	if self.propertiesOpen and self.tradeOpen then
+		self.propertiesOpen = false -- e.g. a debt opened the panel mid-trade: the trade keeps the screen
+	end
 	self.actionBar:setButtons(actionEntries(self, snapshot, localId))
 	self.propertiesPanel:render(
 		self.propertiesOpen,
@@ -510,8 +518,6 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 
 	local offer = HudModel.tradeOffer(snapshot, localId)
 	self.offerCard:render(offer)
-	-- Toasts sit on whatever is stacked above the action bar.
-	self.toasts.frame.Position = UDim2.new(0.5, 0, 1, -(ABOVE_BAR + if offer then OFFER_ROOM else 0))
 
 	if snapshot.phase == "GameOver" then
 		self.inspected = nil

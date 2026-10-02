@@ -421,4 +421,119 @@ tests["the winner gets confetti once"] = function()
 	end)
 end
 
+tests["holding hides what can be acted on until the move has played out"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(2, { { 2, 4 } })
+		Engine.act(state, "p1", { type = "Roll" })
+		hud:render(Snapshot.fromState(state), "p1")
+		Expect.equal(actions(hud), "Buy for $100|Don't buy|Properties")
+		Expect.equal(hud.deedCard.frame.Visible, true)
+		hud:hold()
+		Expect.equal(actions(hud), "Properties", "nothing to act on while the move plays")
+		Expect.equal(hud.deedCard.frame.Visible, false, "the deed waits for the landing")
+		hud:release()
+		hud:render(Snapshot.fromState(state), "p1")
+		Expect.equal(actions(hud), "Buy for $100|Don't buy|Properties", "back once it's shown")
+		Expect.equal(hud.deedCard.frame.Visible, true)
+	end)
+end
+
+tests["a roll shows on the dice before the snapshot that carries it"] = function()
+	withHud(function(hud)
+		hud:render(Snapshot.fromState(GameFixtures.newGame(2)), "p1")
+		Expect.equal(hud.actionBar.dice.frame.Visible, false)
+		hud:rollDice({ 3, 5 })
+		Expect.equal(hud.actionBar.dice.frame.Visible, true)
+	end)
+end
+
+tests["a landing is called out by name"] = function()
+	withHud(function(hud)
+		hud:render(Snapshot.fromState(GameFixtures.newGame(2)), "p1")
+		Expect.equal(hud.landingBanner.frame.Visible, false)
+		hud:landed("Player 2 landed on Boardwalk")
+		Expect.equal(hud.landingBanner.frame.Visible, true)
+		Expect.equal(textOf(hud.landingBanner.frame, "Text"), "Player 2 landed on Boardwalk")
+		hud:render(nil, "p1")
+		Expect.equal(hud.landingBanner.frame.Visible, false, "gone in the lobby")
+	end)
+end
+
+tests["game over clears the stage for the results"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(2)
+		hud:render(Snapshot.fromState(state), "p1")
+		hud:showCard("chance.dividend", "Player 1", os.clock())
+		hud:tick()
+		Expect.equal(hud.cardReveal.frame.Visible, true)
+		state.phase = "GameOver"
+		state.winner = "p1"
+		hud:render(Snapshot.fromState(state), "p1")
+		hud:tick()
+		Expect.equal(hud.cardReveal.frame.Visible, false, "no card over the results")
+		Expect.equal(hud.actionBar.frame.Visible, false, "no empty action bar")
+		Expect.equal(hud.results.frame.Visible, true)
+	end)
+end
+
+tests["the trade window and the properties panel take turns, and panels stop clicks"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(2)
+		GameFixtures.own(state, "p1", 39)
+		hud:render(Snapshot.fromState(state), "p1")
+		hud:toggleProperties()
+		Expect.equal(hud.propertiesPanel.frame.Visible, true)
+		hud:toggleTrade()
+		Expect.equal(hud.tradeWindow.frame.Visible, true)
+		Expect.equal(hud.propertiesPanel.frame.Visible, false, "opening the trade closes the properties")
+		hud:inspect(39)
+		Expect.equal(hud.inspected, nil, "no deed can be pinned behind the trade window")
+		hud:toggleProperties()
+		Expect.equal(hud.propertiesPanel.frame.Visible, true)
+		Expect.equal(hud.tradeWindow.frame.Visible, false, "and the other way round")
+		for _, name in { "tradeWindow", "propertiesPanel", "playerList", "actionBar", "offerCard", "results", "deedCard" } do
+			Expect.equal(hud[name].frame.Active, true, `{name} lets clicks through to what's under it`)
+		end
+	end)
+end
+
+tests["a big offer stays a readable size"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(2)
+		local deeds = { 1, 3, 6, 8, 9, 11 }
+		for _, position in deeds do
+			GameFixtures.own(state, "p2", position)
+		end
+		assert(GameFixtures.propose(state, "p1", "p2", GameFixtures.side(nil, 500), GameFixtures.side(deeds)))
+		hud:render(Snapshot.fromState(state), "p2")
+		local chips = 0
+		for _, child in hud.offerCard.frame:GetDescendants() do
+			if child:IsA("TextButton") then
+				chips += 1
+			end
+		end
+		Expect.equal(chips, 4, "only the first few deeds are drawn")
+		Expect.equal(textOf(hud.offerCard.frame, "More"), "+2 more")
+	end)
+end
+
+tests["toasts sit above every panel"] = function()
+	withHud(function(hud)
+		assert(hud.toasts.frame.ZIndex > hud.tradeWindow.frame.ZIndex, "above the trade window")
+		assert(hud.toasts.frame.ZIndex > hud.cardReveal.frame.ZIndex, "above a card")
+	end)
+end
+
+tests["tall panels stop above the action bar on a short screen"] = function()
+	withHud(function(hud)
+		hud:render(Snapshot.fromState(GameFixtures.newGame(2)), "p1")
+		hud:applyViewport(Vector2.new(1280, 720))
+		Expect.equal(hud.propertiesPanel.maxHeight, 720 - 224 - 132, "full canvas")
+		-- A landscape phone: the scale is at its floor, so the canvas really is shorter than 720.
+		hud:applyViewport(Vector2.new(844, 332), 390)
+		Expect.equal(hud.propertiesPanel.maxHeight, math.floor(332 / 0.55) - 224 - 132, "what is left between the log and the bar")
+		Expect.near(hud.gui:GetAttribute("BottomInset"), 124 * 0.55 / 390, "the camera measures against the whole screen")
+	end)
+end
+
 return tests

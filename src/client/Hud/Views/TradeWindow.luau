@@ -15,8 +15,10 @@ local Ui = require(script.Parent.Parent.Ui)
 local TradeWindow = {}
 TradeWindow.__index = TradeWindow
 
-local CASH_STEPS = { -100, -50, -10, 10, 50, 100 }
-local SIZE = Vector2.new(720, 480)
+local CASH_STEPS = { -100, -10, 10, 100 }
+-- Fits between the player list and the log, and above the action bar, on the design canvas.
+local SIZE = Vector2.new(630, 480)
+local BAR_ROOM = 124 -- the action bar and its margin: the window centres in what is left above it
 
 export type Hooks = {
 	send: (action: { [string]: any }) -> boolean, -- whether the offer went out
@@ -27,7 +29,7 @@ export type Hooks = {
 export type TradeWindow = typeof(setmetatable({} :: { frame: Frame, hooks: Hooks, key: string? }, TradeWindow))
 
 function TradeWindow.new(parent: Instance, hooks: Hooks): TradeWindow
-	local frame = Ui.panel("Trade", UDim2.fromOffset(SIZE.X, SIZE.Y), UDim2.fromScale(0.5, 0.44), Vector2.new(0.5, 0.5), parent)
+	local frame = Ui.panel("Trade", UDim2.fromOffset(SIZE.X, SIZE.Y), UDim2.new(0.5, 0, 0.5, -BAR_ROOM / 2), Vector2.new(0.5, 0.5), parent)
 	frame.Visible = false
 	frame.ZIndex = 10
 	return setmetatable({ frame = frame, hooks = hooks, key = nil }, TradeWindow)
@@ -187,7 +189,7 @@ function TradeWindow.render(
 				TradeBuilder.stepCash(builder, sideName, step, owner.money)
 				changed()
 			end, "secondary")
-			button.Size = UDim2.fromOffset(38, 30)
+			button.Size = UDim2.fromOffset(46, 30)
 			button.LayoutOrder = i
 			Ui.setTextSize(button, 12)
 		end
@@ -217,7 +219,7 @@ function TradeWindow.render(
 	local footer = Ui.frame("Footer", UDim2.new(1, -32, 0, 48), window)
 	footer.Position = UDim2.new(0, 16, 1, -60)
 	Ui.list(footer, Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Right)
-	local hint = Ui.label("Hint", footer, UDim2.fromOffset(360, 44), 15, Theme.font.body)
+	local hint = Ui.label("Hint", footer, UDim2.fromOffset(SIZE.X - 32 - 2 * 150 - 16, 44), 15, Theme.font.body)
 	hint.TextColor3 = Theme.color.moneyDown
 	hint.TextXAlignment = Enum.TextXAlignment.Left
 	hint.Text = if ok then "" else ((reason or ""):gsub("^%l", string.upper))

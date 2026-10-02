@@ -15,7 +15,10 @@ PropertiesPanel.__index = PropertiesPanel
 local OTHER_SWATCH = Color3.fromRGB(150, 150, 150) -- railroads and utilities have no colour group
 local ROW_BUTTON_WIDTH = 104
 local WIDTH = 440
-local MAX_HEIGHT = 360 -- ends above the action bar
+local MAX_HEIGHT = 364 -- on the full canvas; HudView lowers it when the screen is short
+local MIN_HEIGHT = 64
+
+PropertiesPanel.TOP = 224 -- below the log
 local HEADER_HEIGHT = 26
 local ROW_HEIGHT = 40
 local HOUSE_COLOR = Color3.fromRGB(47, 191, 113)
@@ -28,6 +31,8 @@ export type PropertiesPanel = typeof(setmetatable(
 		send: (action: { [string]: any }) -> (),
 		inspect: ((position: number) -> ())?,
 		key: string?,
+		maxHeight: number,
+		contentHeight: number,
 	},
 	PropertiesPanel
 ))
@@ -37,7 +42,7 @@ function PropertiesPanel.new(
 	send: (action: { [string]: any }) -> (),
 	inspect: ((position: number) -> ())?
 ): PropertiesPanel
-	local frame = Ui.panel("Properties", UDim2.fromOffset(WIDTH, MAX_HEIGHT), UDim2.new(1, -12, 0, 224), Vector2.new(1, 0), parent)
+	local frame = Ui.panel("Properties", UDim2.fromOffset(WIDTH, MAX_HEIGHT), UDim2.new(1, -12, 0, PropertiesPanel.TOP), Vector2.new(1, 0), parent)
 	frame.Visible = false
 	local scroll = Instance.new("ScrollingFrame")
 	scroll.Name = "Rows"
@@ -51,7 +56,15 @@ function PropertiesPanel.new(
 	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	scroll.Parent = frame
 	Ui.list(scroll, Enum.FillDirection.Vertical, Theme.space.xs, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Top)
-	return setmetatable({ frame = frame, scroll = scroll, send = send, inspect = inspect, key = nil }, PropertiesPanel)
+	return setmetatable({
+		frame = frame,
+		scroll = scroll,
+		send = send,
+		inspect = inspect,
+		key = nil,
+		maxHeight = MAX_HEIGHT,
+		contentHeight = MIN_HEIGHT,
+	}, PropertiesPanel)
 end
 
 -- Houses as green blocks, a hotel as one red block.
@@ -93,7 +106,8 @@ function PropertiesPanel.render(self: PropertiesPanel, open: boolean, groups: { 
 	for _, group in groups do
 		content += HEADER_HEIGHT + Theme.space.xs + #group.rows * (ROW_HEIGHT + Theme.space.xs)
 	end
-	self.frame.Size = UDim2.fromOffset(WIDTH, math.clamp(content, 64, MAX_HEIGHT))
+	self.contentHeight = content
+	self.frame.Size = UDim2.fromOffset(WIDTH, math.clamp(content, MIN_HEIGHT, self.maxHeight))
 	if not open then
 		return
 	end
@@ -177,6 +191,12 @@ function PropertiesPanel.render(self: PropertiesPanel, open: boolean, groups: { 
 			end
 		end
 	end
+end
+
+-- The most room the panel may take (it ends above the action bar).
+function PropertiesPanel.setMaxHeight(self: PropertiesPanel, height: number)
+	self.maxHeight = math.max(height, MIN_HEIGHT)
+	self.frame.Size = UDim2.fromOffset(WIDTH, math.clamp(self.contentHeight, MIN_HEIGHT, self.maxHeight))
 end
 
 -- Forgets what was drawn, so the next render rebuilds (used when the game ends).

@@ -34,6 +34,7 @@ function DeedCard.new(parent: Instance, onClose: () -> ()): DeedCard
 	frame.BorderSizePixel = 0
 	frame.Visible = false
 	frame.ZIndex = 5
+	frame.Active = true
 	frame.Parent = parent
 	Ui.corner(frame, Theme.radius.panel)
 	Ui.stroke(frame, Theme.color.ink, 2, 0.6)

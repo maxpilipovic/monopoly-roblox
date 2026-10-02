@@ -87,6 +87,7 @@ function Ui.panel(name: string, size: UDim2, position: UDim2, anchor: Vector2, p
 	frame.AnchorPoint = anchor
 	frame.BackgroundColor3 = Theme.color.panel
 	frame.BackgroundTransparency = Theme.panelTransparency
+	frame.Active = true -- a panel takes the clicks on it; nothing underneath should react
 	frame.BorderSizePixel = 0
 	frame.Parent = parent
 	Ui.corner(frame, Theme.radius.panel)

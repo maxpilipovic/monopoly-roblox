@@ -9,6 +9,7 @@ local OfferCard = {}
 OfferCard.__index = OfferCard
 
 OfferCard.WIDTH = 700
+local MAX_CHIPS = 4 -- per side; the rest are counted, so the card never grows over the board
 
 export type OfferCard = typeof(setmetatable({} :: { frame: Frame, key: string? }, OfferCard))
 
@@ -35,6 +36,15 @@ local function column(parent: Instance, side: HudModel.OfferSide, order: number)
 
 	local items = 0
 	for index, chip in side.chips do
+		if index > MAX_CHIPS then
+			local more = Ui.label("More", frame, UDim2.new(1, 0, 0, 18), Theme.textSize.small, Theme.font.bodyBold)
+			more.TextXAlignment = Enum.TextXAlignment.Left
+			more.TextColor3 = Theme.color.textDim
+			more.Text = `+{#side.chips - MAX_CHIPS} more`
+			more.LayoutOrder = 50
+			items += 1
+			break
+		end
 		local view = Ui.chip(if chip.mortgaged then `{chip.name} (mortgaged)` else chip.name, frame, chip.color, "normal", nil)
 		view.Name = chip.name
 		view.Size = UDim2.new(1, 0, 0, 28)
