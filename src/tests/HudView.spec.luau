@@ -536,4 +536,32 @@ tests["tall panels stop above the action bar on a short screen"] = function()
 	end)
 end
 
+tests["only the player deciding sees the deed they landed on"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(3, { { 2, 4 } })
+		Engine.act(state, "p1", { type = "Roll" })
+		hud:render(Snapshot.fromState(state), "p2")
+		Expect.equal(hud.deedCard.frame.Visible, false, "another player's buy decision")
+		hud:render(Snapshot.fromState(state), "watcher")
+		Expect.equal(hud.deedCard.frame.Visible, false, "a spectator")
+		hud:render(Snapshot.fromState(state), "p1")
+		Expect.equal(hud.deedCard.frame.Visible, true, "the player deciding")
+		Engine.act(state, "p1", { type = "Decline" })
+		hud:render(Snapshot.fromState(state), "p3")
+		Expect.equal(hud.deedCard.frame.Visible, true, "an auction is everyone's business")
+	end)
+end
+
+tests["everyone is shown a player going to jail"] = function()
+	withHud(function(hud)
+		hud:render(Snapshot.fromState(GameFixtures.newGame(2)), "p1")
+		hud:showJail("Player 2", "Doubles", os.clock())
+		hud:tick()
+		Expect.equal(hud.cardReveal.frame.Visible, true)
+		Expect.equal(textOf(hud.cardReveal.frame, "Title"), "Go to Jail")
+		Expect.equal(textOf(hud.cardReveal.frame, "Drawer"), "Player 2")
+		Expect.equal(textOf(hud.cardReveal.frame, "Text"), "Rolled doubles three times in a row.")
+	end)
+end
+
 return tests

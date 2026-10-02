@@ -94,17 +94,28 @@ tests["heading points along the board and turns at corners"] = function()
 	Expect.vectorNear(wrap, Vector3.new(0, 0, 1), "wraps past Go")
 end
 
-tests["the chase camera sits behind and above the token, looking ahead of it"] = function()
-	local target = BoardCamera.tileCentre(3)
-	local heading = BoardCamera.heading(3, 4)
-	local cf = BoardCamera.chaseCFrame(target, heading)
-	local offset = cf.Position - target
-	Expect.near(offset.Y, BoardCamera.CHASE_UP, "height")
-	Expect.near(offset:Dot(heading), -BoardCamera.CHASE_BACK, "behind")
-	local lookAt = target + heading * BoardCamera.CHASE_AHEAD
-	Expect.vectorNear(cf.LookVector, (lookAt - cf.Position).Unit, "looks ahead")
-	local inView = cf:PointToObjectSpace(target)
-	assert(inView.Z < 0, "token is in front of the camera")
+tests["the chase camera looks down on the token from outside the board, a little behind it"] = function()
+	-- One hop on each side of the board, and one backwards.
+	for _, hop in { { 3, 4 }, { 13, 14 }, { 23, 24 }, { 33, 34 }, { 36, 35 } } do
+		local target = BoardCamera.tileCentre(hop[1])
+		local heading = BoardCamera.heading(hop[1], hop[2])
+		local cf = BoardCamera.chaseCFrame(target, heading)
+		local offset = cf.Position - target
+		local label = `from tile {hop[1]}`
+		Expect.near(offset.Y, BoardCamera.CHASE_UP, `{label} height`)
+		Expect.near(offset:Dot(heading), -BoardCamera.CHASE_BACK, `{label} behind`)
+		-- To the side: square to the direction of travel, on the side away from the board's centre.
+		local side = Vector3.new(offset.X, 0, offset.Z) + heading * BoardCamera.CHASE_BACK
+		Expect.near(side.Magnitude, BoardCamera.CHASE_SIDE, `{label} side distance`)
+		Expect.near(side:Dot(heading), 0, `{label} square to the heading`)
+		local outward = Vector3.new(target.X, 0, target.Z) -- the board is centred on the origin
+		assert(side:Dot(outward) > 0, `{label} camera must be outside the board, not over its middle`)
+		-- A high angle: it looks down at 40 degrees or steeper.
+		assert(-cf.LookVector.Y >= math.sin(math.rad(40)), `{label} too shallow`)
+		local lookAt = target + heading * BoardCamera.CHASE_AHEAD
+		Expect.vectorNear(cf.LookVector, (lookAt - cf.Position).Unit, `{label} looks just ahead of the token`)
+		assert(cf:PointToObjectSpace(target).Z < 0, `{label} token is in front of the camera`)
+	end
 end
 
 return tests

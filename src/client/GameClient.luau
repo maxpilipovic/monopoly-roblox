@@ -128,6 +128,10 @@ function GameClient.start(hooks: Tokens.TokenHooks?)
 				end)
 			end
 		end
+		for _, jail in timeline.jails do
+			-- Everyone is shown a player going to jail, before the token jumps there.
+			hud:showJail(names[jail.player] or jail.player, jail.reason, start + jail.at)
+		end
 		for _, landing in timeline.landings do
 			at(start + landing.at, function()
 				local who = if landing.player == localId then "You" else names[landing.player] or landing.player

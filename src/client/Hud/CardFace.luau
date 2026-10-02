@@ -13,6 +13,8 @@ export type Face = {
 	deck: string,
 	title: string,
 	drawer: string,
+	caption: string, -- the small line over the text: "Ana drew", or just the name for a jail card
+	mark: string, -- the big character on the card's back
 	text: string,
 	badge: { text: string, tone: Tone },
 }
@@ -67,8 +69,39 @@ function CardFace.of(cardId: string, drawer: string): Face?
 		deck = card.deck,
 		title = Cards.titleFor(card.id) or card.deck,
 		drawer = drawer,
+		caption = `{drawer} drew`,
+		mark = "?",
 		text = card.text,
 		badge = badge(card),
+	}
+end
+
+local GO_POSITION = 0
+local GO_TO_JAIL_POSITION = 30
+
+-- The card everyone is shown when a player is sent to jail (other than by a drawn card, which has
+-- already said so): who, and why.
+function CardFace.jail(player: string, reason: string): Face
+	local jail = Tiles.at(JAIL_POSITION).name
+	local text
+	if reason == "Doubles" then
+		text = "Rolled doubles three times in a row."
+	elseif reason == "GoToJail" then
+		text = `Landed on {Tiles.at(GO_TO_JAIL_POSITION).name}.`
+	elseif reason == "Card" then
+		text = "Sent there by a card."
+	else
+		text = `Do not pass {Tiles.at(GO_POSITION).name}, do not collect $200.`
+	end
+	return {
+		id = "jail",
+		deck = "Jail",
+		title = `Go to {jail}`,
+		drawer = player,
+		caption = player,
+		mark = "!",
+		text = text,
+		badge = { text = `Sent to {jail}`, tone = "bad" },
 	}
 end
 

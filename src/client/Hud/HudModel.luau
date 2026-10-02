@@ -226,13 +226,14 @@ function HudModel.playerRows(snapshot: Protocol.Snapshot, localId: string): { Pl
 	return rows
 end
 
--- The tile whose deed everyone should be looking at: the one being bought or auctioned.
-function HudModel.deedFocus(snapshot: Protocol.Snapshot): number?
+-- The tile whose deed this viewer should be shown: the one up for auction (everyone bids), or the
+-- one they themselves have landed on and must decide about. Other players' decisions are theirs.
+function HudModel.deedFocus(snapshot: Protocol.Snapshot, localId: string): number?
 	if snapshot.auction then
 		return snapshot.auction.position
-	elseif snapshot.phase == "BuyDecision" then
-		local current = findPlayer(snapshot, snapshot.currentPlayer)
-		return if current then current.position else nil
+	elseif snapshot.phase == "BuyDecision" and snapshot.currentPlayer == localId then
+		local me = seated(snapshot, localId)
+		return if me then me.position else nil
 	end
 	return nil
 end

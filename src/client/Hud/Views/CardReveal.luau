@@ -18,6 +18,7 @@ local FLIP_HALF_SECONDS = 0.14
 local DECK_COLORS = {
 	Chance = Theme.color.chance,
 	CommunityChest = Theme.color.chest,
+	Jail = Theme.color.danger,
 }
 local TONE_COLORS = {
 	good = Theme.color.primary,
@@ -32,6 +33,7 @@ export type CardReveal = typeof(setmetatable(
 		card: TextButton,
 		back: Frame,
 		backTitle: TextLabel,
+		mark: TextLabel,
 		front: Frame,
 		header: Frame,
 		headerFill: Frame,
@@ -142,6 +144,7 @@ function CardReveal.new(parent: Instance, onDismiss: () -> ()): CardReveal
 		card = card,
 		back = back,
 		backTitle = backTitle,
+		mark = mark,
 		front = front,
 		header = header,
 		headerFill = headerFill,
@@ -177,7 +180,8 @@ function CardReveal.show(self: CardReveal, face: CardFace.Face?)
 	self.header.BackgroundColor3 = deckColor
 	self.headerFill.BackgroundColor3 = deckColor
 	self.title.Text = face.title
-	self.drawer.Text = `{face.drawer} drew`
+	self.drawer.Text = face.caption
+	self.mark.Text = face.mark
 	self.text.Text = face.text
 	self.badge.Text = face.badge.text
 	self.badge.BackgroundColor3 = TONE_COLORS[face.badge.tone] or Theme.color.secondary

@@ -410,16 +410,19 @@ tests["player rows carry what the player list shows, in seat order"] = function(
 	end
 end
 
-tests["the deed in focus is the tile being bought or auctioned"] = function()
+tests["the deed in focus is the tile you are deciding on, or the one everyone is bidding for"] = function()
 	local state = GameFixtures.newGame(2, { { 2, 4 } })
-	Expect.equal(HudModel.deedFocus(Snapshot.fromState(state)), nil, "rolling")
+	Expect.equal(HudModel.deedFocus(Snapshot.fromState(state), "p1"), nil, "rolling")
 	Engine.act(state, "p1", { type = "Roll" })
-	Expect.equal(HudModel.deedFocus(Snapshot.fromState(state)), 6, "buy decision: Oriental Avenue")
+	Expect.equal(HudModel.deedFocus(Snapshot.fromState(state), "p1"), 6, "your buy decision: Oriental Avenue")
+	Expect.equal(HudModel.deedFocus(Snapshot.fromState(state), "p2"), nil, "someone else's decision is not your card")
+	Expect.equal(HudModel.deedFocus(Snapshot.fromState(state), "watcher"), nil, "nor a spectator's")
 	Engine.act(state, "p1", { type = "Decline" })
-	Expect.equal(HudModel.deedFocus(Snapshot.fromState(state)), 6, "auction")
+	Expect.equal(HudModel.deedFocus(Snapshot.fromState(state), "p1"), 6, "auction")
+	Expect.equal(HudModel.deedFocus(Snapshot.fromState(state), "p2"), 6, "every bidder sees what is for sale")
 	state.phase = "GameOver"
 	state.auction = nil
-	Expect.equal(HudModel.deedFocus(Snapshot.fromState(state)), nil, "game over")
+	Expect.equal(HudModel.deedFocus(Snapshot.fromState(state), "p1"), nil, "game over")
 end
 
 local function sideText(side): string

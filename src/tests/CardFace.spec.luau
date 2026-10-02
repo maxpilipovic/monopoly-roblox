@@ -54,4 +54,30 @@ tests["a card keeps its own deck title whatever map is active"] = function()
 	end)
 end
 
+tests["going to jail has a card of its own, saying who and why"] = function()
+	local doubles = CardFace.jail("Bot 2", "Doubles")
+	Expect.equal(doubles.deck, "Jail")
+	Expect.equal(doubles.title, "Go to Jail")
+	Expect.equal(doubles.caption, "Bot 2")
+	Expect.equal(doubles.text, "Rolled doubles three times in a row.")
+	Expect.equal(doubles.badge.text, "Sent to Jail")
+	Expect.equal(doubles.badge.tone, "bad")
+	Expect.equal(doubles.mark, "!")
+	Expect.equal(CardFace.jail("Ana", "GoToJail").text, "Landed on Go To Jail.")
+	Expect.equal(CardFace.jail("Ana", "Card").text, "Sent there by a card.")
+	Expect.equal(CardFace.jail("Ana", "Something new").text, "Do not pass Go, do not collect $200.")
+	MapTestHelper.onCollege(function()
+		local college = CardFace.jail("Ana", "GoToJail")
+		Expect.equal(college.title, "Go to Dean's Office")
+		Expect.equal(college.text, "Landed on Caught Cheating.")
+		Expect.equal(college.badge.text, "Sent to Dean's Office")
+	end)
+end
+
+tests["a drawn card is captioned with who drew it"] = function()
+	local face = CardFace.of("chance.go", "Ana") :: CardFace.Face
+	Expect.equal(face.caption, "Ana drew")
+	Expect.equal(face.mark, "?")
+end
+
 return tests

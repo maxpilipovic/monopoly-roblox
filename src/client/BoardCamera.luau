@@ -10,9 +10,11 @@ local BoardCamera = {}
 
 BoardCamera.PITCH = math.rad(60)
 BoardCamera.FIELD_OF_VIEW = 70
-BoardCamera.CHASE_BACK = 12
-BoardCamera.CHASE_UP = 9
-BoardCamera.CHASE_AHEAD = 6
+-- The view while a token moves: high and to the side, from outside the board, a little behind it.
+BoardCamera.CHASE_SIDE = 14
+BoardCamera.CHASE_BACK = 6
+BoardCamera.CHASE_UP = 16
+BoardCamera.CHASE_AHEAD = 3
 local FIT_MARGIN = 1.04 -- a sliver of space around the board's corners
 
 -- The overhead camera `distance` away, lowered so the board sits in the part of the screen above
@@ -76,9 +78,18 @@ function BoardCamera.heading(fromPosition: number, toPosition: number): Vector3
 	return if flat.Magnitude > 1e-6 then flat.Unit else Vector3.new(-1, 0, 0)
 end
 
--- Low behind-the-token view: CHASE_BACK behind, CHASE_UP above, looking CHASE_AHEAD past it.
+-- A three-quarter view from above: CHASE_SIDE out from the board's edge (so tile names read the
+-- right way up), CHASE_BACK behind the token and CHASE_UP above it, looking CHASE_AHEAD past it.
 function BoardCamera.chaseCFrame(target: Vector3, heading: Vector3): CFrame
-	local position = target - heading * BoardCamera.CHASE_BACK + Vector3.new(0, BoardCamera.CHASE_UP, 0)
+	local side = heading:Cross(Vector3.yAxis)
+	local outward = target - Layout.ORIGIN.Position
+	if side:Dot(Vector3.new(outward.X, 0, outward.Z)) < 0 then
+		side = -side -- whichever way the token is travelling, stand outside the board
+	end
+	local position = target
+		+ side * BoardCamera.CHASE_SIDE
+		- heading * BoardCamera.CHASE_BACK
+		+ Vector3.new(0, BoardCamera.CHASE_UP, 0)
 	return CFrame.lookAt(position, target + heading * BoardCamera.CHASE_AHEAD)
 end
 

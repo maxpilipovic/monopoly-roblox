@@ -55,14 +55,43 @@ tests["a card that moves the token waits to be read first"] = function()
 	Expect.equal(#timeline.landings, 2)
 end
 
-tests["a jump to jail is not announced as a landing"] = function()
+tests["going to jail is announced before the token jumps, and is not a landing"] = function()
+	-- The engine reports the jump first and the reason after it.
 	local timeline = Pacing.timeline({
 		{ type = "Rolled", player = "p1", dice = { 5, 5 } },
-		{ type = "SentToJail", player = "p1", reason = "Doubles" },
 		{ type = "Moved", player = "p1", from = 20, to = 10, style = "ToJail" },
+		{ type = "SentToJail", player = "p1", reason = "Doubles" },
 	})
+	local JAIL = Pacing.JAIL_SECONDS
 	Expect.equal(#timeline.landings, 0)
-	Expect.near(timeline.total, DICE + HOP + LAND)
+	Expect.equal(#timeline.jails, 1)
+	Expect.near(timeline.jails[1].at, DICE, "announced once the dice have settled")
+	Expect.equal(timeline.jails[1].player, "p1")
+	Expect.equal(timeline.jails[1].reason, "Doubles")
+	Expect.near(timeline.items[2].at, DICE + JAIL, "the jump waits for the announcement")
+	Expect.near(timeline.items[2].pause :: number, DICE + JAIL)
+	Expect.near(timeline.total, DICE + JAIL + HOP + LAND)
+
+	-- Walking onto Go To Jail: the walk lands first, then the announcement, then the jump.
+	local walked = Pacing.timeline({
+		{ type = "Rolled", player = "p2", dice = { 2, 3 } },
+		{ type = "Moved", player = "p2", from = 25, to = 30 },
+		{ type = "Moved", player = "p2", from = 30, to = 10, style = "ToJail" },
+		{ type = "SentToJail", player = "p2", reason = "GoToJail" },
+	})
+	Expect.near(walked.jails[1].at, DICE + 5 * HOP + LAND)
+	Expect.equal(walked.jails[1].reason, "GoToJail")
+	Expect.equal(#walked.landings, 1, "the walk onto the tile still lands")
+	Expect.equal(#Pacing.timeline({}).jails, 0)
+
+	-- A card that sends you to jail has already told everyone: no second announcement.
+	local carded = Pacing.timeline({
+		{ type = "CardDrawn", player = "p1", deck = "Chance", card = "chance.jail" },
+		{ type = "Moved", player = "p1", from = 7, to = 10, style = "ToJail" },
+		{ type = "SentToJail", player = "p1", reason = "Card" },
+	})
+	Expect.equal(#carded.jails, 0)
+	Expect.near(carded.total, Pacing.CARD_SECONDS + HOP + LAND)
 end
 
 tests["updates with nothing to watch take no time"] = function()

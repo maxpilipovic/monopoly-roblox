@@ -105,7 +105,7 @@ local function chooseDeed(self: HudView, snapshot: Protocol.Snapshot?)
 	if not snapshot or snapshot.phase == "GameOver" or self.tradeOpen then
 		return
 	end
-	local focus = HudModel.deedFocus(snapshot)
+	local focus = HudModel.deedFocus(snapshot, self.localId)
 	local position = focus or self.inspected
 	if not position then
 		return
@@ -290,6 +290,12 @@ function HudView.showCard(self: HudView, cardId: string, drawer: string, notBefo
 	if face then
 		CardQueue.push(self.cards, face.deck, face.text, notBefore, face)
 	end
+end
+
+-- Queues the announcement that a player is going to jail; everyone sees it.
+function HudView.showJail(self: HudView, player: string, reason: string, notBefore: number)
+	local face = CardFace.jail(player, reason)
+	CardQueue.push(self.cards, face.deck, face.text, notBefore, face)
 end
 
 -- Sends the card on show away early.
