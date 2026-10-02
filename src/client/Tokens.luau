@@ -4,6 +4,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
+local Pacing = require(ReplicatedStorage.Shared.Rules.Pacing)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local TokenLayout = require(ReplicatedStorage.Shared.Board.TokenLayout)
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
@@ -11,7 +12,8 @@ local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 local HOP_HEIGHT = 1.5
 local TOKEN_HEIGHT = 0.8
 
-type Move = { from: number, to: number, style: string? }
+-- pause: seconds the token waits before setting off (the dice, or a card being read).
+type Move = { from: number, to: number, style: string?, pause: number? }
 
 type Token = {
 	part: BasePart,
@@ -25,7 +27,7 @@ type Token = {
 local Tokens = {}
 Tokens.__index = Tokens
 
-Tokens.HOP_TIME = 0.18
+Tokens.HOP_TIME = Pacing.HOP_SECONDS
 local HOP_TIME = Tokens.HOP_TIME
 
 -- Optional listeners for the camera: a move begins, each hop, and the token's queue runs dry.
@@ -109,6 +111,12 @@ local function runQueue(self: TokensView, token: Token)
 		local hooks = self.hooks
 		while #token.queue > 0 and token.part.Parent do
 			local move = table.remove(token.queue, 1) :: Move
+			if move.pause and move.pause > 0 then
+				task.wait(move.pause)
+				if not token.part.Parent then
+					break
+				end
+			end
 			if hooks then
 				hooks.onMoveStarted(token.part, move.style)
 			end
@@ -183,7 +191,7 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 	for _, event in update.events do
 		local token = event.type == "Moved" and self.tokens[event.player]
 		if token then
-			table.insert(token.queue, { from = event.from, to = event.to, style = event.style })
+			table.insert(token.queue, { from = event.from, to = event.to, style = event.style, pause = event.pause })
 			runQueue(self, token)
 		end
 	end

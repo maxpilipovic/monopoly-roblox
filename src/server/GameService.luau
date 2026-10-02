@@ -10,12 +10,12 @@ local BoardBuilder = require(script.Parent.BoardBuilder)
 local GameSession = require(script.Parent.Game.GameSession)
 local Snapshot = require(script.Parent.Game.Snapshot)
 local MatchSettings = require(ReplicatedStorage.Shared.Rules.MatchSettings)
+local Pacing = require(ReplicatedStorage.Shared.Rules.Pacing)
 local TurnClock = require(script.Parent.Game.TurnClock)
 local Throttle = require(script.Parent.Game.Throttle)
 
 local GameService = {}
 
-GameService.BOT_DELAY = 0.8
 GameService.RESULTS_SECONDS = 15
 GameService.REFUSAL_SECONDS = 0.25 -- at most this often per player, so spam can't flood them with snapshots
 GameService.READY_SECONDS = 1
@@ -30,7 +30,7 @@ local endingSession: GameSession.Session? = nil
 local scheduleLobbyReturn: () -> ()
 local clock = TurnClock.new()
 local clockGeneration = 0 -- bumped on every clock change, so only the latest check can fire
-local refreshClock: (actedBy: string?) -> ()
+local refreshClock: (actedBy: string?, pause: number?) -> ()
 
 -- Playtests: numeric workspace attributes that only count in Studio.
 local function studioNumber(name: string): number?
@@ -68,10 +68,18 @@ local function currentUpdate(events: { any }): Protocol.Update
 	}
 end
 
-local function broadcast()
+-- Sends everyone the state and what just happened. With `refresh`, the acting human's clock is
+-- (re)started first, credited with the time the events take to watch.
+-- Returns that watching time, so bots can wait for it.
+local function broadcast(refresh: boolean?, actedBy: string?): number
 	local events = if session then GameSession.takeNewEvents(session) else {}
+	local pause = Pacing.timeline(events).total
+	if refresh then
+		refreshClock(actedBy, pause)
+	end
 	updateRemote:FireAllClients(currentUpdate(events))
 	scheduleLobbyReturn()
+	return pause
 end
 
 -- Once a game is over, everyone gets RESULTS_SECONDS on the results screen before the lobby returns.
@@ -89,32 +97,32 @@ function scheduleLobbyReturn()
 	end)
 end
 
--- Bots move one action at a time with a pause, so players can follow along.
-local function scheduleBots()
+-- Bots move one action at a time, and only once the last move has had time to play out on screen
+-- (`pause`) plus a moment to think, so players can follow along.
+local function scheduleBots(pause: number?)
 	if botScheduled or not session then
 		return
 	end
 	botScheduled = true
-	task.delay(GameService.BOT_DELAY, function()
+	task.delay(Pacing.BOT_THINK_SECONDS + (pause or 0), function()
 		botScheduled = false
 		if session and GameSession.stepBot(session) then
-			refreshClock(nil)
-			broadcast()
-			scheduleBots()
+			scheduleBots(broadcast(true, nil))
 		end
 	end)
 end
 
 -- Starts, keeps or clears the acting human's decision timer. When it runs out, their safe
 -- default is played through the session like any other move.
-function refreshClock(actedBy: string?)
+function refreshClock(actedBy: string?, pause: number?)
 	clockGeneration += 1
 	local current = session
 	if not current then
 		return
 	end
 	local now = workspace:GetServerTimeNow()
-	TurnClock.update(clock, current.state, timerSeconds(current), now, actedBy)
+	-- The decision time starts once the move that led to it has been watched.
+	TurnClock.update(clock, current.state, timerSeconds(current), now + (pause or 0), actedBy)
 	local expiresAt, actor = TurnClock.expiresAt(clock), clock.actor
 	if not expiresAt or not actor then
 		return
@@ -125,9 +133,7 @@ function refreshClock(actedBy: string?)
 			return
 		end
 		if GameSession.timeout(current, actor) then
-			refreshClock(actor)
-			broadcast()
-			scheduleBots()
+			scheduleBots(broadcast(true, actor))
 		else
 			warn(`timeout for {actor} in phase {current.state.phase} did nothing`)
 			clock.deadline = nil -- don't leave a dead 0:00 on screen; the next move starts a fresh clock
@@ -143,9 +149,7 @@ local function onAction(player: Player, action: any)
 	end
 	local ok, err = GameSession.act(session, playerId, action)
 	if ok then
-		refreshClock(playerId)
-		broadcast()
-		scheduleBots()
+		scheduleBots(broadcast(true, playerId))
 	elseif Throttle.allow(refusals, playerId, os.clock()) then
 		-- Only the sender hears why, with the current state so their HUD unlocks.
 		local update = currentUpdate({})
@@ -203,9 +207,7 @@ local function onLobbyRequest(player: Player, request: any)
 		BoardBuilder.relabel(board)
 	end
 	clock = TurnClock.new()
-	refreshClock(nil)
-	broadcast()
-	scheduleBots()
+	scheduleBots(broadcast(true, nil))
 end
 
 local function onPlayerRemoving(player: Player)
@@ -220,9 +222,7 @@ local function onPlayerRemoving(player: Player)
 	if not GameSession.hasHumans(session) and session.state.phase ~= "GameOver" then
 		session = nil
 	end
-	refreshClock(nil)
-	broadcast()
-	scheduleBots()
+	scheduleBots(broadcast(true, nil))
 end
 
 function GameService.start()

@@ -4,6 +4,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Pacing = require(ReplicatedStorage.Shared.Rules.Pacing)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local MatchSettings = require(ReplicatedStorage.Shared.Rules.MatchSettings)
 local CardFace = require(script.Parent.CardFace)
@@ -18,6 +19,7 @@ local Ui = require(script.Parent.Ui)
 local ActionBar = require(script.Parent.Views.ActionBar)
 local CardReveal = require(script.Parent.Views.CardReveal)
 local DeedCard = require(script.Parent.Views.DeedCard)
+local Dice = require(script.Parent.Views.Dice)
 local Lobby = require(script.Parent.Views.Lobby)
 local LogFeed = require(script.Parent.Views.LogFeed)
 local OfferCard = require(script.Parent.Views.OfferCard)
@@ -28,7 +30,8 @@ local Toasts = require(script.Parent.Views.Toasts)
 local TradeWindow = require(script.Parent.Views.TradeWindow)
 local TurnBanner = require(script.Parent.Views.TurnBanner)
 
-local CARD_SECONDS = 5
+local CARD_SECONDS = 4.5
+local STAGE_DICE_SCALE = 2.6 -- the roll plays large in the middle of the board, then lives on in the action bar
 local ACTION_LOCK_SECONDS = 2 -- the server always answers; this only covers a lost reply
 -- Even after the answer, a double-click's second half must not land on the button drawn in the same spot.
 local MIN_CLICK_GAP = 0.35
@@ -61,13 +64,16 @@ export type HudView = typeof(setmetatable(
 		tradeWindow: TradeWindow.TradeWindow,
 		offerCard: OfferCard.OfferCard,
 		turnBanner: TurnBanner.TurnBanner,
+		landingBanner: TurnBanner.TurnBanner,
+		stageDice: Dice.Dice,
+		rollGeneration: number,
+		held: boolean, -- a move is playing out: no actions, no deed, until it has been seen
 		cardReveal: CardReveal.CardReveal,
 		deedCard: DeedCard.DeedCard,
 		deed: DeedModel.Deed?, -- what the deed card should show when no card is in the way
 		deedNote: string?,
 		deedClosable: boolean,
 		inspected: number?, -- a deed the player opened from their properties
-		tumbleNext: boolean, -- a roll just arrived: the dice tumble on the next render
 		cards: CardQueue.Queue,
 		propertiesOpen: boolean,
 		tradeOpen: boolean,
@@ -164,13 +170,16 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		tradeWindow = nil :: any,
 		offerCard = OfferCard.new(root, ABOVE_BAR),
 		turnBanner = TurnBanner.new(root),
+		landingBanner = TurnBanner.new(root, TurnBanner.LANDING),
+		stageDice = Dice.new(root),
+		rollGeneration = 0,
+		held = false,
 		cardReveal = nil :: any,
 		deedCard = nil :: any,
 		deed = nil,
 		deedNote = nil,
 		deedClosable = false,
 		inspected = nil,
-		tumbleNext = false,
 		cards = CardQueue.new(CARD_SECONDS),
 		propertiesOpen = false,
 		tradeOpen = false,
@@ -185,6 +194,13 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		answered = true,
 		connections = {},
 	}, HudView)
+
+	self.stageDice.frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	self.stageDice.frame.Position = UDim2.fromScale(0.5, 0.42)
+	self.stageDice.frame.ZIndex = 12
+	local stageScale = Instance.new("UIScale")
+	stageScale.Scale = STAGE_DICE_SCALE
+	stageScale.Parent = self.stageDice.frame
 
 	self.propertiesPanel = PropertiesPanel.new(root, function(action)
 		self:send(action)
@@ -288,9 +304,37 @@ function HudView.dismissCard(self: HudView)
 	updateCentre(self)
 end
 
--- A roll just arrived: the dice tumble into it on the next render.
-function HudView.diceRolled(self: HudView)
-	self.tumbleNext = true
+-- A roll just happened: the dice tumble large in the middle of the board and in the action bar,
+-- ahead of the snapshot that carries the roll.
+function HudView.rollDice(self: HudView, dice: { number })
+	self.rollGeneration += 1
+	local generation = self.rollGeneration
+	self.actionBar.dice:show(dice, true)
+	self.stageDice:show(dice, true)
+	task.delay(Pacing.DICE_SECONDS, function()
+		if self.rollGeneration == generation and self.gui.Parent then
+			self.stageDice:show(nil, false)
+		end
+	end)
+end
+
+-- A move is playing out: nothing can be acted on, and what the landing brings waits to be shown.
+function HudView.hold(self: HudView)
+	if not self.snapshot then
+		return
+	end
+	self.held = true
+	self:render(self.snapshot, self.localId)
+end
+
+-- The move has been seen: the next render shows everything again.
+function HudView.release(self: HudView)
+	self.held = false
+end
+
+-- Calls out where a token has just landed.
+function HudView.landed(self: HudView, text: string)
+	self.landingBanner:play(text)
 end
 
 -- Pins the deed of a property the player wants to look at (nil unpins).
@@ -352,7 +396,8 @@ end
 
 local function actionEntries(self: HudView, snapshot: Protocol.Snapshot, localId: string): { ActionBar.Entry }
 	local entries: { ActionBar.Entry } = {}
-	for order, entry in HudModel.buttons(snapshot, localId) do
+	-- While a move plays out the snapshot on screen is already out of date: no actions from it.
+	for order, entry in if self.held then {} else HudModel.buttons(snapshot, localId) do
 		local confirm = entry.confirm
 		table.insert(entries, {
 			label = entry.label,
@@ -379,7 +424,7 @@ local function actionEntries(self: HudView, snapshot: Protocol.Snapshot, localId
 			end,
 		})
 	end
-	if HudModel.canTrade(snapshot, localId) then
+	if not self.held and HudModel.canTrade(snapshot, localId) then
 		table.insert(entries, {
 			label = if self.tradeOpen then "Close trade" else "Trade",
 			style = "secondary",
@@ -398,7 +443,8 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 	self.localId = localId
 	Ui.setVisible(self.lobby.frame, snapshot == nil)
 	self.playerList.frame.Visible = snapshot ~= nil
-	self.actionBar.frame.Visible = snapshot ~= nil
+	-- At game over the results card says it all; an empty bar under it is only clutter.
+	self.actionBar.frame.Visible = snapshot ~= nil and snapshot.phase ~= "GameOver"
 	self.logFeed.frame.Visible = snapshot ~= nil and not self.narrow
 	if not snapshot then
 		table.clear(self.cards.items) -- back in the lobby: drop cards still waiting
@@ -406,12 +452,15 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		chooseDeed(self, nil)
 		updateCentre(self)
 		self.actionBar.dice:show(nil, false)
-		self.tumbleNext = false
 		self.propertiesOpen = false
 		self.propertiesPanel:reset()
 		self.logFeed:clear() -- the next game starts with a fresh log
 		self.toasts:clear()
 		self.turnBanner:hide()
+		self.landingBanner:hide()
+		self.held = false
+		self.rollGeneration += 1
+		self.stageDice:show(nil, false)
 		self.playerList:reset()
 		self.actionBar:setTimer(nil, false)
 		self.wasDebtor = false
@@ -429,8 +478,7 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		self.turnBanner:play()
 	end
 
-	self.actionBar.dice:show(snapshot.lastRoll, self.tumbleNext)
-	self.tumbleNext = false
+	self.actionBar.dice:show(snapshot.lastRoll, false)
 	self.statusText = HudModel.status(snapshot, localId)
 	local debtor = HudModel.isDebtor(snapshot, localId)
 	self.statusColor = if debtor then Theme.color.moneyDown else Theme.color.text
@@ -445,6 +493,7 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 	end
 	if snapshot.phase == "GameOver" then
 		self.propertiesOpen = false
+		table.clear(self.cards.items) -- nothing stands between the players and the results
 	end
 	if self.tradeOpen and not HudModel.canTrade(snapshot, localId) then
 		self.tradeOpen = false -- the moment passed (the turn moved on, or an offer is open)
@@ -467,7 +516,7 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 	if snapshot.phase == "GameOver" then
 		self.inspected = nil
 	end
-	chooseDeed(self, snapshot)
+	chooseDeed(self, if self.held then nil else snapshot)
 	updateCentre(self)
 
 	if snapshot.phase == "GameOver" then
