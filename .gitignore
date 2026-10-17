@@ -7,3 +7,7 @@ Monopoly.rbxl
 /*.rbxl.lock
 
 sourcemap.json
+
+# Open Cloud API key (never commit)
+.roblox-api-key
+.roblox-api-key.txt
