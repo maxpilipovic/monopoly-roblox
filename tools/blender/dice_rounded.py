@@ -9,15 +9,16 @@ H = S / 2
 CENTRE = Vector((0, 0, H))
 PIP_OFFSET = 0.3
 
-# Roblox +Y = Blender +Z, Roblox +Z = Blender -Y, Roblox +X = Blender +X.
+# Measured in Studio after upload (FBX export axis_forward=-Z, axis_up=Y):
+# Roblox +Y = Blender +Z, Roblox +Z = Blender +Y, Roblox +X = Blender -X.
 # Spec: 1 faces +Y, 2 faces +Z, 3 faces +X; opposite faces sum to 7.
 FACES = {
 	1: (Vector((0, 0, 1)), Vector((1, 0, 0)), Vector((0, 1, 0))),
 	6: (Vector((0, 0, -1)), Vector((1, 0, 0)), Vector((0, 1, 0))),
-	2: (Vector((0, -1, 0)), Vector((1, 0, 0)), Vector((0, 0, 1))),
-	5: (Vector((0, 1, 0)), Vector((1, 0, 0)), Vector((0, 0, 1))),
-	3: (Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))),
-	4: (Vector((-1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))),
+	2: (Vector((0, 1, 0)), Vector((1, 0, 0)), Vector((0, 0, 1))),
+	5: (Vector((0, -1, 0)), Vector((1, 0, 0)), Vector((0, 0, 1))),
+	3: (Vector((-1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))),
+	4: (Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))),
 }
 o = PIP_OFFSET
 LAYOUTS = {

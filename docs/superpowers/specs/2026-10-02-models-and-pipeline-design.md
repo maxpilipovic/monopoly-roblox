@@ -85,6 +85,13 @@ Unique Epic and Legendary shapes are left to project 3, when the crate pool is d
 
 **Pipeline test, before any other modelling:** the Rounded die goes through all five steps and appears in a running Studio session at the right size and orientation. This is the roadmap's agreed first step and it settles step 5.
 
+**Pipeline test result (2026-10-17): passed.** Rounded die = asset 73288478231290.
+- `InsertService:LoadAsset` works (edit and server). The asset arrives as `Model > Model "<display name>" > MeshPart Body, MeshPart Pips`, so `Assets.luau` takes the inner model. Part names survive from Blender.
+- Scale: FBX export with `apply_scale_options=FBX_SCALE_UNITS` gives 1 Blender unit = 1 stud exactly; origin at the base lands at y = 0.
+- Axes (export `axis_forward=-Z`, `axis_up=Y`): Roblox +Y = Blender +Z, **Roblox +Z = Blender +Y, Roblox +X = Blender −X** (a 180° turn about up, not a mirror). Model with that in mind; "front" of a piece in Roblox (−Z, the default LookVector) is Blender −Y.
+- Re-uploading a changed file (PATCH) keeps the asset ID; `LoadAsset` picks up the new version right away.
+- `EditableMesh` is blocked in Play mode unless enabled in Experience Settings → Security; not needed by the game.
+
 ## Code
 
 **New, shared (pure):**
