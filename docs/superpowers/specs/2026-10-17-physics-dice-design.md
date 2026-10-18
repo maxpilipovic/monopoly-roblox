@@ -33,12 +33,12 @@ From `Layout`: the board is 74 studs square and centred on the origin, the centr
 **`src/server/DevTools/DiceRecorder.luau`.** Studio-only and inert in a live server (it checks `RunService:IsStudio()`). `init.server.luau` starts it when the workspace attribute `RecordDice` is set, like the existing `RunTests` hook.
 
 - **Setup:** a temporary anchored floor matching the centre area (54 × 54, top at y = 1), well away from the board, plus two 4-stud dice (unanchored, server network owner, with the die model's collision box and density set to feel weighty).
-- **Each throw** is framed as if the roller sits on the −Z side: the dice start above the −Z edge of the centre area and are thrown towards +Z with randomised start offset, linear velocity and angular velocity, with ranges tuned by eye.
+- **Each throw** is framed as if the roller sits on the board's side 0 (+Z): the dice start above the +Z edge of the centre area and are thrown towards −Z with randomised start offset, linear velocity and angular velocity, with ranges tuned by eye.
 - **Sampling:** both dice's CFrames, relative to the centre of the floor, at 30 Hz from release until both have been still for 0.2 s.
-- **A throw is rejected** if it takes longer than 1.6 s to settle, a die ends more than 5° from flat, a die leaves the ±20 stud box, or the dice end overlapping.
+- **A throw is rejected** if it takes longer than 1.6 s to settle, a die ends more than 5° from flat, or a die leaves the ±20 stud box. (Solid physics dice cannot end up overlapping.)
 - **Kept throws:** it runs until 30 are kept. The result is serialised into a `StringValue` in `ServerStorage`. I read it over Studio MCP and write it to `src/shared/Dice/Throws.luau`. Studio cannot write files, so this step is manual and only repeats when the throws are re-recorded.
 
-**`src/shared/Dice/Throws.luau`** (generated, about 40 KB): a list of throws, each with `frames` (per die, per frame: position and rotation, rounded to 3 decimals) and `top` (per die, which local face axis ended pointing up).
+**`src/shared/Dice/Throws.luau`** (generated, about 100 KB): a list of throws; each is two dice, each die its frames flattened as position and rotation quaternion, rounded to 3 decimals. The face that ended on top is read from the last frame.
 
 ## Runtime
 
