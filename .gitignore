@@ -11,3 +11,6 @@ sourcemap.json
 # Open Cloud API key (never commit)
 .roblox-api-key
 .roblox-api-key.txt
+
+# Blender backups
+*.blend1
