@@ -27,4 +27,15 @@ if RunService:IsStudio() then
 		workspace:SetAttribute("TestResults", if ok then report else `runner error: {report}`)
 		workspace:SetAttribute("RunTests", nil)
 	end)
+
+	-- Studio only: setting RecordDice to a count records that many physics throws (see DiceRecorder).
+	workspace:GetAttributeChangedSignal("RecordDice"):Connect(function()
+		local wanted = workspace:GetAttribute("RecordDice")
+		if typeof(wanted) ~= "number" then
+			return
+		end
+		workspace:SetAttribute("RecordDice", nil)
+		local recorder = require(script.DevTools.DiceRecorder) :: any
+		task.spawn(recorder.record, wanted)
+	end)
 end
