@@ -2,6 +2,7 @@
 -- Client-side token pieces: one per seat, hopping tile to tile when their player moves.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Pacing = require(ReplicatedStorage.Shared.Rules.Pacing)
@@ -10,6 +11,9 @@ local TokenLayout = require(ReplicatedStorage.Shared.Board.TokenLayout)
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 
 local HOP_HEIGHT = 1.5
+local JAIL_HOP_HEIGHT = 6 -- the jump to jail is a high flip
+local LEAN = math.rad(16) -- tilt into each hop
+local RIPPLE_SECONDS = 0.6
 local TOKEN_HEIGHT = 0.8
 
 -- pause: seconds the token waits before setting off (the dice, or a card being read).
@@ -69,17 +73,65 @@ local function makePart(seat: number, name: string, parent: Instance): BasePart
 	return part
 end
 
-local function hop(token: Token, goal: CFrame)
-	local up = TweenService:Create(token.part, TweenInfo.new(HOP_TIME / 2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		CFrame = token.part.CFrame:Lerp(goal, 0.5) + Vector3.new(0, HOP_HEIGHT, 0),
-	})
-	up:Play()
-	task.wait(HOP_TIME / 2) -- not Completed:Wait(): a destroyed token's tween may never complete
-	local down = TweenService:Create(token.part, TweenInfo.new(HOP_TIME / 2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-		CFrame = goal,
-	})
-	down:Play()
-	task.wait(HOP_TIME / 2)
+-- One hop along an arc: the token leans into it, and a jump to jail flips end over end. Driven
+-- frame by frame rather than tweened, so the arc and the flip stay in step.
+local function hop(token: Token, goal: CFrame, toJail: boolean)
+	local part = token.part
+	local start = part.CFrame
+	local travel = (goal.Position - start.Position) * Vector3.new(1, 0, 1)
+	local axis = if travel.Magnitude > 0.01 then Vector3.yAxis:Cross(travel.Unit) else Vector3.xAxis
+	local height = if toJail then JAIL_HOP_HEIGHT else HOP_HEIGHT
+	local began = os.clock()
+	while part.Parent do
+		local t = math.min((os.clock() - began) / HOP_TIME, 1)
+		local position = start.Position:Lerp(goal.Position, t) + Vector3.new(0, 4 * height * t * (1 - t), 0)
+		local turn = if toJail then t * 2 * math.pi else math.sin(t * math.pi) * LEAN
+		part.CFrame = CFrame.new(position) * CFrame.fromAxisAngle(axis, turn) * goal.Rotation
+		if t >= 1 then
+			break
+		end
+		RunService.RenderStepped:Wait()
+	end
+end
+
+-- The end of a move: the token squashes as it settles and a ring in its colour ripples out.
+local function land(token: Token)
+	local part = token.part
+	if not part.Parent then
+		return
+	end
+	local size = part.Size
+	part.Size = Vector3.new(size.X * 0.75, size.Y * 1.18, size.Z * 1.18)
+	TweenService:Create(part, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = size }):Play()
+
+	local ring = Instance.new("Part")
+	ring.Name = "Ripple"
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(0.05, TokenLayout.TOKEN_DIAMETER, TokenLayout.TOKEN_DIAMETER)
+	ring.CFrame = CFrame.new(part.Position - Vector3.new(0, TOKEN_HEIGHT / 2 - 0.03, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+	ring.Color = TokenLayout.SEAT_COLORS[token.seat]
+	ring.Material = Enum.Material.Neon
+	ring.Transparency = 0.2
+	ring.Anchored = true
+	ring.CanCollide = false
+	ring.CanQuery = false
+	ring.CanTouch = false
+	ring.CastShadow = false
+	ring.Parent = part.Parent
+	local grown = TokenLayout.TOKEN_DIAMETER * 3.2
+	TweenService:Create(ring, TweenInfo.new(RIPPLE_SECONDS, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = Vector3.new(0.05, grown, grown),
+		Transparency = 1,
+	}):Play()
+	task.delay(RIPPLE_SECONDS + 0.05, function()
+		ring:Destroy()
+	end)
+end
+
+-- The piece standing for `player`, if there is one (for effects that play over it).
+function Tokens.partFor(self: TokensView, player: string): BasePart?
+	local token = self.tokens[player]
+	return if token then token.part else nil
 end
 
 -- The tiles a token hops through to play out a Moved event.
@@ -128,9 +180,10 @@ local function runQueue(self: TokensView, token: Token)
 				if hooks then
 					hooks.onHop(token.part, previous, position)
 				end
-				hop(token, standingCFrame(position, token.seat, move.style == "ToJail"))
+				hop(token, standingCFrame(position, token.seat, move.style == "ToJail"), move.style == "ToJail")
 				previous = position
 			end
+			land(token)
 		end
 		token.moving = false
 		if hooks then

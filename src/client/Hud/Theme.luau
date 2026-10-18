@@ -25,8 +25,6 @@ Theme.color = table.freeze({
 	moneyDown = Color3.fromRGB(255, 139, 139),
 	paper = Color3.fromRGB(251, 246, 233),
 	ink = Color3.fromRGB(27, 31, 42),
-	chance = Color3.fromRGB(247, 148, 29),
-	chest = Color3.fromRGB(86, 164, 222),
 })
 
 Theme.font = table.freeze({

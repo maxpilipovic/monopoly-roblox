@@ -4,6 +4,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ColorGroups = require(ReplicatedStorage.Shared.Board.ColorGroups)
+local EmblemLook = require(ReplicatedStorage.Shared.Board.EmblemLook)
 local Layout = require(ReplicatedStorage.Shared.Board.Layout)
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 
@@ -105,6 +106,9 @@ local function buildTile(tile: Tiles.Tile, parent: Instance)
 		)
 		strip.CanCollide = false
 		topInset = STRIP_DEPTH / size.Z
+	end
+	if EmblemLook.forTile(tile) then
+		topInset = 0.5 -- the emblem stands in the inner half (TileEmblems)
 	end
 
 	addLabel(part, labelText(tile), topInset)

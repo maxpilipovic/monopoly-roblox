@@ -1,7 +1,9 @@
 --!strict
 -- A property's deed, centre screen while it's being bought or auctioned (or when you look one up).
 
+local CardStyle = require(script.Parent.Parent.CardStyle)
 local DeedModel = require(script.Parent.Parent.DeedModel)
+local EmblemView = require(script.Parent.Parent.EmblemView)
 local Theme = require(script.Parent.Parent.Theme)
 local Ui = require(script.Parent.Parent.Ui)
 
@@ -9,7 +11,6 @@ local DeedCard = {}
 DeedCard.__index = DeedCard
 
 local WIDTH = 250
-local PLAIN_BAND = Theme.color.ink -- railroads and utilities have no colour group
 local KIND_CAPTIONS = { Property = "TITLE DEED", Railroad = "RAILROAD", Utility = "UTILITY" }
 
 export type DeedCard = typeof(setmetatable(
@@ -41,12 +42,6 @@ function DeedCard.new(parent: Instance, onClose: () -> ()): DeedCard
 	Ui.list(frame, Enum.FillDirection.Vertical, 0, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top)
 	Ui.padding(frame, { bottom = 10 })
 	return setmetatable({ frame = frame, onClose = onClose, deed = nil, note = nil, closable = false }, DeedCard)
-end
-
--- Dark text on light bands (yellow, light blue), white on the rest.
-local function readableOn(color: Color3): Color3
-	local luminance = 0.299 * color.R + 0.587 * color.G + 0.114 * color.B
-	return if luminance > 0.6 then Theme.color.ink else Color3.new(1, 1, 1)
 end
 
 local function row(parent: Instance, order: number, label: string, value: string, emphasis: "current" | "normal" | "dim"): Frame
@@ -104,14 +99,16 @@ function DeedCard.render(self: DeedCard, deed: DeedModel.Deed?, note: string?, c
 		return
 	end
 
-	local bandColor = deed.color or PLAIN_BAND
-	local onBand = readableOn(bandColor)
+	-- Only a property is coloured; railroads and utilities wear a dark band and their emblem.
+	local style = CardStyle.deed(deed.kind, deed.color, deed.position)
+	local bandColor = style.band
+	local onBand = style.bandText
 	local band = Instance.new("Frame")
 	band.Name = "Band"
 	band.Size = UDim2.new(1, 0, 0, 66)
 	band.BackgroundColor3 = bandColor
 	band.BorderSizePixel = 0
-	band.LayoutOrder = 1
+	band.LayoutOrder = 0
 	band.Parent = self.frame
 	Ui.corner(band, Theme.radius.panel)
 	-- Squares off the band's bottom corners.
@@ -150,8 +147,22 @@ function DeedCard.render(self: DeedCard, deed: DeedModel.Deed?, note: string?, c
 		close.Activated:Connect(self.onClose)
 	end
 
-	local spacer = Ui.frame("Spacer", UDim2.new(1, 0, 0, 8), self.frame)
-	spacer.LayoutOrder = 2
+	if style.emblem then
+		local foil = Instance.new("Frame")
+		foil.Name = "FoilLine"
+		foil.Size = UDim2.new(1, 0, 0, 3)
+		foil.BackgroundColor3 = style.foil
+		foil.BorderSizePixel = 0
+		foil.LayoutOrder = 1
+		foil.Parent = self.frame
+		local emblem = EmblemView.new("Emblem", self.frame, UDim2.fromOffset(110, 96), 48)
+		emblem.frame.LayoutOrder = 2
+		emblem:set(style.emblem, "", style.ink)
+	end
+	if not style.emblem then
+		local spacer = Ui.frame("Spacer", UDim2.new(1, 0, 0, 8), self.frame)
+		spacer.LayoutOrder = 2
+	end
 	row(self.frame, 3, "Price", `${deed.price}`, "normal")
 	divider(self.frame, 4)
 	for index, line in deed.lines do

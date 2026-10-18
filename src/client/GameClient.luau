@@ -18,6 +18,7 @@ local DiceView = require(script.Parent.DiceView)
 local EventText = require(script.Parent.Hud.EventText)
 local HudModel = require(script.Parent.Hud.HudModel)
 local HudView = require(script.Parent.Hud.HudView)
+local MoneyPops = require(script.Parent.MoneyPops)
 local OwnerMarkers = require(script.Parent.OwnerMarkers)
 local Tokens = require(script.Parent.Tokens)
 
@@ -122,6 +123,24 @@ function GameClient.start(hooks: Tokens.TokenHooks?)
 			if event.type == "CardDrawn" and Cards.byId[event.card] then
 				-- The queue holds the card until its time (and until the card before it is done).
 				hud:showCard(event.card, names[event.player] or event.player, time)
+			end
+			if event.type == "Paid" then
+				at(time, function()
+					for _, pop in MoneyPops.fromEvent(event) do
+						local part = tokens:partFor(pop.player)
+						if part then
+							MoneyPops.show(part, pop)
+						end
+					end
+					if MoneyPops.passedGo(event) then
+						local board = workspace:FindFirstChild("Board")
+						local tiles = board and board:FindFirstChild("Tiles")
+						local go = tiles and tiles:FindFirstChild("Tile00")
+						if go and go:IsA("BasePart") then
+							MoneyPops.flashTile(go)
+						end
+					end
+				end)
 			end
 			if event.type == "Rolled" or line then
 				at(time, function()

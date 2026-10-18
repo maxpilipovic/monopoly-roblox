@@ -5,12 +5,13 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Assets = require(script.Assets)
 local BoardBuilder = require(script.BoardBuilder)
+local TileEmblems = require(script.TileEmblems)
 local GameService = require(script.GameService)
 
 -- Tokens are the only thing on the board; no avatars.
 Players.CharacterAutoLoads = false
 
-BoardBuilder.build(workspace)
+TileEmblems.place(BoardBuilder.build(workspace))
 GameService.start()
 Assets.load()
 
