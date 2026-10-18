@@ -22,6 +22,11 @@ local EDGE_CENTER = Layout.BOARD_SIZE / 2 - Layout.CORNER_SIZE / 2
 -- Bottom (+Z), left (-X), top (-Z), right (+X): each side is the bottom side rotated about Y.
 local SIDE_YAW = { 0, -math.pi / 2, math.pi, math.pi / 2 }
 
+-- The turn about Y that carries the bottom side (side 0) onto `side`.
+function Layout.sideYaw(side: number): number
+	return SIDE_YAW[side % 4 + 1]
+end
+
 function Layout.getTilePlacement(position: number): TilePlacement
 	assert(position % 1 == 0 and position >= 0 and position < Tiles.COUNT, `invalid board position {position}`)
 

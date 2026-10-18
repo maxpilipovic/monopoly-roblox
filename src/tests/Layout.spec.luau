@@ -58,4 +58,18 @@ tests["rejects invalid positions"] = function()
 	end
 end
 
+tests["side yaw turns the bottom side onto each side"] = function()
+	-- A point on the bottom side's edge (+Z) lands on each side's edge.
+	local edge = Vector3.new(0, 0, Layout.BOARD_SIZE / 2)
+	local expected = {
+		[0] = Vector3.new(0, 0, Layout.BOARD_SIZE / 2),
+		[1] = Vector3.new(-Layout.BOARD_SIZE / 2, 0, 0),
+		[2] = Vector3.new(0, 0, -Layout.BOARD_SIZE / 2),
+		[3] = Vector3.new(Layout.BOARD_SIZE / 2, 0, 0),
+	}
+	for side, point in expected do
+		Expect.vectorNear(CFrame.Angles(0, Layout.sideYaw(side), 0) * edge, point, `side {side}`)
+	end
+end
+
 return tests
