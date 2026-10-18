@@ -3,6 +3,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local StarterPlayer = game:GetService("StarterPlayer")
 local Engine = require(ServerScriptService.Server.Game.Engine)
 local Snapshot = require(ServerScriptService.Server.Game.Snapshot)
+local Pacing = require(game:GetService("ReplicatedStorage").Shared.Rules.Pacing)
 local HudView = require(StarterPlayer.StarterPlayerScripts.Client.Hud.HudView)
 local Ui = require(StarterPlayer.StarterPlayerScripts.Client.Hud.Ui)
 local GameFixtures = require(script.Parent.GameFixtures)
@@ -444,6 +445,17 @@ tests["a roll shows on the dice before the snapshot that carries it"] = function
 		Expect.equal(hud.actionBar.dice.frame.Visible, false)
 		hud:rollDice({ 3, 5 })
 		Expect.equal(hud.actionBar.dice.frame.Visible, true)
+	end)
+end
+
+tests["a roll the 3D dice are showing skips the stage dice and reads out once they settle"] = function()
+	withHud(function(hud)
+		hud:render(Snapshot.fromState(GameFixtures.newGame(2)), "p1")
+		hud:showRoll({ 3, 5 })
+		Expect.equal(hud.stageDice.frame.Visible, false, "the 3D dice take the stage")
+		Expect.equal(hud.actionBar.dice.frame.Visible, false, "the readout waits for the dice to settle")
+		task.wait(Pacing.DICE_SECONDS - Pacing.DICE_READ_SECONDS + 0.1)
+		Expect.equal(hud.actionBar.dice.frame.Visible, true, "then the action bar shows the roll")
 	end)
 end
 

@@ -318,6 +318,19 @@ function HudView.rollDice(self: HudView, dice: { number })
 	end)
 end
 
+-- A roll the 3D dice are showing on the board: no stage dice, and the action bar reads it out
+-- once the dice have settled.
+function HudView.showRoll(self: HudView, dice: { number })
+	self.rollGeneration += 1
+	local generation = self.rollGeneration
+	self.stageDice:show(nil, false)
+	task.delay(Pacing.DICE_SECONDS - Pacing.DICE_READ_SECONDS, function()
+		if self.rollGeneration == generation and self.gui.Parent then
+			self.actionBar.dice:show(dice, false)
+		end
+	end)
+end
+
 -- A move is playing out: nothing can be acted on, and what the landing brings waits to be shown.
 function HudView.hold(self: HudView)
 	if not self.snapshot then

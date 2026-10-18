@@ -9,7 +9,7 @@ Dice.__index = Dice
 
 local FACE_SIZE = 34
 local PIP_SIZE = 7
-local TUMBLE_STEPS = 10 -- ~0.7 s: settles before the token sets off (Pacing.DICE_SECONDS)
+local TUMBLE_STEPS = 10 -- ~0.7 s: settles well before the token sets off (Pacing.DICE_SECONDS)
 local TUMBLE_STEP_SECONDS = 0.07
 
 -- Pip centres on a 3 x 3 grid (1 = left/top, 3 = right/bottom).

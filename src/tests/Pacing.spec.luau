@@ -117,4 +117,10 @@ tests["each walk says how long the token waits before starting"] = function()
 	Expect.equal(timeline.items[1].pause, nil, "only walks pause")
 end
 
+tests["the dice get time to tumble and then be read"] = function()
+	Expect.near(Pacing.DICE_SECONDS, 2)
+	Expect.near(Pacing.DICE_READ_SECONDS, 0.4)
+	Expect.equal(Pacing.DICE_SECONDS - Pacing.DICE_READ_SECONDS >= 1.6, true, "every recorded throw settles before the read")
+end
+
 return tests

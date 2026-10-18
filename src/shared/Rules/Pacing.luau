@@ -6,7 +6,8 @@
 local Pacing = {}
 
 Pacing.HOP_SECONDS = 0.26 -- one tile of a token's walk
-Pacing.DICE_SECONDS = 1 -- the dice tumble and settle before the token sets off
+Pacing.DICE_SECONDS = 2 -- the 3D dice tumble (at most 1.6 s, see DiceThrow) and are read before the token sets off
+Pacing.DICE_READ_SECONDS = 0.4 -- the end of DICE_SECONDS, when the dice lie still to be read
 Pacing.LAND_SECONDS = 0.6 -- a beat on the landing tile before what happens there is shown
 Pacing.CARD_SECONDS = 2.6 -- time to read a drawn card before its effect plays
 Pacing.JAIL_SECONDS = 2.2 -- time to read that someone is going to jail before their token jumps

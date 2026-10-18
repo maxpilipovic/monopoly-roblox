@@ -8,11 +8,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Cards = require(ReplicatedStorage.Shared.Board.Cards)
+local DiceThrow = require(ReplicatedStorage.Shared.Dice.DiceThrow)
 local Maps = require(ReplicatedStorage.Shared.Board.Maps)
 local Pacing = require(ReplicatedStorage.Shared.Rules.Pacing)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 local Buildings = require(script.Parent.Buildings)
+local DiceView = require(script.Parent.DiceView)
 local EventText = require(script.Parent.Hud.EventText)
 local HudModel = require(script.Parent.Hud.HudModel)
 local HudView = require(script.Parent.Hud.HudView)
@@ -33,6 +35,7 @@ function GameClient.start(hooks: Tokens.TokenHooks?)
 	local tokens = Tokens.new(workspace, hooks)
 	local buildings = Buildings.new(workspace)
 	local markers = OwnerMarkers.new(workspace)
+	local diceView = DiceView.new(workspace)
 	local hud = HudView.new(localPlayer:WaitForChild("PlayerGui"), {
 		onAction = function(action)
 			actionRemote:FireServer(action)
@@ -64,6 +67,9 @@ function GameClient.start(hooks: Tokens.TokenHooks?)
 	end
 
 	local function show(snapshot: Protocol.Snapshot?)
+		if not snapshot or snapshot.phase == "GameOver" then
+			diceView:clear() -- nothing left to roll for
+		end
 		buildings:apply(snapshot)
 		markers:apply(snapshot)
 		hud:release()
@@ -109,7 +115,7 @@ function GameClient.start(hooks: Tokens.TokenHooks?)
 			end
 		end)
 
-		for _, item in timeline.items do
+		for index, item in timeline.items do
 			local event = item.event
 			local line = EventText.describe(event, names)
 			local time = start + item.at
@@ -120,7 +126,14 @@ function GameClient.start(hooks: Tokens.TokenHooks?)
 			if event.type == "Rolled" or line then
 				at(time, function()
 					if event.type == "Rolled" then
-						hud:rollDice(event.dice)
+						if diceView:ready() then
+							local players = if snapshot then snapshot.players else {}
+							local position = DiceThrow.rollerPosition(update.events, index, players)
+							diceView:roll(event.dice, DiceThrow.side(position))
+							hud:showRoll(event.dice)
+						else
+							hud:rollDice(event.dice) -- no model yet: the 2D dice take the stage
+						end
 					end
 					if line then
 						hud:log({ line }, snapshot.players)
