@@ -324,6 +324,7 @@ function HudView.showRoll(self: HudView, dice: { number })
 	self.rollGeneration += 1
 	local generation = self.rollGeneration
 	self.stageDice:show(nil, false)
+	self.actionBar.dice:show(nil, false) -- not the last roll while the new dice are in the air
 	task.delay(Pacing.DICE_SECONDS - Pacing.DICE_READ_SECONDS, function()
 		if self.rollGeneration == generation and self.gui.Parent then
 			self.actionBar.dice:show(dice, false)

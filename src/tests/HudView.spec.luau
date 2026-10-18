@@ -459,6 +459,17 @@ tests["a roll the 3D dice are showing skips the stage dice and reads out once th
 	end)
 end
 
+tests["the action bar doesn't show the last roll while new 3D dice are in the air"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(2, { { 2, 3 } })
+		Engine.act(state, "p1", { type = "Roll" })
+		hud:render(Snapshot.fromState(state), "p1")
+		Expect.equal(hud.actionBar.dice.frame.Visible, true, "the earlier roll is on show")
+		hud:showRoll({ 6, 6 })
+		Expect.equal(hud.actionBar.dice.frame.Visible, false, "cleared until the new dice settle")
+	end)
+end
+
 tests["a landing is called out by name"] = function()
 	withHud(function(hud)
 		hud:render(Snapshot.fromState(GameFixtures.newGame(2)), "p1")
