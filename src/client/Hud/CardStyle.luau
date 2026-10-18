@@ -1,0 +1,70 @@
+--!strict
+-- How each kind of card looks. Colour is the properties' language on this board, so only a property
+-- deed is coloured (by its group); every other card is ink, midnight, charcoal or steel on
+-- parchment, told apart by its emblem and lit by a thin gold foil.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local EmblemLook = require(ReplicatedStorage.Shared.Board.EmblemLook)
+local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
+
+export type Style = {
+	back: Color3, -- the face-down side
+	face: Color3, -- the paper
+	ink: Color3, -- text on the paper
+	foil: Color3, -- thin accent lines and the deck name
+	band: Color3, -- the header band
+	bandText: Color3,
+	emblem: string?, -- a shape under ReplicatedStorage.Assets.Emblems
+}
+
+local CardStyle = {}
+
+-- How far (RGB, 0-255) a non-property colour must stay from every colour group's.
+CardStyle.MIN_GROUP_DISTANCE = 60
+
+CardStyle.MIDNIGHT = Color3.fromRGB(18, 22, 38)
+CardStyle.CHARCOAL = Color3.fromRGB(34, 34, 38)
+CardStyle.STEEL = Color3.fromRGB(70, 76, 86)
+CardStyle.PARCHMENT = Color3.fromRGB(251, 246, 233)
+CardStyle.INK = Color3.fromRGB(27, 31, 42)
+CardStyle.GOLD = Color3.fromRGB(222, 190, 110)
+
+local function plain(band: Color3, emblem: string?): Style
+	return {
+		back = band,
+		face = CardStyle.PARCHMENT,
+		ink = CardStyle.INK,
+		foil = CardStyle.GOLD,
+		band = band,
+		bandText = CardStyle.GOLD,
+		emblem = emblem,
+	}
+end
+
+local DECKS: { [string]: Style } = {
+	Chance = plain(CardStyle.MIDNIGHT, "Question"),
+	CommunityChest = plain(CardStyle.CHARCOAL, "Chest"),
+	Jail = plain(CardStyle.STEEL, nil),
+}
+
+function CardStyle.deck(deck: string): Style
+	return DECKS[deck] or plain(CardStyle.CHARCOAL, nil)
+end
+
+-- Dark text on light bands (yellow, light blue), white on the rest.
+local function readableOn(color: Color3): Color3
+	local luminance = 0.299 * color.R + 0.587 * color.G + 0.114 * color.B
+	return if luminance > 0.6 then CardStyle.INK else Color3.new(1, 1, 1)
+end
+
+function CardStyle.deed(kind: string, groupColor: Color3?, position: number): Style
+	if kind == "Property" and groupColor then
+		local style = plain(groupColor, nil)
+		style.bandText = readableOn(groupColor)
+		return style
+	end
+	local band = if kind == "Railroad" then CardStyle.MIDNIGHT else CardStyle.CHARCOAL
+	return plain(band, EmblemLook.forTile(Tiles.at(position)))
+end
+
+return CardStyle

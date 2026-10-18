@@ -1,6 +1,34 @@
 {
+    "Buildings/Hotel":  {
+                            "assetId":  "79710706930130",
+                            "hash":  "398E59292EBAF17C6062F8FB892C819DF4898F7B3B0DC9C60049A46F1ED4B341"
+                        },
+    "Buildings/House":  {
+                            "assetId":  "126228008997785",
+                            "hash":  "BDB2DC994B1AE7619F3276B31FFC03FC8FE0B3E4181B88134BC130957B7EF416"
+                        },
     "Dice/Rounded":  {
                          "assetId":  "73288478231290",
                          "hash":  "0461F5D3860A524070185867C4BAE2FA70E0B48F9BF1D50B45D360B210DC5966"
-                     }
+                     },
+    "Emblems/Bulb":  {
+                         "assetId":  "75265896671545",
+                         "hash":  "042B804E7FE28824A9FAD3625FE83204C611A789BB897C2D414A7F1C91DB9129"
+                     },
+    "Emblems/Chest":  {
+                          "assetId":  "80977579330484",
+                          "hash":  "7CF0065F9D33D69D1CB8AD50D96B99AB666E3DFC00053AD38F07B34040FFFB9A"
+                      },
+    "Emblems/Locomotive":  {
+                               "assetId":  "107491704721672",
+                               "hash":  "063287E3E31335DCDC9A1714D7A8304B99D900D32CD5F34C0643C0FB2B84EB1E"
+                           },
+    "Emblems/Question":  {
+                             "assetId":  "87311930111033",
+                             "hash":  "DC51795872B09AB5FD642683D840D39FAE61B1F66FFC615B99F75A0C1934EA0F"
+                         },
+    "Emblems/Tap":  {
+                        "assetId":  "109058835388508",
+                        "hash":  "06CA47F72F242E40150C81040E15584A9E572CA59314567242A6EE2AA531A6E4"
+                    }
 }
