@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
+local Assets = require(script.Assets)
 local BoardBuilder = require(script.BoardBuilder)
 local GameService = require(script.GameService)
 
@@ -11,6 +12,7 @@ Players.CharacterAutoLoads = false
 
 BoardBuilder.build(workspace)
 GameService.start()
+Assets.load()
 
 -- Studio only: tooling that can't require our modules runs the tests by setting the workspace
 -- attribute RunTests to a spec filter ("" for all); the report lands in TestResults.
