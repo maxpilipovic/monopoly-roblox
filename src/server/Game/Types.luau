@@ -87,6 +87,7 @@ export type GameState = {
 	rollDice: DiceRoller,
 	rules: { auctions: boolean, freeParking: boolean },
 	freeParkingPot: number, -- fines and fees waiting on Free Parking (rules.freeParking)
+	bankruptOrder: { string }, -- players in the order they went bankrupt (for finishing places)
 }
 
 return nil

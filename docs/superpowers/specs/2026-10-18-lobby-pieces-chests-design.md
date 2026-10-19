@@ -142,3 +142,19 @@ It is the place file's default `SpawnLocation` at the origin. Its star decal sho
 
 ## Out of scope
 Ranked queues, trading items, and selling items for currency.
+
+## Addendum (2026-10-19): Ranked and Unranked, rated by placement
+
+At the user's request:
+- **Unranked** is the casual rooms above; they never change rating.
+- **Ranked** is a matchmaking queue.
+  - **Modes:** Duel (2) or Table (4). Each player's rating window starts at ±100 and widens by 5 a second, up to ±600.
+  - **Fixed rules:** $1500, auctions on, no Free Parking pot, no bots, the Relaxed timer, and 30 or 60 minutes.
+- **Ratings feel like chess.**
+  - Everyone starts at 1000. The first 20 ranked games are provisional (K 40); after that K is 20, and 10 at 2100+.
+  - Titles run from Beginner to Grandmaster (`Ranks`).
+- **Every place counts** (`Placement`, `Elo`).
+  - The finishing order is: the winner, then the solvent players by net worth (equal net worth shares a place), then the bankrupt players in reverse order of going broke.
+  - Each pair of players is scored like a chess game: above is a win, below a loss, the same place a draw. K is shared out over the table.
+  - Walking out places you as if you went broke that moment.
+- **Leaderboards and streaks** track ranked play only (ranked wins, Elo, best ranked streak); total wins count every game.

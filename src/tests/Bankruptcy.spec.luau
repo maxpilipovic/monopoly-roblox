@@ -58,6 +58,7 @@ tests["going bankrupt to a player hands over cash, deeds and jail cards"] = func
 
 	local p1, p2 = player(state, "p1"), player(state, "p2")
 	assert(p1.bankrupt, "p1 not bankrupt")
+	Expect.equal(table.concat(state.bankruptOrder, ","), "p1", "the order players went broke is kept for placings")
 	Expect.equal(p1.money, 0, "p1 cash")
 	-- $3 cash + 2 houses sold at $25 each, minus $10 interest on Reading Railroad.
 	Expect.equal(p2.money, 1500 + 3 + 50 - 10, "p2 cash")

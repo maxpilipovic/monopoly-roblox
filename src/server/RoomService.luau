@@ -18,6 +18,7 @@ local RoomSettings = require(ReplicatedStorage.Shared.Rules.RoomSettings)
 local Elo = require(script.Parent.Data.Elo)
 local GameSession = require(script.Parent.Game.GameSession)
 local PlayerData = require(script.Parent.Data.PlayerData)
+local Placement = require(script.Parent.Game.Placement)
 local Profile = require(script.Parent.Data.Profile)
 local RankedQueue = require(script.Parent.RankedQueue)
 local Rooms = require(script.Parent.Rooms)
@@ -175,9 +176,9 @@ local function ratingEntries(l: Live): { Elo.Entry }
 	return entries
 end
 
--- Records one player's result. In a ranked game the rating moves (and they're told by how much);
--- a casual game only counts as a game played (and won).
-local function rate(l: Live, player: Player, won: boolean, delta: number)
+-- Records one player's result. In a ranked game the rating moves by their finishing place (and
+-- they're told where they placed and by how much); a casual game only counts as a game played (and won).
+local function rate(l: Live, player: Player, place: number, delta: number)
 	local id = tostring(player.UserId)
 	if l.rated[id] then
 		return
@@ -186,38 +187,40 @@ local function rate(l: Live, player: Player, won: boolean, delta: number)
 	local ranked = l.room.ranked
 	local elo = 0
 	PlayerData.update(player, function(profile)
-		Profile.recordGame(profile, won, if ranked then delta else 0, ranked)
+		Profile.recordGame(profile, place == 1, if ranked then delta else 0, ranked)
 		elo = profile.stats.elo
 	end, "now")
 	if ranked and player.Parent and not l.returned[id] then
 		local message = update(l, {})
-		message.notice = `Rating {Ranks.changeText(elo, delta)}`
+		message.notice = `{Placement.ordinal(place)} of {#l.session.state.players} · Rating {Ranks.changeText(elo, delta)}`
 		updateRemote:FireClient(player, message)
 	end
 end
 
--- The rating change for `id` losing now: the strongest player left in the game counts as the winner.
-local function lossDelta(l: Live, id: string): number
-	if not l.room.ranked then
-		return 0
-	end
-	local winner, best = nil, -math.huge
-	for _, seat in l.session.state.players do
-		if seat.id ~= id and not seat.bankrupt and seat.money > best then
-			winner, best = seat.id, seat.money
+-- Where `id` places if they walk out now, and the rating change for it: behind everyone still in,
+-- ahead of anyone already broke (like going bankrupt this moment).
+local function leavingResult(l: Live, id: string): (number, number)
+	local seat = nil
+	for _, candidate in l.session.state.players do
+		if candidate.id == id then
+			seat = candidate
 		end
 	end
-	return Elo.changes(ratingEntries(l), winner)[id] or 0
+	-- Someone already broke keeps the place going broke earned them.
+	local places = if seat and seat.bankrupt then Placement.of(l.session.state) else Placement.leaving(l.session.state, id)
+	local delta = if l.room.ranked then Elo.changes(ratingEntries(l), places)[id] or 0 else 0
+	return places[id] or #l.session.state.players, delta
 end
 
 -- Writes everyone's result into their profile once the game is over.
 local function recordResults(l: Live)
 	local state = l.session.state
-	local changes = Elo.changes(ratingEntries(l), state.winner)
+	local places = Placement.of(state)
+	local changes = Elo.changes(ratingEntries(l), places)
 	for _, seat in state.players do
 		local player = if seat.isBot then nil else playerFor(seat.id)
 		if player then
-			rate(l, player, state.winner == seat.id, changes[seat.id] or 0)
+			rate(l, player, places[seat.id] or #state.players, changes[seat.id] or 0)
 		end
 	end
 end
@@ -390,7 +393,7 @@ local function leaveRoom(player: Player)
 	local l = live[room.id]
 	if l and not l.ending then
 		useMap(l)
-		rate(l, player, false, lossDelta(l, id))
+		rate(l, player, leavingResult(l, id))
 		GameSession.replaceWithBot(l.session, id)
 	end
 	Rooms.leave(registry, id)
@@ -402,7 +405,7 @@ local function leaveRoom(player: Player)
 		if not GameSession.hasHumans(l.session) then
 			if not l.ending then
 				for _, other in members(l.room) do
-					rate(l, other, false, lossDelta(l, tostring(other.UserId)))
+					rate(l, other, leavingResult(l, tostring(other.UserId)))
 				end
 			end
 			closeGame(l)

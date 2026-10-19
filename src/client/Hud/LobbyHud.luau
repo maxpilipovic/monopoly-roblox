@@ -591,7 +591,7 @@ local function renderRanked(self: LobbyHud, content: Frame)
 	note.TextColor3 = Theme.color.textDim
 	note.Text = if Ranks.isProvisional(games)
 		then `Provisional: {Ranks.PROVISIONAL_GAMES - games} more ranked games to settle your rating. Everyone starts at {Ranks.START}.`
-		else "Win to climb; the stronger your opponents, the more you gain."
+		else "Every place counts: finishing above a player gains you rating, more so the stronger they are."
 
 	local queued = if self.rooms then self.rooms.queue else nil
 	local modes = Ui.frame("Modes", UDim2.new(1, 0, 0, 170), content)

@@ -604,6 +604,7 @@ local function goBankrupt(state: GameState, player: Player): (boolean, string?)
 	end
 	local creditor = liveCreditor(state, debt.creditor)
 	player.bankrupt = true
+	table.insert(state.bankruptOrder, player.id) -- for placings: going broke later places higher
 	player.inJail = false
 	for i = #state.debts, 1, -1 do
 		if state.debts[i].debtor == player.id then
@@ -859,6 +860,7 @@ function Engine.new(
 			freeParking = rules ~= nil and rules.freeParking == true,
 		},
 		freeParkingPot = 0,
+		bankruptOrder = {},
 	}
 	emit(state, { type = "TurnStarted", player = playerStates[1].id })
 	return state

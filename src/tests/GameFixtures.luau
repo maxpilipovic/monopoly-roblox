@@ -58,6 +58,7 @@ function GameFixtures.bareState(playerCount: number): Types.GameState
 		rollDice = GameFixtures.scriptedDice({}),
 		rules = { auctions = true, freeParking = false },
 		freeParkingPot = 0,
+		bankruptOrder = {},
 	}
 end
 
