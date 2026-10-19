@@ -9,6 +9,9 @@ local Pacing = require(ReplicatedStorage.Shared.Rules.Pacing)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local TokenLayout = require(ReplicatedStorage.Shared.Board.TokenLayout)
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
+local Catalog = require(ReplicatedStorage.Shared.Cosmetics.Catalog)
+local PieceLook = require(ReplicatedStorage.Shared.Cosmetics.PieceLook)
+local PieceEffects = require(script.Parent.PieceEffects)
 
 local HOP_HEIGHT = 1.5
 local JAIL_HOP_HEIGHT = 6 -- the jump to jail is a high flip
@@ -21,6 +24,7 @@ type Move = { from: number, to: number, style: string?, pause: number? }
 
 type Token = {
 	part: BasePart,
+	piece: Model?, -- the piece's model, welded to `part` (nil: the plain cylinder shows)
 	seat: number,
 	position: number, -- the server's position for this player; tokens settle here once their moves finish
 	inJail: boolean,
@@ -71,6 +75,55 @@ local function makePart(seat: number, name: string, parent: Instance): BasePart
 	part.CastShadow = true
 	part.Parent = parent
 	return part
+end
+
+local PIECE_HEIGHT = 2.1 -- studs; pieces are scaled to this (narrow enough for their spot)
+local PIECE_WIDTH = 1.35
+
+-- The player's piece standing on the token's spot, with a ring in their seat colour round its foot.
+-- Welded to the (now invisible) token part, so moving that part moves the piece.
+local function attachPiece(part: BasePart, seat: number, piece: string?): Model?
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	local pieces = assets and assets:FindFirstChild("Pieces")
+	local id = if piece and Catalog.byId[piece] then piece else Catalog.DEFAULT_PIECE
+	local source = pieces and pieces:FindFirstChild(id)
+	if not (source and source:IsA("Model")) then
+		return nil
+	end
+	local model = source:Clone()
+	PieceLook.apply(model, id)
+	local box, size = model:GetBoundingBox()
+	model.WorldPivot = CFrame.new(box.Position.X, box.Position.Y - size.Y / 2, box.Position.Z)
+	model:ScaleTo(math.min(PIECE_HEIGHT / size.Y, PIECE_WIDTH / math.max(size.X, size.Z)))
+	local ring = Instance.new("Part")
+	ring.Name = "SeatRing"
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(0.12, TokenLayout.TOKEN_DIAMETER, TokenLayout.TOKEN_DIAMETER)
+	ring.Color = TokenLayout.SEAT_COLORS[seat]
+	ring.Material = Enum.Material.SmoothPlastic
+	ring.CanCollide = false
+	ring.CanQuery = false
+	ring.CanTouch = false
+	ring.CFrame = model:GetPivot() * CFrame.new(0, 0.06, 0) * CFrame.Angles(0, 0, math.pi / 2)
+	ring.Parent = model
+	-- The piece's base sits where the cylinder's base was; it faces the players (+Z).
+	model:PivotTo(CFrame.new(part.Position - Vector3.new(0, TOKEN_HEIGHT / 2, 0)))
+	for _, child in model:GetDescendants() do
+		if child:IsA("BasePart") then
+			child.Anchored = false
+			child.Massless = true
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = part
+			weld.Part1 = child
+			weld.Parent = child
+		end
+	end
+	model.Name = "Piece"
+	model.Parent = part
+	local item = Catalog.byId[id]
+	PieceEffects.attach(model, item and item.effect)
+	part.Transparency = 1
+	return model
 end
 
 -- One hop along an arc: the token leans into it, and a jump to jail flips end over end. Driven
@@ -218,8 +271,10 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 			if not token then
 				local part = makePart(player.seat, player.name, self.folder)
 				part.CFrame = standingCFrame(Tokens.startPosition(player, update.events), player.seat)
+				local piece = attachPiece(part, player.seat, player.piece)
 				token = {
 					part = part,
+					piece = piece,
 					seat = player.seat,
 					position = player.position,
 					inJail = player.inJail,
@@ -230,7 +285,15 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 			end
 			token.position = player.position
 			token.inJail = player.inJail
-			token.part.Transparency = if player.bankrupt then 0.7 else 0
+			if token.piece then
+				for _, child in (token.piece :: Model):GetDescendants() do
+					if child:IsA("BasePart") then
+						child.LocalTransparencyModifier = if player.bankrupt then 0.7 else 0
+					end
+				end
+			else
+				token.part.Transparency = if player.bankrupt then 0.7 else 0
+			end
 		end
 	end
 

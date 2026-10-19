@@ -13,6 +13,8 @@ export type PlayerView = {
 	jailAttempts: number, -- failed doubles rolls this jail stay; the fine is forced after the third
 	seat: number, -- 1-based turn order; also picks the token spot and color
 	netWorth: number,
+	piece: string?, -- Catalog piece id this player plays with
+	rentEffect: string?, -- Catalog rent effect played over whoever pays them rent
 }
 
 export type PropertyView = {
@@ -76,6 +78,8 @@ export type Snapshot = {
 	match: MatchView,
 	winReason: string?, -- "Bankruptcy" | "RoundLimit" | "TimeLimit", once the game is over
 	winner: string?,
+	freeParkingPot: number, -- money waiting on Free Parking (always 0 unless that rule is on)
+	rules: { auctions: boolean, freeParking: boolean },
 }
 
 export type Update = {
@@ -84,6 +88,27 @@ export type Update = {
 	notice: string?, -- only to a player whose action was refused: why
 }
 
+-- A player's own saved data, as their client sees it.
+export type ProfileView = {
+	stats: { wins: number, games: number, streak: number, bestStreak: number, elo: number },
+	inventory: { [string]: number },
+	equipped: { piece: string, rentEffect: string? },
+}
+
+-- The casual games on this server and which one (if any) the receiving player is in.
+export type RoomsUpdate = {
+	rooms: { any }, -- Rooms.RoomView
+	mine: number?,
+	hostOf: number?, -- the room this player hosts
+	notice: string?, -- why their last request was refused
+}
+
+-- Requests on the LOBBY remote: { type = "Create", settings } | { type = "Join", room } | { type = "Leave" }
+-- | { type = "Settings", settings } | { type = "Start" } | { type = "ReturnToLobby" }
+-- Requests on the STORE remote: { type = "Equip", item } | { type = "UnequipEffect" } | { type = "Buy", chest }
+-- | { type = "TestOpen", chest } (Studio only)
+export type ChestResult = { chest: string, item: string, count: number }
+
 local Protocol = {}
 
 Protocol.REMOTES_FOLDER = "Remotes"
@@ -91,5 +116,9 @@ Protocol.ACTION = "GameAction"
 Protocol.LOBBY = "LobbyRequest"
 Protocol.UPDATE = "GameUpdate"
 Protocol.READY = "ClientReady"
+Protocol.PROFILE = "ProfileUpdate"
+Protocol.ROOMS = "RoomsUpdate"
+Protocol.STORE = "StoreRequest"
+Protocol.CHEST = "ChestOpened"
 
 return table.freeze(Protocol)

@@ -35,7 +35,6 @@ local function withHud(body: (hud: any) -> ())
 	local holder = Instance.new("Folder")
 	local hud = HudView.new(holder, {
 		onAction = function() end,
-		onStart = function() end,
 		onReturnToLobby = function() end,
 	})
 	local ok, err = pcall(body, hud)
@@ -88,13 +87,9 @@ local function textOf(root: Instance, name: string): string
 	return label.Text
 end
 
-tests["the lobby offers seats, the three settings and Start"] = function()
+tests["out of a game the game HUD stays out of the way (the lobby HUD takes over)"] = function()
 	withHud(function(hud)
 		hud:render(nil, "p1")
-		Expect.equal(hud.lobby.frame.Visible, true, "lobby shown")
-		for _, text in { "Start game", "-", "+", "Timer: Relaxed 60 s", "Length: Off", "Map: Classic" } do
-			assert(hasButton(hud.lobby.frame, text), `no "{text}" button in the lobby`)
-		end
 		Expect.equal(hud.actionBar.frame.Visible, false, "no action bar in the lobby")
 		Expect.equal(hud.playerList.frame.Visible, false, "no player list in the lobby")
 	end)
@@ -104,7 +99,6 @@ tests["each phase shows its actions"] = function()
 	withHud(function(hud)
 		local state = GameFixtures.newGame(2, { { 2, 4 } })
 		hud:render(Snapshot.fromState(state), "p1")
-		Expect.equal(hud.lobby.frame.Visible, false, "lobby hidden in a game")
 		Expect.equal(hud.actionBar.frame.Visible, true)
 		Expect.equal(hud.playerList.frame.Visible, true)
 		Expect.equal(actions(hud), "Roll dice|Properties|Trade", "roll")
@@ -182,7 +176,6 @@ tests["back in the lobby every in-game screen is hidden and the log is empty"] =
 		Expect.equal(#hud.toasts.frame:GetChildren() > 1, true, "toast shown")
 
 		hud:render(nil, "p1")
-		Expect.equal(hud.lobby.frame.Visible, true)
 		for _, name in { "actionBar", "playerList", "propertiesPanel", "tradeWindow", "offerCard", "results" } do
 			Expect.equal(hud[name].frame.Visible, false, `{name} hidden`)
 		end

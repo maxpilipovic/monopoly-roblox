@@ -1,19 +1,21 @@
 --!strict
-local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Assets = require(script.Assets)
-local BoardBuilder = require(script.BoardBuilder)
-local TileEmblems = require(script.TileEmblems)
-local GameService = require(script.GameService)
+local Leaderboards = require(script.Data.Leaderboards)
+local LobbyBuilder = require(script.LobbyBuilder)
+local PlayerData = require(script.Data.PlayerData)
+local RoomService = require(script.RoomService)
+local ShopService = require(script.Store.ShopService)
 
--- Tokens are the only thing on the board; no avatars.
-Players.CharacterAutoLoads = false
-
-TileEmblems.place(BoardBuilder.build(workspace))
-GameService.start()
+-- Players spawn into the lobby; each client builds the board itself while it's in a game.
+LobbyBuilder.build(workspace)
 Assets.load()
+RoomService.start() -- makes the Remotes folder the other services add to
+PlayerData.start()
+Leaderboards.start()
+ShopService.start()
 
 -- Studio only: tooling that can't require our modules runs the tests by setting the workspace
 -- attribute RunTests to a spec filter ("" for all); the report lands in TestResults.

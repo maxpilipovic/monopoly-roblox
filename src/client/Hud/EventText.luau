@@ -67,6 +67,10 @@ function EventText.describe(event: { [string]: any }, names: { [string]: string 
 			return `{name(event.from)} paid ${event.amount} mortgage interest`
 		end
 		return nil
+	elseif kind == "FreeParkingPaid" then
+		return `{name(event.player)} hit the Free Parking jackpot: ${event.amount}!`
+	elseif kind == "PurchaseDeclined" then
+		return `{name(event.player)} passed on {tileName(event.position)}`
 	elseif kind == "Bought" then
 		return `{name(event.player)} bought {tileName(event.position)} for ${event.price}`
 	elseif kind == "AuctionStarted" then

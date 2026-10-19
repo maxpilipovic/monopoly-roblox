@@ -106,7 +106,27 @@ function CameraDirector.insetFrom(playerGui: Instance?): number
 	return CameraDirector.DEFAULT_INSET
 end
 
--- Takes over the camera for good and returns the hooks Tokens should call.
+-- Off in the lobby (the player walks their character with the normal camera), on at the board.
+local active = false
+
+function CameraDirector.setActive(on: boolean)
+	if active == on then
+		return
+	end
+	active = on
+	local camera = workspace.CurrentCamera
+	if camera and not on then
+		camera.CameraType = Enum.CameraType.Custom
+		camera.FieldOfView = 70
+		local character = Players.LocalPlayer and Players.LocalPlayer.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			camera.CameraSubject = humanoid
+		end
+	end
+end
+
+-- Takes over the camera while active and returns the hooks Tokens should call.
 function CameraDirector.start(): Tokens.TokenHooks
 	local state = CameraDirector.initial()
 	local localPlayer = Players.LocalPlayer
@@ -129,7 +149,7 @@ function CameraDirector.start(): Tokens.TokenHooks
 	RunService:BindToRenderStep("BoardCamera", Enum.RenderPriority.Camera.Value + 1, function(dt: number)
 		-- Re-read every frame: CurrentCamera can be replaced, and default scripts may grab it back.
 		local camera = workspace.CurrentCamera
-		if not camera then
+		if not camera or not active then
 			return
 		end
 		camera.CameraType = Enum.CameraType.Scriptable

@@ -15,6 +15,7 @@ export type MatchInfo = {
 	length: string,
 	endsAt: number?,
 	turnDeadline: number?,
+	looks: { [string]: { piece: string?, rentEffect: string? } }?, -- each player's equipped cosmetics
 }
 
 local NO_MATCH: MatchInfo = { timer = "Off", length = "Off" }
@@ -35,6 +36,8 @@ function Snapshot.fromState(state: Types.GameState, info: MatchInfo?): Protocol.
 			jailAttempts = player.jailAttempts,
 			seat = seat,
 			netWorth = PropertyRules.netWorth(state, player.id, player.money),
+			piece = if match.looks and match.looks[player.id] then match.looks[player.id].piece else nil,
+			rentEffect = if match.looks and match.looks[player.id] then match.looks[player.id].rentEffect else nil,
 		})
 	end
 
@@ -111,6 +114,8 @@ function Snapshot.fromState(state: Types.GameState, info: MatchInfo?): Protocol.
 		},
 		winReason = state.winReason,
 		winner = state.winner,
+		freeParkingPot = state.freeParkingPot,
+		rules = { auctions = state.rules.auctions, freeParking = state.rules.freeParking },
 	}
 end
 

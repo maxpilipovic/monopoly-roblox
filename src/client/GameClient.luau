@@ -17,14 +17,18 @@ local Buildings = require(script.Parent.Buildings)
 local DiceView = require(script.Parent.DiceView)
 local EventText = require(script.Parent.Hud.EventText)
 local HudModel = require(script.Parent.Hud.HudModel)
+local BoardView = require(script.Parent.BoardView)
+local CameraDirector = require(script.Parent.CameraDirector)
 local HudView = require(script.Parent.Hud.HudView)
 local MoneyPops = require(script.Parent.MoneyPops)
 local OwnerMarkers = require(script.Parent.OwnerMarkers)
+local RentEffects = require(script.Parent.RentEffects)
 local Tokens = require(script.Parent.Tokens)
 
 local GameClient = {}
 
-function GameClient.start(hooks: Tokens.TokenHooks?)
+-- `onInGame` hears whether this player is at a board (true) or in the lobby (false).
+function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())?)
 	local localPlayer = Players.LocalPlayer
 	local localId = tostring(localPlayer.UserId)
 	local remotes = ReplicatedStorage:WaitForChild(Protocol.REMOTES_FOLDER)
@@ -33,6 +37,7 @@ function GameClient.start(hooks: Tokens.TokenHooks?)
 	local updateRemote = remotes:WaitForChild(Protocol.UPDATE) :: RemoteEvent
 	local readyRemote = remotes:WaitForChild(Protocol.READY) :: RemoteEvent
 
+	local board = BoardView.new(workspace)
 	local tokens = Tokens.new(workspace, hooks)
 	local buildings = Buildings.new(workspace)
 	local markers = OwnerMarkers.new(workspace)
@@ -40,9 +45,6 @@ function GameClient.start(hooks: Tokens.TokenHooks?)
 	local hud = HudView.new(localPlayer:WaitForChild("PlayerGui"), {
 		onAction = function(action)
 			actionRemote:FireServer(action)
-		end,
-		onStart = function(seats, settings)
-			lobbyRemote:FireServer({ type = "Start", seats = seats, timer = settings.timer, length = settings.length, map = settings.map })
 		end,
 		onReturnToLobby = function()
 			lobbyRemote:FireServer({ type = "ReturnToLobby" })
@@ -71,6 +73,9 @@ function GameClient.start(hooks: Tokens.TokenHooks?)
 		if not snapshot or snapshot.phase == "GameOver" then
 			diceView:clear() -- nothing left to roll for
 		end
+		if snapshot then
+			board:setPot(snapshot.rules.freeParking, snapshot.freeParkingPot)
+		end
 		buildings:apply(snapshot)
 		markers:apply(snapshot)
 		hud:release()
@@ -84,12 +89,24 @@ function GameClient.start(hooks: Tokens.TokenHooks?)
 		end
 		local snapshot = update.snapshot
 		if not snapshot then
-			-- Back to the lobby: drop whatever was still playing.
+			-- Back to the lobby: drop whatever was still playing, and the board with it.
 			generation += 1
 			busyUntil = 0
 			tokens:apply(update)
 			show(nil)
+			board:clear()
+			CameraDirector.setActive(false)
+			if onInGame then
+				onInGame(false)
+			end
 			return
+		end
+		if not board:model() then
+			board:ensure()
+			CameraDirector.setActive(true)
+			if onInGame then
+				onInGame(true)
+			end
 		end
 		Maps.use(snapshot.map) -- names and card text follow the game being shown
 
@@ -130,6 +147,19 @@ function GameClient.start(hooks: Tokens.TokenHooks?)
 						local part = tokens:partFor(pop.player)
 						if part then
 							MoneyPops.show(part, pop)
+						end
+					end
+					-- The receiver's rent effect plays over whoever paid them.
+					if event.reason == "Rent" and event.from and event.to then
+						local effect
+						for _, player in snapshot.players do
+							if player.id == event.to then
+								effect = player.rentEffect
+							end
+						end
+						local payer = tokens:partFor(event.from)
+						if effect and payer then
+							RentEffects.play(effect, payer.Position)
 						end
 					end
 					if MoneyPops.passedGo(event) then

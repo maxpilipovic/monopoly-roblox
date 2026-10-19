@@ -11,6 +11,8 @@ local NAMES = { p1 = "Ana", p2 = "Bot 1" }
 tests["describes the events players care about"] = function()
 	local cases = {
 		{ { type = "TurnStarted", player = "p1" }, "Ana's turn" },
+		{ { type = "FreeParkingPaid", player = "p1", amount = 450 }, "Ana hit the Free Parking jackpot: $450!" },
+		{ { type = "PurchaseDeclined", player = "p1", position = 6 }, "Ana passed on Oriental Avenue" },
 		{ { type = "Rolled", player = "p1", dice = { 3, 4 } }, "Ana rolled 3 + 4" },
 		{ { type = "Paid", from = nil, to = "p1", amount = 200, reason = "Go" }, "Ana collected $200 for passing Go" },
 		{ { type = "Paid", from = "p1", to = "p2", amount = 6, reason = "Rent" }, "Ana paid $6 rent to Bot 1" },

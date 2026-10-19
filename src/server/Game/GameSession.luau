@@ -18,6 +18,7 @@ export type Session = {
 	eventCursor: number,
 	settings: MatchSettings.Settings,
 	endsAt: number?, -- server time the minutes limit runs out, if there is one
+	looks: { [string]: { piece: string?, rentEffect: string? } }, -- cosmetics shown for each seat
 }
 
 local GameSession = {}
@@ -29,7 +30,8 @@ function GameSession.new(
 	seats: number,
 	rollDice: Types.DiceRoller,
 	shuffle: Types.Shuffler?,
-	settings: MatchSettings.Settings?
+	settings: MatchSettings.Settings?,
+	rules: Types.HouseRules?
 ): Session
 	local playing = math.min(#humans, Engine.MAX_PLAYERS)
 	if seats ~= seats then -- NaN
@@ -53,10 +55,11 @@ function GameSession.new(
 
 	local chosen = settings or MatchSettings.validate(nil)
 	return {
-		state = Engine.new(infos, rollDice, shuffle, MatchSettings.roundLimit(chosen), chosen.map),
+		state = Engine.new(infos, rollDice, shuffle, MatchSettings.roundLimit(chosen), chosen.map, rules),
 		eventCursor = 0,
 		settings = chosen,
 		endsAt = nil,
+		looks = {},
 	}
 end
 

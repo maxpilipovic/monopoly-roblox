@@ -1,5 +1,6 @@
 --!strict
--- Builds the 3D board from tile data. Server-side so it replicates to every client.
+-- Builds the 3D board from tile data. Each client builds its own while it is in a game, so every
+-- casual game can use the same spot without boards overlapping.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 

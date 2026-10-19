@@ -4,7 +4,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 local ColorGroups = require(ReplicatedStorage.Shared.Board.ColorGroups)
 local Layout = require(ReplicatedStorage.Shared.Board.Layout)
-local BoardBuilder = require(ServerScriptService.Server.BoardBuilder)
+local BoardBuilder = require(game:GetService("ReplicatedStorage").Shared.Board.BoardBuilder)
 local Expect = require(script.Parent.Expect)
 local MapTestHelper = require(script.Parent.MapTestHelper)
 

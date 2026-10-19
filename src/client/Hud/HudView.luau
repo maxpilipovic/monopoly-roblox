@@ -6,7 +6,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Pacing = require(ReplicatedStorage.Shared.Rules.Pacing)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
-local MatchSettings = require(ReplicatedStorage.Shared.Rules.MatchSettings)
 local CardFace = require(script.Parent.CardFace)
 local CardQueue = require(script.Parent.CardQueue)
 local DeedModel = require(script.Parent.DeedModel)
@@ -20,7 +19,6 @@ local ActionBar = require(script.Parent.Views.ActionBar)
 local CardReveal = require(script.Parent.Views.CardReveal)
 local DeedCard = require(script.Parent.Views.DeedCard)
 local Dice = require(script.Parent.Views.Dice)
-local Lobby = require(script.Parent.Views.Lobby)
 local LogFeed = require(script.Parent.Views.LogFeed)
 local OfferCard = require(script.Parent.Views.OfferCard)
 local PlayerList = require(script.Parent.Views.PlayerList)
@@ -41,7 +39,6 @@ local PROPERTIES_TOP = PropertiesPanel.TOP
 
 export type Callbacks = {
 	onAction: (action: { [string]: any }) -> (),
-	onStart: (seats: number, settings: MatchSettings.Settings) -> (),
 	onReturnToLobby: () -> (),
 }
 
@@ -54,7 +51,6 @@ export type HudView = typeof(setmetatable(
 		root: Frame,
 		rootScale: UIScale,
 		callbacks: Callbacks,
-		lobby: Lobby.Lobby,
 		playerList: PlayerList.PlayerList,
 		actionBar: ActionBar.ActionBar,
 		logFeed: LogFeed.LogFeed,
@@ -160,7 +156,6 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		root = root,
 		rootScale = rootScale,
 		callbacks = callbacks,
-		lobby = Lobby.new(root, callbacks.onStart),
 		playerList = PlayerList.new(root),
 		actionBar = ActionBar.new(root),
 		logFeed = LogFeed.new(root),
@@ -466,7 +461,6 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 	local previous = self.snapshot
 	self.snapshot = snapshot
 	self.localId = localId
-	Ui.setVisible(self.lobby.frame, snapshot == nil)
 	self.playerList.frame.Visible = snapshot ~= nil
 	-- At game over the results card says it all; an empty bar under it is only clutter.
 	self.actionBar.frame.Visible = snapshot ~= nil and snapshot.phase ~= "GameOver"
