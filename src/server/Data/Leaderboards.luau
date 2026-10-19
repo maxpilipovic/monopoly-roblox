@@ -8,6 +8,7 @@ local DataStoreService = game:GetService("DataStoreService")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local PlayerData = require(script.Parent.PlayerData)
 
@@ -92,7 +93,7 @@ local function refresh()
 			ok, pages = pcall(store.GetSortedAsync, store, false, TOP)
 		end
 		if not ok or not pages then
-			if tostring(pages):find("Studio access", 1, true) then
+			if RunService:IsStudio() and tostring(pages):lower():find("studio", 1, true) then
 				available = false
 			end
 			-- A throttled or failed read: keep showing the last good boards and try next time.
@@ -122,7 +123,7 @@ local function record(player: Player, profile: any)
 			local value = math.floor(profile.stats[board.stat])
 			local ok, err = pcall(store.SetAsync, store, `player_{player.UserId}`, value)
 			if not ok then
-				if tostring(err):find("Studio access", 1, true) then
+				if RunService:IsStudio() and tostring(err):lower():find("studio", 1, true) then
 					available = false
 				end
 				return -- a failed write is retried when their scores next change

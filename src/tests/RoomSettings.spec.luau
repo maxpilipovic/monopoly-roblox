@@ -59,4 +59,15 @@ tests["the summary chips say what's special about a room"] = function()
 	Expect.equal(plain, "$1500|Relaxed timer")
 end
 
+tests["ranked games always use the standard rules, no bots, and a time limit"] = function()
+	local duel = RoomSettings.ranked(2)
+	Expect.equal(duel.maxPlayers, 2)
+	Expect.equal(duel.startingMoney, 1500)
+	Expect.equal(duel.auctions, true)
+	Expect.equal(duel.freeParking, false)
+	Expect.equal(duel.bots, false)
+	Expect.equal(duel.length, "Minutes30")
+	Expect.equal(RoomSettings.ranked(4).length, "Minutes60")
+end
+
 return tests

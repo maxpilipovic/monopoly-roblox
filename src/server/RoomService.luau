@@ -619,7 +619,11 @@ function RoomService.start()
 	task.spawn(function()
 		while true do
 			task.wait(RoomService.MATCH_SECONDS)
-			matchQueue()
+			-- One bad match must not stop matchmaking for the rest of the server's life.
+			local ok, err = pcall(matchQueue)
+			if not ok then
+				warn(`RoomService: matchmaking failed: {err}`)
+			end
 		end
 	end)
 end

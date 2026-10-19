@@ -63,6 +63,21 @@ function RoomSettings.validate(raw: any): Settings
 	}
 end
 
+-- The fixed rules every ranked game is played under, like a chess time control: standard money and
+-- auctions, no house rules, no bots, a turn timer and a time limit.
+function RoomSettings.ranked(seats: number): Settings
+	return RoomSettings.validate({
+		maxPlayers = seats,
+		startingMoney = 1500,
+		auctions = true,
+		freeParking = false,
+		bots = false,
+		timer = "Relaxed",
+		length = if seats <= 2 then "Minutes30" else "Minutes60",
+		map = "Classic",
+	})
+end
+
 -- The engine's house rules.
 function RoomSettings.rules(settings: Settings): { startingMoney: number, auctions: boolean, freeParking: boolean }
 	return { startingMoney = settings.startingMoney, auctions = settings.auctions, freeParking = settings.freeParking }

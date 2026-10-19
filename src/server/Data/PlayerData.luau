@@ -12,6 +12,7 @@
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local Profile = require(script.Parent.Profile)
@@ -60,7 +61,9 @@ end
 
 -- A Studio place without API access: nothing to load from or save to.
 local function noAccess(err: any): boolean
-	if tostring(err):find("Studio access", 1, true) then
+	-- Worded differently per API ("Studio access to APIs is not allowed", "Cannot write to DataStore
+	-- from studio if API access is not enabled"); only ever true in Studio.
+	if RunService:IsStudio() and tostring(err):lower():find("studio", 1, true) then
 		disabled = true
 		warnOnce("Studio has no access to API services")
 		return true

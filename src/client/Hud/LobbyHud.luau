@@ -28,6 +28,7 @@ LobbyHud.__index = LobbyHud
 LobbyHud.GUI_NAME = "LobbyHud"
 
 local GOLD = Color3.fromRGB(222, 190, 110)
+local DESIGN_HEIGHT = 720 -- the lobby HUD is laid out for at least this tall a screen
 
 local function clockText(seconds: number): string
 	seconds = math.max(0, math.floor(seconds))
@@ -169,6 +170,20 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.Parent = playerGui
 	local root = Ui.frame("Root", UDim2.fromScale(1, 1), gui)
+	-- On short screens everything shrinks together so panels never cover the dock: the root is laid
+	-- out at DESIGN_HEIGHT and scaled to the real height.
+	root.AnchorPoint = Vector2.new(0.5, 0.5)
+	root.Position = UDim2.fromScale(0.5, 0.5)
+	local fitScale = Instance.new("UIScale")
+	fitScale.Parent = root
+	local function fit()
+		local height = gui.AbsoluteSize.Y
+		local scale = if height > 0 then math.min(1, height / DESIGN_HEIGHT) else 1
+		fitScale.Scale = scale
+		root.Size = UDim2.fromScale(1 / scale, 1 / scale)
+	end
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+	fit()
 
 	local self = setmetatable({
 		gui = gui,
