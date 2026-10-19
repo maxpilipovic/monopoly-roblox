@@ -4,6 +4,7 @@
 -- exactly what the server accepts; the server validates every request through here.
 
 local MatchSettings = require(script.Parent.MatchSettings)
+local Scenes = require(script.Parent.Parent.Board.Scenes)
 
 export type Settings = {
 	maxPlayers: number, -- 2-6 seats
@@ -14,6 +15,7 @@ export type Settings = {
 	timer: string,
 	length: string,
 	map: string,
+	scene: string, -- Scenes id: what surrounds the board
 }
 
 local RoomSettings = {}
@@ -33,6 +35,7 @@ RoomSettings.DEFAULT = table.freeze({
 	timer = MatchSettings.DEFAULT.timer,
 	length = MatchSettings.DEFAULT.length,
 	map = MatchSettings.DEFAULT.map,
+	scene = "Boardwalk",
 }) :: Settings
 
 local function number(raw: any, key: string, fallback: number): number
@@ -60,6 +63,7 @@ function RoomSettings.validate(raw: any): Settings
 		timer = match.timer,
 		length = match.length,
 		map = match.map,
+		scene = if typeof(raw) == "table" and typeof(raw.scene) == "string" and Scenes.byId[raw.scene] then raw.scene else defaults.scene,
 	}
 end
 
@@ -105,6 +109,9 @@ function RoomSettings.chips(settings: Settings): { string }
 	end
 	if settings.map ~= MatchSettings.DEFAULT.map then
 		table.insert(chips, settings.map)
+	end
+	if settings.scene ~= RoomSettings.DEFAULT.scene and Scenes.byId[settings.scene] then
+		table.insert(chips, Scenes.byId[settings.scene].name)
 	end
 	return chips
 end

@@ -257,4 +257,20 @@ tests["the session starts the map from the settings"] = function()
 	Expect.equal(map, "College")
 end
 
+tests["a session can shuffle the seats and announce the order before the first turn"] = function()
+	local function reverse(list: { string })
+		for i = 1, #list // 2 do
+			list[i], list[#list - i + 1] = list[#list - i + 1], list[i]
+		end
+	end
+	local session = GameSession.new(humans(2), 3, GameFixtures.scriptedDice({}), reverse, nil, nil, { shuffleSeats = true, announceOrder = true })
+	Expect.equal(ids(session), "bot1,h2,h1", "seats reversed by the shuffle")
+	local events = GameSession.takeNewEvents(session)
+	Expect.equal(events[1].type, "TurnOrder", "the order comes first")
+	Expect.equal(table.concat(events[1].order, ","), "bot1,h2,h1")
+	Expect.equal(events[2].type, "TurnStarted")
+	local plain = GameSession.new(humans(2), 2, GameFixtures.scriptedDice({}), reverse)
+	Expect.equal(ids(plain), "h1,h2", "no shuffle unless asked")
+end
+
 return tests

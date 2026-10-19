@@ -19,6 +19,7 @@ export type Session = {
 	settings: MatchSettings.Settings,
 	endsAt: number?, -- server time the minutes limit runs out, if there is one
 	looks: { [string]: { piece: string?, rentEffect: string? } }, -- cosmetics shown for each seat
+	scene: string, -- Scenes id: what surrounds the board
 }
 
 local GameSession = {}
@@ -31,7 +32,8 @@ function GameSession.new(
 	rollDice: Types.DiceRoller,
 	shuffle: Types.Shuffler?,
 	settings: MatchSettings.Settings?,
-	rules: Types.HouseRules?
+	rules: Types.HouseRules?,
+	options: { shuffleSeats: boolean?, announceOrder: boolean? }?
 ): Session
 	local playing = math.min(#humans, Engine.MAX_PLAYERS)
 	if seats ~= seats then -- NaN
@@ -53,13 +55,36 @@ function GameSession.new(
 		table.insert(infos, { id = `bot{botNumber}`, name = `Bot {botNumber}`, isBot = true })
 	end
 
+	-- Seats in a random order (the turn-order spin shows it), rather than join order.
+	if options and options.shuffleSeats and shuffle then
+		local order = {}
+		local byId = {}
+		for _, info in infos do
+			table.insert(order, info.id)
+			byId[info.id] = info
+		end
+		shuffle(order)
+		for index, id in order do
+			infos[index] = byId[id]
+		end
+	end
+
 	local chosen = settings or MatchSettings.validate(nil)
+	local state = Engine.new(infos, rollDice, shuffle, MatchSettings.roundLimit(chosen), chosen.map, rules)
+	if options and options.announceOrder then
+		local order = {}
+		for _, player in state.players do
+			table.insert(order, player.id)
+		end
+		table.insert(state.events, 1, { type = "TurnOrder", order = order })
+	end
 	return {
-		state = Engine.new(infos, rollDice, shuffle, MatchSettings.roundLimit(chosen), chosen.map, rules),
+		state = state,
 		eventCursor = 0,
 		settings = chosen,
 		endsAt = nil,
 		looks = {},
+		scene = "Boardwalk",
 	}
 end
 

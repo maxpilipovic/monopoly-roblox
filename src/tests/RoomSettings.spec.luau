@@ -70,4 +70,11 @@ tests["ranked games always use the standard rules, no bots, and a time limit"] =
 	Expect.equal(RoomSettings.ranked(4).length, "Minutes60")
 end
 
+tests["the board scene is one of the three, Boardwalk by default"] = function()
+	Expect.equal(RoomSettings.validate(nil).scene, "Boardwalk")
+	Expect.equal(RoomSettings.validate({ scene = "Winter" }).scene, "Winter")
+	Expect.equal(RoomSettings.validate({ scene = "Mars" }).scene, "Boardwalk", "junk ignored")
+	Expect.equal(table.concat(RoomSettings.chips(RoomSettings.validate({ scene = "Tropical" })), "|"), "$1500|Relaxed timer|Tropical Island")
+end
+
 return tests

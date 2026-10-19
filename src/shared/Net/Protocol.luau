@@ -79,6 +79,7 @@ export type Snapshot = {
 	winReason: string?, -- "Bankruptcy" | "RoundLimit" | "TimeLimit", once the game is over
 	winner: string?,
 	freeParkingPot: number, -- money waiting on Free Parking (always 0 unless that rule is on)
+	scene: string, -- Scenes id: what surrounds the board
 	rules: { auctions: boolean, freeParking: boolean },
 }
 

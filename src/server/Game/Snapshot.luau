@@ -16,6 +16,7 @@ export type MatchInfo = {
 	endsAt: number?,
 	turnDeadline: number?,
 	looks: { [string]: { piece: string?, rentEffect: string? } }?, -- each player's equipped cosmetics
+	scene: string?,
 }
 
 local NO_MATCH: MatchInfo = { timer = "Off", length = "Off" }
@@ -115,6 +116,7 @@ function Snapshot.fromState(state: Types.GameState, info: MatchInfo?): Protocol.
 		winReason = state.winReason,
 		winner = state.winner,
 		freeParkingPot = state.freeParkingPot,
+		scene = match.scene or "Boardwalk",
 		rules = { auctions = state.rules.auctions, freeParking = state.rules.freeParking },
 	}
 end

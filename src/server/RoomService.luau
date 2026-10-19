@@ -15,6 +15,7 @@ local Pacing = require(ReplicatedStorage.Shared.Rules.Pacing)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local Ranks = require(ReplicatedStorage.Shared.Rules.Ranks)
 local RoomSettings = require(ReplicatedStorage.Shared.Rules.RoomSettings)
+local Scenes = require(ReplicatedStorage.Shared.Board.Scenes)
 local Elo = require(script.Parent.Data.Elo)
 local GameSession = require(script.Parent.Game.GameSession)
 local PlayerData = require(script.Parent.Data.PlayerData)
@@ -130,6 +131,7 @@ local function update(l: Live, events: { any }): Protocol.Update
 			endsAt = l.session.endsAt,
 			turnDeadline = l.clock.deadline,
 			looks = l.session.looks,
+			scene = l.session.scene,
 		}),
 		events = events,
 	}
@@ -330,7 +332,12 @@ local function startGame(room: Rooms.Room)
 	if studioMoney then
 		rules.startingMoney = studioMoney
 	end
-	local session = GameSession.new(humans, seats, rollDice, shuffle, RoomSettings.match(settings), rules)
+	-- Seats are drawn at random; the turn-order spin shows the draw before the first turn.
+	local session = GameSession.new(humans, seats, rollDice, shuffle, RoomSettings.match(settings), rules, {
+		shuffleSeats = true,
+		announceOrder = true,
+	})
+	session.scene = if room.ranked then Scenes.random(random) else settings.scene
 	-- Cosmetics are fixed for the game when it starts.
 	for _, seat in session.state.players do
 		if seat.isBot then

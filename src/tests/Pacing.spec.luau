@@ -123,4 +123,13 @@ tests["the dice get time to tumble and then be read"] = function()
 	Expect.equal(Pacing.DICE_SECONDS - Pacing.DICE_READ_SECONDS >= 1.6, true, "every recorded throw settles before the read")
 end
 
+tests["the turn-order spin plays before anything else"] = function()
+	local timeline = Pacing.timeline({
+		{ type = "TurnOrder", order = { "p1", "p2", "p3" } },
+		{ type = "TurnStarted", player = "p1" },
+	})
+	Expect.near(timeline.items[2].at, Pacing.turnOrderSeconds(3))
+	Expect.equal(Pacing.turnOrderSeconds(4) > Pacing.turnOrderSeconds(2), true, "more players, longer spin")
+end
+
 return tests

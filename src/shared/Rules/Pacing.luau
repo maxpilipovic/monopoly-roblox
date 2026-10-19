@@ -12,6 +12,8 @@ Pacing.LAND_SECONDS = 0.6 -- a beat on the landing tile before what happens ther
 Pacing.CARD_SECONDS = 2.6 -- time to read a drawn card before its effect plays
 Pacing.JAIL_SECONDS = 2.2 -- time to read that someone is going to jail before their token jumps
 Pacing.BOT_THINK_SECONDS = 1 -- a bot's pause before each action, on top of what's still playing
+Pacing.SPIN_SECONDS = 1.6 -- the turn-order reel spinning to each seat
+Pacing.SPIN_READ_SECONDS = 1.4 -- the finished order on show before the first turn
 
 local BOARD_TILES = 40
 
@@ -33,6 +35,11 @@ export type Timeline = {
 	jails: { Jail }, -- players sent to jail, announced before the token jumps
 	total: number, -- when the result of it all can be shown
 }
+
+-- How long the turn-order spin at the start of a game takes for `seats` players.
+function Pacing.turnOrderSeconds(seats: number): number
+	return seats * Pacing.SPIN_SECONDS + Pacing.SPIN_READ_SECONDS
+end
 
 -- How many hops a move takes. A jump to jail is a single hop.
 function Pacing.steps(move: Move): number
@@ -69,7 +76,9 @@ function Pacing.timeline(events: { { [string]: any } }): Timeline
 	for index, event in events do
 		local item: Item = { at = cursor, event = event }
 		table.insert(items, item)
-		if event.type == "Rolled" then
+		if event.type == "TurnOrder" then
+			cursor += Pacing.turnOrderSeconds(#event.order)
+		elseif event.type == "Rolled" then
 			cursor += Pacing.DICE_SECONDS
 		elseif event.type == "Moved" then
 			if event.style == "ToJail" then
