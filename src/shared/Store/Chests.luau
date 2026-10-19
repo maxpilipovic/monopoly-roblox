@@ -71,6 +71,25 @@ function Chests.oddsLines(chest: Chest): { string }
 	return lines
 end
 
+-- Every item this chest can give and its own chance (its rarity's chance shared out among that
+-- rarity's items), most likely first: what the shop shows before you buy.
+function Chests.itemOdds(chest: Chest): { { id: string, name: string, rarity: string, chance: number } }
+	local lines = {}
+	for _, rarity in Catalog.RARITIES do
+		local odds = chest.odds[rarity] or 0
+		local items = Catalog.droppable(rarity)
+		if odds > 0 and #items > 0 then
+			for _, item in items do
+				table.insert(lines, { id = item.id, name = item.name, rarity = rarity, chance = odds / #items })
+			end
+		end
+	end
+	table.sort(lines, function(a, b)
+		return a.chance > b.chance
+	end)
+	return lines
+end
+
 -- Picks an item id from `chestId`: a rarity by the odds, then an item of that rarity.
 function Chests.roll(chestId: string, random: Random): string
 	local chest = assert(Chests.byId[chestId], `no chest {chestId}`)

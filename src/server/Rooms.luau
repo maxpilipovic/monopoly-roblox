@@ -14,6 +14,7 @@ export type Room = {
 	members: { Member },
 	settings: RoomSettings.Settings,
 	status: string, -- "Waiting" | "Playing"
+	ranked: boolean, -- matched by the ranked queue: fixed rules, rated, never listed or joinable
 	session: any?, -- the GameSession while playing (owned by RoomService)
 }
 
@@ -80,12 +81,30 @@ function Rooms.create(reg: Registry, hostId: string, name: string, raw: any): (R
 		members = { { id = hostId, name = name } },
 		settings = RoomSettings.validate(raw),
 		status = "Waiting",
+		ranked = false,
 		session = nil,
 	}
 	reg.nextId += 1
 	rename(room)
 	table.insert(reg.rooms, room)
 	return room, nil
+end
+
+-- A room for players the ranked queue matched, with the fixed ranked rules.
+function Rooms.createRanked(reg: Registry, members: { Member }, raw: any): Room
+	local room: Room = {
+		id = reg.nextId,
+		name = "Ranked game",
+		hostId = members[1].id,
+		members = table.clone(members),
+		settings = RoomSettings.validate(raw),
+		status = "Waiting",
+		ranked = true,
+		session = nil,
+	}
+	reg.nextId += 1
+	table.insert(reg.rooms, room)
+	return room
 end
 
 function Rooms.join(reg: Registry, roomId: any, playerId: string, name: string): (boolean, string?)
@@ -96,6 +115,8 @@ function Rooms.join(reg: Registry, roomId: any, playerId: string, name: string):
 		return false, "you're already in a game"
 	elseif room.status ~= "Waiting" then
 		return false, "that game has already started"
+	elseif room.ranked then
+		return false, "ranked games are matched by the queue"
 	elseif #room.members >= room.settings.maxPlayers then
 		return false, "that game is full"
 	end
@@ -120,7 +141,9 @@ function Rooms.leave(reg: Registry, playerId: string): Room?
 		table.remove(reg.rooms, table.find(reg.rooms, room) :: number)
 	elseif room.hostId == playerId then
 		room.hostId = room.members[1].id
-		rename(room)
+		if not room.ranked then
+			rename(room)
+		end
 	end
 	return room
 end
@@ -129,6 +152,8 @@ function Rooms.updateSettings(reg: Registry, playerId: string, raw: any): (boole
 	local room = Rooms.roomOf(reg, playerId)
 	if not room or room.hostId ~= playerId then
 		return false, "only the host can change the settings"
+	elseif room.ranked then
+		return false, "ranked games use fixed rules"
 	elseif room.status ~= "Waiting" then
 		return false, "the game has already started"
 	end
@@ -154,6 +179,9 @@ end
 function Rooms.list(reg: Registry): { RoomView }
 	local views = {}
 	for _, room in reg.rooms do
+		if room.ranked then
+			continue
+		end
 		table.insert(views, {
 			id = room.id,
 			name = room.name,

@@ -1,11 +1,21 @@
 --!strict
--- A player's saved data and the rules for changing it: lifetime stats (wins, streaks, Elo), owned
--- items with counts, what's equipped, and recent purchase ids so no purchase is granted twice.
+-- A player's saved data and the rules for changing it: lifetime stats (every game's wins; ranked
+-- rating, peak, wins and win streaks), owned items with counts, what's equipped, and recent purchase
+-- ids so no purchase is granted twice. Only ranked games move the rating and the streak.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Catalog = require(ReplicatedStorage.Shared.Cosmetics.Catalog)
 
-export type Stats = { wins: number, games: number, streak: number, bestStreak: number, elo: number }
+export type Stats = {
+	wins: number, -- every game
+	games: number,
+	elo: number, -- ranked rating
+	peakElo: number,
+	rankedGames: number,
+	rankedWins: number,
+	streak: number, -- ranked wins in a row
+	bestStreak: number,
+}
 
 export type Profile = {
 	version: number,
@@ -13,6 +23,7 @@ export type Profile = {
 	inventory: { [string]: number }, -- item id -> how many owned
 	equipped: { piece: string, rentEffect: string? },
 	receipts: { string }, -- the most recent purchase ids, oldest first
+	retired: { [string]: number }, -- owned items the catalogue no longer lists, kept so a save never drops them
 }
 
 local Profile = {}
@@ -25,10 +36,20 @@ Profile.RECEIPTS_KEPT = 50
 function Profile.new(): Profile
 	return {
 		version = Profile.VERSION,
-		stats = { wins = 0, games = 0, streak = 0, bestStreak = 0, elo = Profile.START_ELO },
+		stats = {
+			wins = 0,
+			games = 0,
+			elo = Profile.START_ELO,
+			peakElo = Profile.START_ELO,
+			rankedGames = 0,
+			rankedWins = 0,
+			streak = 0,
+			bestStreak = 0,
+		},
 		inventory = {},
 		equipped = { piece = Catalog.DEFAULT_PIECE, rentEffect = nil },
 		receipts = {},
+		retired = {},
 	}
 end
 
@@ -49,8 +70,23 @@ function Profile.reconcile(raw: any): Profile
 	end
 	if typeof(raw.inventory) == "table" then
 		for id, count in raw.inventory do
-			if typeof(id) == "string" and Catalog.byId[id] and typeof(count) == "number" and count > 0 then
-				profile.inventory[id] = count
+			if typeof(id) == "string" and typeof(count) == "number" and count > 0 then
+				if Catalog.byId[id] then
+					profile.inventory[id] = count
+				else
+					profile.retired[id] = count
+				end
+			end
+		end
+	end
+	if typeof(raw.retired) == "table" then
+		for id, count in raw.retired do
+			if typeof(id) == "string" and typeof(count) == "number" and count > 0 then
+				if Catalog.byId[id] then
+					profile.inventory[id] = (profile.inventory[id] or 0) + count -- an item that came back
+				else
+					profile.retired[id] = count
+				end
 			end
 		end
 	end
@@ -72,17 +108,25 @@ function Profile.reconcile(raw: any): Profile
 	return profile
 end
 
-function Profile.recordGame(profile: Profile, won: boolean, eloDelta: number)
+function Profile.recordGame(profile: Profile, won: boolean, eloDelta: number, ranked: boolean)
 	local stats = profile.stats
 	stats.games += 1
 	if won then
 		stats.wins += 1
+	end
+	if not ranked then
+		return
+	end
+	stats.rankedGames += 1
+	if won then
+		stats.rankedWins += 1
 		stats.streak += 1
 		stats.bestStreak = math.max(stats.bestStreak, stats.streak)
 	else
 		stats.streak = 0
 	end
 	stats.elo = math.max(Profile.ELO_FLOOR, stats.elo + eloDelta)
+	stats.peakElo = math.max(stats.peakElo, stats.elo)
 end
 
 function Profile.owns(profile: Profile, id: string): boolean

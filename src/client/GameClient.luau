@@ -49,6 +49,9 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 		onReturnToLobby = function()
 			lobbyRemote:FireServer({ type = "ReturnToLobby" })
 		end,
+		onLeave = function()
+			lobbyRemote:FireServer({ type = "Leave" })
+		end,
 	})
 
 	local busyUntil = 0 -- os.clock time the updates already received finish playing

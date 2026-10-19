@@ -3,7 +3,7 @@
 -- with each other. Each pairing is ordinary Elo with K shared out over the table, so a bigger game
 -- moves ratings about as much as a duel. Bots are fixed opponents: they count, but don't change.
 
-export type Entry = { id: string, rating: number, isBot: boolean? }
+export type Entry = { id: string, rating: number, isBot: boolean?, k: number? } -- k: this player's K-factor (Ranks.kFactor)
 
 local Elo = {}
 
@@ -25,7 +25,7 @@ function Elo.changes(entries: { Entry }, winnerId: string?): { [string]: number 
 			for _, other in entries do
 				if other ~= entry then
 					local score = if entry.id == winnerId then 1 elseif other.id == winnerId then 0 else 0.5
-					total += (Elo.K / (count - 1)) * (score - expected(entry.rating, other.rating))
+					total += ((entry.k or Elo.K) / (count - 1)) * (score - expected(entry.rating, other.rating))
 				end
 			end
 		end

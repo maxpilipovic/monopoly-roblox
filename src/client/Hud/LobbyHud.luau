@@ -16,6 +16,7 @@ local EmblemLook = require(ReplicatedStorage.Shared.Board.EmblemLook)
 local MatchSettings = require(ReplicatedStorage.Shared.Rules.MatchSettings)
 local PieceLook = require(ReplicatedStorage.Shared.Cosmetics.PieceLook)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
+local Ranks = require(ReplicatedStorage.Shared.Rules.Ranks)
 local RoomSettings = require(ReplicatedStorage.Shared.Rules.RoomSettings)
 local ModelView = require(script.Parent.ModelView)
 local Theme = require(script.Parent.Theme)
@@ -27,6 +28,11 @@ LobbyHud.__index = LobbyHud
 LobbyHud.GUI_NAME = "LobbyHud"
 
 local GOLD = Color3.fromRGB(222, 190, 110)
+
+local function clockText(seconds: number): string
+	seconds = math.max(0, math.floor(seconds))
+	return string.format("%d:%02d", seconds // 60, seconds % 60)
+end
 local EFFECT_GLYPHS = {
 	CoinBurst = "🪙",
 	ConfettiPop = "🎉",
@@ -62,6 +68,10 @@ export type LobbyHud = typeof(setmetatable(
 		draft: RoomSettings.Settings, -- the create form's settings
 		creating: boolean,
 		piecesTab: string,
+		playTab: string, -- "Ranked" | "Casual"
+		chestDetail: string?, -- the chest whose full item list is open
+		queueLabel: TextLabel?, -- the "Searching…" line, ticked every frame
+		titleLabel: TextLabel,
 		toast: TextLabel,
 		reveal: Frame,
 		revealChest: ModelView.ModelView,
@@ -174,6 +184,10 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 		draft = RoomSettings.validate(nil),
 		creating = false,
 		piecesTab = "Pieces",
+		playTab = "Ranked",
+		chestDetail = nil,
+		queueLabel = nil,
+		titleLabel = nil :: any,
 		toast = nil :: any,
 		reveal = nil :: any,
 		revealChest = nil :: any,
@@ -217,10 +231,17 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 	elo.TextColor3 = GOLD
 	elo.Text = "1000"
 	self.statLabels.elo = elo
+	-- The chess-style title for that rating, e.g. "Novice" or "Grandmaster".
+	local title = Ui.label("Title", card, UDim2.fromOffset(150, 20), 15, Theme.font.display)
+	title.Position = UDim2.fromOffset(176, 74)
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.TextTruncate = Enum.TextTruncate.AtEnd
+	title.TextWrapped = false
+	self.titleLabel = title
 	local stats = Ui.frame("Stats", UDim2.new(1, -32, 0, 52), card)
 	stats.Position = UDim2.fromOffset(16, 104)
 	Ui.list(stats, Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center)
-	for index, info in { { "wins", "Total wins" }, { "bestStreak", "Best streak" }, { "streak", "Streak" }, { "games", "Games" } } do
+	for index, info in { { "wins", "Total wins" }, { "bestStreak", "Best streak" }, { "streak", "Streak" }, { "peakElo", "Peak Elo" } } do
 		local tile = Ui.surface(info[1], UDim2.fromOffset(68, 52), stats)
 		tile.LayoutOrder = index
 		local value = Ui.label("Value", tile, UDim2.new(1, 0, 0, 28), 22, Theme.font.display)
@@ -282,6 +303,18 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 	self.revealItem.frame.AnchorPoint = Vector2.new(0.5, 0.5)
 	self.revealItem.frame.Position = UDim2.fromScale(0.5, 0.38)
 	self.revealItem.frame.ZIndex = 42
+
+	-- The ranked queue's clock ticks while you search.
+	if RunService:IsClient() then
+		RunService.Heartbeat:Connect(function()
+			local label = self.queueLabel
+			local queued = if self.rooms then self.rooms.queue else nil
+			if label and label.Parent and queued then
+				local waited = workspace:GetServerTimeNow() - queued.since
+				label.Text = `Searching for a {queued.mode} opponent… {clockText(waited)}`
+			end
+		end)
+	end
 
 	self:render()
 	return self
@@ -524,19 +557,118 @@ local function renderRoom(self: LobbyHud, content: Frame, room: any)
 	start.Size = UDim2.fromOffset(180, 50)
 end
 
+local MODES = {
+	{ id = "Duel", title = "Duel", blurb = "1 v 1 · 30 minutes", players = 2 },
+	{ id = "Table", title = "Table", blurb = "4 players · 60 minutes", players = 4 },
+}
+
+-- Ranked: your rating like a chess site shows it, and the queue for a Duel or a Table.
+local function renderRanked(self: LobbyHud, content: Frame)
+	local profile = self.profile
+	local stats = if profile then profile.stats else nil
+	local elo = if stats then stats.elo else Ranks.START
+	local rank = Ranks.titleFor(elo)
+	local card = Ui.surface("Rating", UDim2.new(1, 0, 0, 120), content)
+	local number = Ui.label("Elo", card, UDim2.fromOffset(170, 64), 56, Theme.font.display)
+	number.Position = UDim2.fromOffset(16, 10)
+	number.TextXAlignment = Enum.TextXAlignment.Left
+	number.TextColor3 = GOLD
+	number.Text = tostring(math.floor(elo))
+	local title = Ui.label("Title", card, UDim2.fromOffset(280, 28), 22, Theme.font.display)
+	title.Position = UDim2.fromOffset(190, 14)
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.TextColor3 = rank.color
+	title.Text = rank.name
+	local games = if stats then stats.rankedGames else 0
+	local record = Ui.label("Record", card, UDim2.fromOffset(300, 20), 15, Theme.font.bodyBold)
+	record.Position = UDim2.fromOffset(190, 44)
+	record.TextXAlignment = Enum.TextXAlignment.Left
+	record.TextColor3 = Theme.color.textDim
+	record.Text = if stats then `{stats.rankedWins} W · {games - stats.rankedWins} L · peak {math.floor(stats.peakElo)}` else ""
+	local note = Ui.label("Note", card, UDim2.new(1, -32, 0, 34), 14, Theme.font.body)
+	note.Position = UDim2.fromOffset(16, 78)
+	note.TextXAlignment = Enum.TextXAlignment.Left
+	note.TextColor3 = Theme.color.textDim
+	note.Text = if Ranks.isProvisional(games)
+		then `Provisional: {Ranks.PROVISIONAL_GAMES - games} more ranked games to settle your rating. Everyone starts at {Ranks.START}.`
+		else "Win to climb; the stronger your opponents, the more you gain."
+
+	local queued = if self.rooms then self.rooms.queue else nil
+	local modes = Ui.frame("Modes", UDim2.new(1, 0, 0, 170), content)
+	modes.Position = UDim2.fromOffset(0, 134)
+	Ui.list(modes, Enum.FillDirection.Horizontal, 14, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top)
+	for index, mode in MODES do
+		local box = Ui.surface(mode.id, UDim2.fromOffset(238, 160), modes)
+		box.LayoutOrder = index
+		local name = Ui.label("Name", box, UDim2.new(1, 0, 0, 34), 26, Theme.font.display)
+		name.Position = UDim2.fromOffset(0, 12)
+		name.Text = mode.title
+		local blurb = Ui.label("Blurb", box, UDim2.new(1, 0, 0, 20), 14, Theme.font.bodyBold)
+		blurb.Position = UDim2.fromOffset(0, 48)
+		blurb.TextColor3 = Theme.color.textDim
+		blurb.Text = mode.blurb
+		local searching = queued and queued.mode == mode.id
+		local button = Ui.button(if searching then "Cancel" elseif queued then "Find match" else "Find match", box, function()
+			if searching then
+				self.callbacks.onLobby({ type = "Unqueue" })
+			else
+				self.callbacks.onLobby({ type = "Queue", mode = mode.id })
+			end
+		end, if searching then "danger" elseif queued then "disabled" else "primary")
+		button.Size = UDim2.new(1, -28, 0, 50)
+		button.Position = UDim2.new(0, 14, 1, -64)
+	end
+	local status = Ui.label("Queue", content, UDim2.new(1, 0, 0, 26), 17, Theme.font.bodyBold)
+	status.Position = UDim2.fromOffset(0, 314)
+	status.TextColor3 = GOLD
+	status.Text = ""
+	self.queueLabel = if queued then status else nil
+	local rules = Ui.label("Rules", content, UDim2.new(1, 0, 0, 40), 13, Theme.font.body)
+	rules.Position = UDim2.fromOffset(0, 346)
+	rules.TextColor3 = Theme.color.textDim
+	rules.Text = "Ranked games use standard rules: $1500, auctions on, no Free Parking pot, no bots. Leaving a ranked game counts as a loss."
+end
+
 local function renderGames(self: LobbyHud)
 	local frame = self.panels.Games
 	Ui.clear(frame, function(child)
 		return child.Name == "Close"
 	end)
+	self.queueLabel = nil
 	local mine = roomById(self, if self.rooms then self.rooms.mine else nil)
-	heading(if mine then mine.name elseif self.creating then "Create a game" else "Casual games", frame)
-	local content = body(frame, 64)
-	if mine then
-		renderRoom(self, content, mine)
-	elseif self.creating then
-		renderCreate(self, content)
+	if mine or self.creating then
+		heading(if mine then mine.name else "Create a game", frame)
+		local content = body(frame, 64)
+		if mine then
+			renderRoom(self, content, mine)
+		else
+			renderCreate(self, content)
+		end
+		return
+	end
+	heading("Play", frame)
+	local tabs = Ui.frame("Tabs", UDim2.fromOffset(330, 40), frame)
+	tabs.Position = UDim2.fromOffset(20, 58)
+	Ui.list(tabs, Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center)
+	for index, tab in { "Ranked", "Casual" } do
+		local button = Ui.button(tab, tabs, function()
+			self.playTab = tab
+			self:render()
+		end, if self.playTab == tab then "accent" else "secondary")
+		button.Size = UDim2.fromOffset(150, 38)
+		button.LayoutOrder = index
+		Ui.setTextSize(button, 16)
+	end
+	local content = body(frame, 108)
+	if self.playTab == "Ranked" then
+		renderRanked(self, content)
 	else
+		local note = Ui.label("CasualNote", frame, UDim2.fromOffset(200, 38), 13, Theme.font.body)
+		note.AnchorPoint = Vector2.new(1, 0)
+		note.Position = UDim2.new(1, -64, 0, 60)
+		note.TextXAlignment = Enum.TextXAlignment.Right
+		note.TextColor3 = Theme.color.textDim
+		note.Text = "Casual games never change your rating."
 		renderBrowse(self, content)
 	end
 end
@@ -641,6 +773,53 @@ local function renderChests(self: LobbyHud)
 	Ui.clear(frame, function(child)
 		return child.Name == "Close"
 	end)
+	local detail = if self.chestDetail then Chests.byId[self.chestDetail] else nil
+	if detail then
+		-- Every item this chest can give, with its own chance, most likely first.
+		heading(`{detail.name}: every item and its odds`, frame, 22)
+		local list = Instance.new("ScrollingFrame")
+		list.Name = "Items"
+		list.Size = UDim2.new(1, -40, 1, -140)
+		list.Position = UDim2.fromOffset(20, 64)
+		list.BackgroundTransparency = 1
+		list.BorderSizePixel = 0
+		list.ScrollBarThickness = 6
+		list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		list.CanvasSize = UDim2.new()
+		list.Parent = frame
+		Ui.list(list, Enum.FillDirection.Vertical, 4, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Top)
+		for index, line in Chests.itemOdds(detail) do
+			local item = Catalog.byId[line.id]
+			local row = Ui.surface(line.id, UDim2.new(1, -12, 0, 32), list)
+			row.LayoutOrder = index
+			local swatch = Instance.new("Frame")
+			swatch.Size = UDim2.fromOffset(6, 22)
+			swatch.Position = UDim2.fromOffset(8, 5)
+			swatch.BackgroundColor3 = Catalog.RARITY_COLORS[line.rarity]
+			swatch.BorderSizePixel = 0
+			swatch.Parent = row
+			local name = Ui.label("Name", row, UDim2.new(0.55, -24, 1, 0), 15, Theme.font.bodyBold)
+			name.Position = UDim2.fromOffset(22, 0)
+			name.TextXAlignment = Enum.TextXAlignment.Left
+			name.Text = `{line.name}  ·  {if item and item.kind == "Piece" then "piece" else "rent effect"}`
+			local rarity = Ui.label("Rarity", row, UDim2.new(0.25, 0, 1, 0), 14, Theme.font.bodyBold)
+			rarity.Position = UDim2.fromScale(0.55, 0)
+			rarity.TextColor3 = Catalog.RARITY_COLORS[line.rarity]
+			rarity.Text = line.rarity
+			local chance = Ui.label("Chance", row, UDim2.new(0.2, -12, 1, 0), 15, Theme.font.display)
+			chance.Position = UDim2.fromScale(0.8, 0)
+			chance.TextXAlignment = Enum.TextXAlignment.Right
+			chance.Text = string.format("%.2f%%", line.chance * 100)
+		end
+		local back = Ui.button("Back to chests", frame, function()
+			self.chestDetail = nil
+			self:render()
+		end, "secondary")
+		back.Size = UDim2.fromOffset(200, 48)
+		back.AnchorPoint = Vector2.new(1, 1)
+		back.Position = UDim2.new(1, -20, 1, -16)
+		return
+	end
 	heading("Chests", frame)
 	local note = Ui.label("Note", frame, UDim2.new(1, -40, 0, 18), 13, Theme.font.body)
 	note.Position = UDim2.fromOffset(20, 50)
@@ -679,6 +858,20 @@ local function renderChests(self: LobbyHud)
 		end, if live or RunService:IsStudio() then "accent" else "disabled")
 		buy.Size = UDim2.new(1, -24, 0, 50)
 		buy.Position = UDim2.new(0, 12, 1, -62)
+		local items = Instance.new("TextButton")
+		items.Name = "ItemOdds"
+		items.Size = UDim2.new(1, -24, 0, 18)
+		items.Position = UDim2.new(0, 12, 1, -86)
+		items.BackgroundTransparency = 1
+		items.FontFace = Theme.font.bodyBold
+		items.TextSize = 13
+		items.TextColor3 = GOLD
+		items.Text = "See every item's odds ›"
+		items.Parent = card
+		items.Activated:Connect(function()
+			self.chestDetail = chest.id
+			self:render()
+		end)
 	end
 end
 
@@ -686,9 +879,12 @@ function LobbyHud.render(self: LobbyHud)
 	local profile = self.profile
 	if profile then
 		self.statLabels.elo.Text = tostring(math.floor(profile.stats.elo))
-		for _, key in { "wins", "bestStreak", "streak", "games" } do
-			self.statLabels[key].Text = tostring(math.floor((profile.stats :: any)[key]))
+		for _, key in { "wins", "bestStreak", "streak", "peakElo" } do
+			self.statLabels[key].Text = tostring(math.floor((profile.stats :: any)[key] or 0))
 		end
+		local rank = Ranks.titleFor(profile.stats.elo)
+		self.titleLabel.Text = rank.name .. (if Ranks.isProvisional(profile.stats.rankedGames) then " ?" else "")
+		self.titleLabel.TextColor3 = rank.color
 	end
 	for name, frame in self.panels do
 		if name == self.open then

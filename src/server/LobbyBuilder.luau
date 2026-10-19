@@ -183,7 +183,7 @@ end
 
 local function buildBoards(model: Model)
 	local boards = {
-		{ id = "wins", title = "MOST WINS", angle = -math.pi / 2 - 0.42 },
+		{ id = "wins", title = "RANKED WINS", angle = -math.pi / 2 - 0.42 },
 		{ id = "elo", title = "TOP ELO", angle = -math.pi / 2 },
 		{ id = "streak", title = "BEST WIN STREAK", angle = -math.pi / 2 + 0.42 },
 	}

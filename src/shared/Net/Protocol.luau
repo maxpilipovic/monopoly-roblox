@@ -101,10 +101,12 @@ export type RoomsUpdate = {
 	mine: number?,
 	hostOf: number?, -- the room this player hosts
 	notice: string?, -- why their last request was refused
+	queue: { mode: string, since: number }?, -- their place in the ranked queue (server time joined)
 }
 
 -- Requests on the LOBBY remote: { type = "Create", settings } | { type = "Join", room } | { type = "Leave" }
 -- | { type = "Settings", settings } | { type = "Start" } | { type = "ReturnToLobby" }
+-- | { type = "Queue", mode = "Duel" | "Table" } | { type = "Unqueue" }
 -- Requests on the STORE remote: { type = "Equip", item } | { type = "UnequipEffect" } | { type = "Buy", chest }
 -- | { type = "TestOpen", chest } (Studio only)
 export type ChestResult = { chest: string, item: string, count: number }

@@ -24,11 +24,14 @@ local requests = Throttle.new(0.3)
 -- Rolls and grants one chest's item, and tells the player what came out.
 local function open(player: Player, chest: Chests.Chest, purchaseId: string?): boolean
 	local profile = PlayerData.get(player)
-	if not profile then
+	if not profile or PlayerData.isUnreadable(player) then
+		-- Their real data couldn't be read: anything granted now could never be kept, so leave the
+		-- purchase pending for Roblox to retry once their data loads (next session).
 		return false
 	end
 	if purchaseId and Profile.hasReceipt(profile, purchaseId) then
-		return true -- already granted on an earlier attempt
+		-- Granted on an earlier attempt: report it only once that's safely saved.
+		return PlayerData.save(player)
 	end
 	local item = Chests.roll(chest.id, random)
 	local count = 0
@@ -70,9 +73,9 @@ local function onRequest(player: Player, request: any)
 	if request.type == "Equip" and typeof(request.item) == "string" then
 		PlayerData.update(player, function(profile)
 			Profile.equip(profile, request.item)
-		end, true)
+		end, "soon")
 	elseif request.type == "UnequipEffect" then
-		PlayerData.update(player, Profile.unequipRentEffect, true)
+		PlayerData.update(player, Profile.unequipRentEffect, "soon")
 	elseif request.type == "Buy" or request.type == "TestOpen" then
 		local chest = typeof(request.chest) == "string" and Chests.byId[request.chest]
 		if not chest then

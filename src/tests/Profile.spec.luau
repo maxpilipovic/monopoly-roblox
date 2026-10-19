@@ -24,25 +24,40 @@ tests["an old or partial save is filled out without losing what it had"] = funct
 	Expect.equal(Profile.reconcile("garbage").stats.elo, 1000, "junk becomes a fresh profile")
 end
 
-tests["wins build a streak; a loss ends it; the best streak stays"] = function()
+tests["ranked wins build a streak; a loss ends it; the best streak and peak stay"] = function()
 	local profile = Profile.new()
-	Profile.recordGame(profile, true, 16)
-	Profile.recordGame(profile, true, 12)
-	Profile.recordGame(profile, true, 10)
+	Profile.recordGame(profile, true, 16, true)
+	Profile.recordGame(profile, true, 12, true)
+	Profile.recordGame(profile, true, 10, true)
 	Expect.equal(profile.stats.streak, 3)
 	Expect.equal(profile.stats.bestStreak, 3)
-	Profile.recordGame(profile, false, -8)
+	Profile.recordGame(profile, false, -8, true)
 	Expect.equal(profile.stats.streak, 0)
 	Expect.equal(profile.stats.bestStreak, 3)
-	Expect.equal(profile.stats.wins, 3)
+	Expect.equal(profile.stats.rankedWins, 3)
+	Expect.equal(profile.stats.rankedGames, 4)
+	Expect.equal(profile.stats.wins, 3, "all wins")
 	Expect.equal(profile.stats.games, 4)
 	Expect.equal(profile.stats.elo, 1000 + 16 + 12 + 10 - 8)
+	Expect.equal(profile.stats.peakElo, 1038)
+end
+
+tests["casual games count as games and wins but never touch rating or the ranked streak"] = function()
+	local profile = Profile.new()
+	Profile.recordGame(profile, true, 16, true)
+	Profile.recordGame(profile, true, 0, false)
+	Profile.recordGame(profile, false, 0, false)
+	Expect.equal(profile.stats.elo, 1016)
+	Expect.equal(profile.stats.streak, 1, "a casual loss doesn't end a ranked streak")
+	Expect.equal(profile.stats.rankedGames, 1)
+	Expect.equal(profile.stats.games, 3)
+	Expect.equal(profile.stats.wins, 2)
 end
 
 tests["Elo never drops below its floor"] = function()
 	local profile = Profile.new()
 	profile.stats.elo = 110
-	Profile.recordGame(profile, false, -50)
+	Profile.recordGame(profile, false, -50, true)
 	Expect.equal(profile.stats.elo, Profile.ELO_FLOOR)
 end
 
@@ -74,6 +89,14 @@ tests["a purchase is remembered so it's never granted twice, keeping the last 50
 	Expect.equal(#profile.receipts, 50)
 	Expect.equal(Profile.hasReceipt(profile, "p1"), false, "the oldest drop off")
 	Expect.equal(Profile.hasReceipt(profile, "p60"), true)
+end
+
+tests["items the catalogue no longer knows are kept, not wiped"] = function()
+	local profile = Profile.reconcile({ inventory = { Crown = 1, RetiredThing = 2 } })
+	Expect.equal(profile.inventory.Crown, 1)
+	Expect.equal(profile.inventory.RetiredThing, nil, "not offered as owned")
+	Expect.equal(profile.retired.RetiredThing, 2, "but kept for the save")
+	Expect.equal(Profile.reconcile(profile).retired.RetiredThing, 2, "and kept again on the next load")
 end
 
 return tests

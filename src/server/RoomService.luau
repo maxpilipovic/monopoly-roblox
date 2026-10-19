@@ -1,7 +1,8 @@
 --!strict
--- Runs the casual games: the room list, each room's game (turn clock, bots, broadcasts to its own
--- members only), results and Elo at the end, and moving players between the lobby (with their
--- character) and the board (without one).
+-- Runs the games: casual rooms (listed, hosted, house rules, never rated), the ranked queue (matched
+-- by rating, fixed rules, Elo like chess), each game's turn clock, bots and broadcasts to its own
+-- players only, results and rating changes at the end, and moving players between the lobby (with
+-- their character) and the board (without one).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,11 +13,13 @@ local Maps = require(ReplicatedStorage.Shared.Board.Maps)
 local MatchSettings = require(ReplicatedStorage.Shared.Rules.MatchSettings)
 local Pacing = require(ReplicatedStorage.Shared.Rules.Pacing)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
+local Ranks = require(ReplicatedStorage.Shared.Rules.Ranks)
 local RoomSettings = require(ReplicatedStorage.Shared.Rules.RoomSettings)
 local Elo = require(script.Parent.Data.Elo)
 local GameSession = require(script.Parent.Game.GameSession)
 local PlayerData = require(script.Parent.Data.PlayerData)
 local Profile = require(script.Parent.Data.Profile)
+local RankedQueue = require(script.Parent.RankedQueue)
 local Rooms = require(script.Parent.Rooms)
 local Snapshot = require(script.Parent.Game.Snapshot)
 local Throttle = require(script.Parent.Game.Throttle)
@@ -26,9 +29,10 @@ local RoomService = {}
 
 RoomService.RESULTS_SECONDS = 15
 RoomService.RESPAWN_SECONDS = 3
+RoomService.MATCH_SECONDS = 2 -- how often the ranked queue looks for matches
 local refusals = Throttle.new(0.25) -- at most this often per player, so spam can't flood them
 local readies = Throttle.new(1)
-local requests = Throttle.new(0.2)
+local requests = Throttle.new(0.12)
 
 -- A running game and the machinery around it.
 type Live = {
@@ -38,10 +42,12 @@ type Live = {
 	clockGeneration: number,
 	botScheduled: boolean,
 	ending: boolean, -- the results screen is up
-	recorded: boolean, -- results written to profiles
+	rated: { [string]: boolean }, -- players whose result is already in their profile
+	returned: { [string]: boolean }, -- players who left the results screen for the lobby
 }
 
 local registry = Rooms.new()
+local queue = RankedQueue.new()
 local live: { [number]: Live } = {}
 local updateRemote: RemoteEvent
 local roomsRemote: RemoteEvent
@@ -81,6 +87,17 @@ local function members(room: Rooms.Room): { Player }
 	return list
 end
 
+-- The room's players still watching the board (not gone back to the lobby from the results).
+local function watchers(l: Live): { Player }
+	local list = {}
+	for _, player in members(l.room) do
+		if not l.returned[tostring(player.UserId)] then
+			table.insert(list, player)
+		end
+	end
+	return list
+end
+
 -- Card text and tile names follow the map; rooms may be on different maps, so switch to this one
 -- before touching its game.
 local function useMap(l: Live)
@@ -92,11 +109,13 @@ local function sendRooms(notifyOnly: Player?, notice: string?)
 	for _, player in (if notifyOnly then { notifyOnly } else Players:GetPlayers()) :: { Player } do
 		local id = tostring(player.UserId)
 		local room = Rooms.roomOf(registry, id)
+		local entry = RankedQueue.entryOf(queue, id)
 		roomsRemote:FireClient(player, {
 			rooms = list,
-			mine = if room then room.id else nil,
-			hostOf = if room and room.hostId == id then room.id else nil,
+			mine = if room and not room.ranked then room.id else nil,
+			hostOf = if room and room.hostId == id and not room.ranked then room.id else nil,
 			notice = if player == notifyOnly then notice else nil,
+			queue = if entry then { mode = entry.mode, since = entry.since } else nil,
 		} :: Protocol.RoomsUpdate)
 	end
 end
@@ -136,37 +155,75 @@ local function toBoard(player: Player)
 	player.ReplicationFocus = if baseplate and baseplate:IsA("BasePart") then baseplate else nil
 end
 
--- Writes everyone's result into their profile once the game is over.
-local function recordResults(l: Live)
-	if l.recorded then
-		return
-	end
-	l.recorded = true
-	local state = l.session.state
+-- Everyone at the table as Elo sees them: humans at their rating with their own K, bots as fixed
+-- 1000-rated opponents (and a human who left counts as the bot that took their seat).
+local function ratingEntries(l: Live): { Elo.Entry }
 	local entries = {}
-	for _, seat in state.players do
-		if seat.isBot then
-			table.insert(entries, { id = seat.id, rating = Profile.START_ELO, isBot = true })
+	for _, seat in l.session.state.players do
+		local player = if seat.isBot then nil else playerFor(seat.id)
+		local profile = player and PlayerData.peek(player)
+		if profile then
+			table.insert(entries, {
+				id = seat.id,
+				rating = profile.stats.elo,
+				k = Ranks.kFactor(profile.stats.rankedGames, profile.stats.elo),
+			})
 		else
-			local player = playerFor(seat.id)
-			local profile = player and PlayerData.peek(player)
-			if profile then
-				table.insert(entries, { id = seat.id, rating = profile.stats.elo })
-			end
+			table.insert(entries, { id = seat.id, rating = Ranks.START, isBot = true })
 		end
 	end
-	local changes = Elo.changes(entries, state.winner)
-	for id, delta in changes do
-		local player = playerFor(id)
+	return entries
+end
+
+-- Records one player's result. In a ranked game the rating moves (and they're told by how much);
+-- a casual game only counts as a game played (and won).
+local function rate(l: Live, player: Player, won: boolean, delta: number)
+	local id = tostring(player.UserId)
+	if l.rated[id] then
+		return
+	end
+	l.rated[id] = true
+	local ranked = l.room.ranked
+	local elo = 0
+	PlayerData.update(player, function(profile)
+		Profile.recordGame(profile, won, if ranked then delta else 0, ranked)
+		elo = profile.stats.elo
+	end, "now")
+	if ranked and player.Parent and not l.returned[id] then
+		local message = update(l, {})
+		message.notice = `Rating {Ranks.changeText(elo, delta)}`
+		updateRemote:FireClient(player, message)
+	end
+end
+
+-- The rating change for `id` losing now: the strongest player left in the game counts as the winner.
+local function lossDelta(l: Live, id: string): number
+	if not l.room.ranked then
+		return 0
+	end
+	local winner, best = nil, -math.huge
+	for _, seat in l.session.state.players do
+		if seat.id ~= id and not seat.bankrupt and seat.money > best then
+			winner, best = seat.id, seat.money
+		end
+	end
+	return Elo.changes(ratingEntries(l), winner)[id] or 0
+end
+
+-- Writes everyone's result into their profile once the game is over.
+local function recordResults(l: Live)
+	local state = l.session.state
+	local changes = Elo.changes(ratingEntries(l), state.winner)
+	for _, seat in state.players do
+		local player = if seat.isBot then nil else playerFor(seat.id)
 		if player then
-			PlayerData.update(player, function(profile)
-				Profile.recordGame(profile, state.winner == id, delta)
-			end, true)
+			rate(l, player, state.winner == seat.id, changes[seat.id] or 0)
 		end
 	end
 end
 
--- The game is over (or abandoned): the room goes back to waiting and its players to the lobby.
+-- The game is over (or abandoned): its players go back to the lobby. A casual room waits for its
+-- next game with the same players; a ranked room was for this one game and closes.
 local function closeGame(l: Live)
 	if live[l.room.id] ~= l then
 		return
@@ -176,8 +233,16 @@ local function closeGame(l: Live)
 	l.room.session = nil
 	l.clockGeneration += 1
 	for _, player in members(l.room) do
-		updateRemote:FireClient(player, LOBBY_UPDATE)
-		toLobby(player)
+		local id = tostring(player.UserId)
+		if not l.returned[id] then
+			updateRemote:FireClient(player, LOBBY_UPDATE)
+			toLobby(player)
+		end
+	end
+	if l.room.ranked then
+		for _, member in table.clone(l.room.members) do
+			Rooms.leave(registry, member.id)
+		end
 	end
 	sendRooms()
 end
@@ -201,7 +266,7 @@ local function broadcast(l: Live, refresh: boolean?, actedBy: string?): number
 		refreshClock(l, actedBy, pause)
 	end
 	local message = update(l, events)
-	for _, player in members(l.room) do
+	for _, player in watchers(l) do
 		updateRemote:FireClient(player, message)
 	end
 	scheduleClose(l)
@@ -253,6 +318,7 @@ local function startGame(room: Rooms.Room)
 	local settings = room.settings
 	local humans = {}
 	for _, member in room.members do
+		RankedQueue.leave(queue, member.id)
 		table.insert(humans, { id = member.id, name = member.name })
 	end
 	local seats = if settings.bots then settings.maxPlayers else #humans
@@ -285,7 +351,8 @@ local function startGame(room: Rooms.Room)
 		clockGeneration = 0,
 		botScheduled = false,
 		ending = false,
-		recorded = false,
+		rated = {},
+		returned = {},
 	}
 	room.status = "Playing"
 	room.session = session
@@ -308,21 +375,23 @@ local function startGame(room: Rooms.Room)
 	scheduleBots(l, broadcast(l, true, nil))
 end
 
--- Takes a player out of whatever room they're in. Walking out of a running game counts as a loss
--- (the streak ends; Elo is untouched) and a bot takes over their seat.
+-- Takes a player out of whatever room they're in. Walking out of a running game is a loss (in a
+-- ranked game, rated as losing to the strongest player left, like resigning) and a bot takes their
+-- seat. If no solvent human is left the game is abandoned, and the bankrupt humans still watching
+-- have their loss recorded too.
 local function leaveRoom(player: Player)
 	local id = tostring(player.UserId)
+	RankedQueue.leave(queue, id)
 	local room = Rooms.roomOf(registry, id)
 	if not room then
+		sendRooms()
 		return
 	end
 	local l = live[room.id]
 	if l and not l.ending then
 		useMap(l)
+		rate(l, player, false, lossDelta(l, id))
 		GameSession.replaceWithBot(l.session, id)
-		PlayerData.update(player, function(profile)
-			Profile.recordGame(profile, false, 0)
-		end, true)
 	end
 	Rooms.leave(registry, id)
 	if l then
@@ -331,12 +400,84 @@ local function leaveRoom(player: Player)
 			toLobby(player)
 		end
 		if not GameSession.hasHumans(l.session) then
+			if not l.ending then
+				for _, other in members(l.room) do
+					rate(l, other, false, lossDelta(l, tostring(other.UserId)))
+				end
+			end
 			closeGame(l)
 		elseif not l.ending then
 			scheduleBots(l, broadcast(l, true, nil))
 		end
 	end
 	sendRooms()
+end
+
+-- Back to the lobby from the results screen, for this player only; the game closes once nobody is
+-- left watching (or its results time runs out).
+local function returnToLobby(player: Player, l: Live)
+	local id = tostring(player.UserId)
+	l.returned[id] = true
+	updateRemote:FireClient(player, LOBBY_UPDATE)
+	toLobby(player)
+	if l.room.ranked then
+		Rooms.leave(registry, id)
+	end
+	if #watchers(l) == 0 then
+		closeGame(l)
+	else
+		sendRooms()
+	end
+end
+
+local function queueFor(player: Player, mode: any): (boolean, string?)
+	local id = tostring(player.UserId)
+	if typeof(mode) ~= "string" or not RankedQueue.SIZES[mode] then
+		return false, "pick Duel or Table"
+	elseif Rooms.roomOf(registry, id) then
+		return false, "leave your casual game first"
+	end
+	local profile = PlayerData.get(player)
+	if not profile or PlayerData.isUnreadable(player) then
+		return false, "your rating couldn't be loaded, so ranked is off for now"
+	end
+	RankedQueue.join(queue, id, profile.stats.elo, mode, workspace:GetServerTimeNow())
+	return true, nil
+end
+
+-- Starts every ranked game the queue can make. In Studio, the RankedSolo attribute lets a lone
+-- player be matched against bots after a few seconds, for testing.
+local function matchQueue()
+	local now = workspace:GetServerTimeNow()
+	local made = false
+	for _, match in RankedQueue.match(queue, now) do
+		local matched = {}
+		for _, id in match.ids do
+			local player = playerFor(id)
+			if player then
+				table.insert(matched, { id = id, name = player.DisplayName })
+			end
+		end
+		if #matched == #match.ids then
+			startGame(Rooms.createRanked(registry, matched, RoomSettings.ranked(#matched)))
+			made = true
+		end
+	end
+	if RunService:IsStudio() and workspace:GetAttribute("RankedSolo") == true then
+		for _, entry in table.clone(queue.entries) do
+			local player = playerFor(entry.id)
+			if player and now - entry.since > 3 then
+				RankedQueue.leave(queue, entry.id)
+				local settings = RoomSettings.ranked(RankedQueue.SIZES[entry.mode])
+				settings.bots = true
+				startGame(Rooms.createRanked(registry, { { id = entry.id, name = player.DisplayName } }, settings))
+				made = true
+			end
+		end
+	end
+	if made then
+		sendRooms()
+	end
 end
 
 local function onLobbyRequest(player: Player, request: any)
@@ -346,12 +487,16 @@ local function onLobbyRequest(player: Player, request: any)
 	end
 	local kind = request.type
 	local ok, err = true, nil
-	if kind == "Create" then
-		local room
-		room, err = Rooms.create(registry, id, player.DisplayName, request.settings)
-		ok = room ~= nil
-	elseif kind == "Join" then
-		ok, err = Rooms.join(registry, request.room, id, player.DisplayName)
+	if kind == "Create" or kind == "Join" then
+		if RankedQueue.entryOf(queue, id) then
+			ok, err = false, "leave the ranked queue first"
+		elseif kind == "Create" then
+			local room
+			room, err = Rooms.create(registry, id, player.DisplayName, request.settings)
+			ok = room ~= nil
+		else
+			ok, err = Rooms.join(registry, request.room, id, player.DisplayName)
+		end
 	elseif kind == "Leave" then
 		leaveRoom(player)
 		return
@@ -363,12 +508,15 @@ local function onLobbyRequest(player: Player, request: any)
 			startGame(Rooms.roomOf(registry, id) :: Rooms.Room)
 			return
 		end
+	elseif kind == "Queue" then
+		ok, err = queueFor(player, request.mode)
+	elseif kind == "Unqueue" then
+		RankedQueue.leave(queue, id)
 	elseif kind == "ReturnToLobby" then
-		-- Only players of a game that ended may cut its results screen short.
 		local room = Rooms.roomOf(registry, id)
 		local l = room and live[room.id]
 		if l and l.session.state.phase == "GameOver" then
-			closeGame(l)
+			returnToLobby(player, l)
 		end
 		return
 	else
@@ -385,7 +533,7 @@ local function onAction(player: Player, action: any)
 	local id = tostring(player.UserId)
 	local room = Rooms.roomOf(registry, id)
 	local l = room and live[room.id]
-	if not l then
+	if not l or l.returned[id] then
 		return
 	end
 	useMap(l)
@@ -406,7 +554,7 @@ local function onReady(player: Player)
 	end
 	local room = Rooms.roomOf(registry, id)
 	local l = room and live[room.id]
-	updateRemote:FireClient(player, if l then update(l, {}) else LOBBY_UPDATE)
+	updateRemote:FireClient(player, if l and not l.returned[id] then update(l, {}) else LOBBY_UPDATE)
 	sendRooms(player)
 end
 
@@ -463,6 +611,13 @@ function RoomService.start()
 		Throttle.forget(refusals, id)
 		Throttle.forget(readies, id)
 		Throttle.forget(requests, id)
+	end)
+
+	task.spawn(function()
+		while true do
+			task.wait(RoomService.MATCH_SECONDS)
+			matchQueue()
+		end
 	end)
 end
 

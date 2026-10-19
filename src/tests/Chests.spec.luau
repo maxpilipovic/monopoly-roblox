@@ -53,4 +53,27 @@ tests["chests are found by their developer product id"] = function()
 	Expect.equal(Chests.forProduct(-1), nil)
 end
 
+tests["every item's own chance is listed and they add up to one"] = function()
+	for _, chest in Chests.LIST do
+		local total = 0
+		local lines = Chests.itemOdds(chest)
+		for _, line in lines do
+			Expect.equal(Catalog.byId[line.id] ~= nil, true, line.id)
+			Expect.equal(line.chance > 0, true, `{chest.id} {line.id} listed with no chance`)
+			total += line.chance
+		end
+		Expect.near(total, 1, `{chest.id} item odds`, 1e-9)
+		Expect.equal(lines[1].chance >= lines[#lines].chance, true, "most likely first")
+	end
+	local silver = Chests.itemOdds(Chests.byId.Silver)
+	local commons = #Catalog.droppable("Common")
+	local duck
+	for _, line in silver do
+		if line.id == "Duck" then
+			duck = line
+		end
+	end
+	Expect.near(duck.chance, 0.7 / commons, "a common's share of its rarity")
+end
+
 return tests

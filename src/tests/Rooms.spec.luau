@@ -104,4 +104,14 @@ tests["the list shows each room's summary in creation order"] = function()
 	Expect.equal(list[2].hostName, "Ben")
 end
 
+tests["a ranked room holds its matched players, isn't listed and can't be joined"] = function()
+	local reg = Rooms.new()
+	local room = Rooms.createRanked(reg, { { id = "a", name = "Ana" }, { id = "b", name = "Ben" } }, { maxPlayers = 2 })
+	Expect.equal(room.ranked, true)
+	Expect.equal(Rooms.roomOf(reg, "b"), room)
+	Expect.equal(#Rooms.list(reg), 0, "not in the casual list")
+	Expect.equal((Rooms.join(reg, room.id, "c", "Cy")), false)
+	Expect.equal((Rooms.updateSettings(reg, "a", { startingMoney = 5000 })), false, "ranked rules are fixed")
+end
+
 return tests

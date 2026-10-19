@@ -285,10 +285,16 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 			end
 			token.position = player.position
 			token.inJail = player.inJail
+			if not token.piece then
+				-- The model may have finished loading since the token was made.
+				token.piece = attachPiece(token.part, token.seat, player.piece)
+			end
 			if token.piece then
 				for _, child in (token.piece :: Model):GetDescendants() do
 					if child:IsA("BasePart") then
 						child.LocalTransparencyModifier = if player.bankrupt then 0.7 else 0
+					elseif child:IsA("ParticleEmitter") or child:IsA("Trail") or child:IsA("Light") then
+						child.Enabled = not player.bankrupt -- a bankrupt piece stops showing off
 					end
 				end
 			else

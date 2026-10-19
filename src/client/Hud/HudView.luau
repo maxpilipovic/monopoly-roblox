@@ -34,12 +34,14 @@ local ACTION_LOCK_SECONDS = 2 -- the server always answers; this only covers a l
 -- Even after the answer, a double-click's second half must not land on the button drawn in the same spot.
 local MIN_CLICK_GAP = 0.35
 local CONFIRM_WIDTH = 220
+local LEAVE_CONFIRM_SECONDS = 3
 local ABOVE_BAR = ActionBar.MARGIN + ActionBar.HEIGHT + 8 -- where panels that sit on the action bar start
 local PROPERTIES_TOP = PropertiesPanel.TOP
 
 export type Callbacks = {
 	onAction: (action: { [string]: any }) -> (),
 	onReturnToLobby: () -> (),
+	onLeave: (() -> ())?, -- the player walks out of a running game
 }
 
 local HudView = {}
@@ -56,6 +58,8 @@ export type HudView = typeof(setmetatable(
 		logFeed: LogFeed.LogFeed,
 		toasts: Toasts.Toasts,
 		results: Results.Results,
+		leaveButton: TextButton,
+		leaveArmed: number, -- os.clock() until which a second click confirms leaving
 		propertiesPanel: PropertiesPanel.PropertiesPanel,
 		tradeWindow: TradeWindow.TradeWindow,
 		offerCard: OfferCard.OfferCard,
@@ -161,6 +165,8 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		logFeed = LogFeed.new(root),
 		toasts = Toasts.new(root, ABOVE_BAR),
 		results = Results.new(root, callbacks.onReturnToLobby),
+		leaveButton = nil :: any,
+		leaveArmed = 0,
 		propertiesPanel = nil :: any,
 		tradeWindow = nil :: any,
 		offerCard = OfferCard.new(root, ABOVE_BAR),
@@ -238,6 +244,34 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 	end
 	table.insert(self.connections, gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit))
 	fit()
+
+	-- Leaving a running game, top right; a second click within a few seconds confirms it.
+	local leave = Ui.button("Leave game", root, function()
+		if os.clock() < self.leaveArmed then
+			self.leaveArmed = 0
+			Ui.setText(self.leaveButton, "Leave game")
+			if callbacks.onLeave then
+				callbacks.onLeave()
+			end
+			return
+		end
+		self.leaveArmed = os.clock() + LEAVE_CONFIRM_SECONDS
+		Ui.setText(self.leaveButton, "Click again to leave")
+		Ui.setStyle(self.leaveButton, "danger")
+		task.delay(LEAVE_CONFIRM_SECONDS, function()
+			if os.clock() >= self.leaveArmed and self.gui.Parent then
+				Ui.setText(self.leaveButton, "Leave game")
+				Ui.setStyle(self.leaveButton, "secondary")
+			end
+		end)
+	end, "secondary")
+	leave.Size = UDim2.fromOffset(170, 40)
+	leave.AnchorPoint = Vector2.new(1, 1)
+	leave.Position = UDim2.new(1, -16, 1, -16)
+	leave.Visible = false
+	leave.ZIndex = 4
+	Ui.setTextSize(leave, 15)
+	self.leaveButton = leave
 
 	self.playerList.frame.Visible = false
 	self.actionBar.frame.Visible = false
@@ -464,6 +498,7 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 	self.playerList.frame.Visible = snapshot ~= nil
 	-- At game over the results card says it all; an empty bar under it is only clutter.
 	self.actionBar.frame.Visible = snapshot ~= nil and snapshot.phase ~= "GameOver"
+	self.leaveButton.Visible = snapshot ~= nil and snapshot.phase ~= "GameOver"
 	self.logFeed.frame.Visible = snapshot ~= nil and not self.narrow
 	if not snapshot then
 		table.clear(self.cards.items) -- back in the lobby: drop cards still waiting

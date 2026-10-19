@@ -1,5 +1,5 @@
 --!strict
--- The lobby's three boards: most wins, highest Elo, best win streak. Scores go to OrderedDataStores
+-- The lobby's three boards, all from ranked play: most ranked wins, highest Elo, best win streak. Scores go to OrderedDataStores
 -- whenever a profile changes; the top ten of each are read every minute and published as JSON on
 -- ReplicatedStorage (attribute "Leaderboards") for clients to draw. Without DataStores, the boards
 -- rank the players in this server.
@@ -17,13 +17,14 @@ Leaderboards.ATTRIBUTE = "Leaderboards"
 Leaderboards.REFRESH_SECONDS = 60
 local TOP = 10
 local BOARDS = {
-	{ id = "wins", store = "Wins_v1", stat = "wins" },
+	{ id = "wins", store = "RankedWins_v1", stat = "rankedWins" },
 	{ id = "elo", store = "Elo_v1", stat = "elo" },
 	{ id = "streak", store = "BestStreak_v1", stat = "bestStreak" },
 }
 
 local stores: { [string]: OrderedDataStore } = {}
-local available = true
+local available = true -- false only where OrderedDataStores can't be used at all (Studio without API access)
+local lastGlobal: { [string]: any }? = nil -- the last boards read from the store, kept through a failed refresh
 local names: { [number]: string } = {}
 
 local function storeFor(name: string): OrderedDataStore?
@@ -91,8 +92,11 @@ local function refresh()
 			ok, pages = pcall(store.GetSortedAsync, store, false, TOP)
 		end
 		if not ok or not pages then
-			available = false
-			publish(localBoards())
+			if tostring(pages):find("Studio access", 1, true) then
+				available = false
+			end
+			-- A throttled or failed read: keep showing the last good boards and try next time.
+			publish(lastGlobal or localBoards())
 			return
 		end
 		local rows = {}
@@ -104,6 +108,7 @@ local function refresh()
 		end
 		boards[board.id] = rows
 	end
+	lastGlobal = boards
 	publish(boards)
 end
 
@@ -115,10 +120,12 @@ local function record(player: Player, profile: any)
 		local store = storeFor(board.store)
 		if store then
 			local value = math.floor(profile.stats[board.stat])
-			local ok = pcall(store.SetAsync, store, `player_{player.UserId}`, value)
+			local ok, err = pcall(store.SetAsync, store, `player_{player.UserId}`, value)
 			if not ok then
-				available = false
-				return
+				if tostring(err):find("Studio access", 1, true) then
+					available = false
+				end
+				return -- a failed write is retried when their scores next change
 			end
 		end
 	end
@@ -129,7 +136,11 @@ function Leaderboards.start()
 	-- Only scores that can change (after a game) are worth writing; joining writes once too.
 	local lastWritten: { [Player]: string } = {}
 	PlayerData.onChanged(function(player, profile)
-		local signature = `{profile.stats.wins}:{profile.stats.elo}:{profile.stats.bestStreak}`
+		-- A stand-in profile (their data couldn't be read) must not overwrite their real scores.
+		if PlayerData.isUnreadable(player) then
+			return
+		end
+		local signature = `{profile.stats.rankedWins}:{profile.stats.elo}:{profile.stats.bestStreak}`
 		if lastWritten[player] ~= signature then
 			lastWritten[player] = signature
 			record(player, profile)

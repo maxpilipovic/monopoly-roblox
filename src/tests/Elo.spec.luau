@@ -42,4 +42,10 @@ tests["a game nobody won (time limit with no winner) changes nothing"] = functio
 	Expect.equal(changes.b, 0)
 end
 
+tests["each player moves by their own K: a provisional player swings more"] = function()
+	local changes = Elo.changes({ { id = "new", rating = 1000, k = 40 }, { id = "vet", rating = 1000, k = 20 } }, "new")
+	Expect.equal(changes.new, 20)
+	Expect.equal(changes.vet, -10)
+end
+
 return tests

@@ -30,12 +30,17 @@ tests["send says whether the action went out, so callers don't act on a swallowe
 	Expect.equal(#sent, 1, "only one action sent")
 end
 
+local leaves = 0 -- times the HUD asked to leave the game
+
 -- Builds a whole HUD in a scratch folder, runs the body, and always tears it down.
 local function withHud(body: (hud: any) -> ())
 	local holder = Instance.new("Folder")
 	local hud = HudView.new(holder, {
 		onAction = function() end,
 		onReturnToLobby = function() end,
+		onLeave = function()
+			leaves += 1
+		end,
 	})
 	local ok, err = pcall(body, hud)
 	hud:destroy()
@@ -449,6 +454,23 @@ tests["a roll the 3D dice are showing skips the stage dice and reads out once th
 		Expect.equal(hud.actionBar.dice.frame.Visible, false, "the readout waits for the dice to settle")
 		task.wait(Pacing.DICE_SECONDS - Pacing.DICE_READ_SECONDS + 0.1)
 		Expect.equal(hud.actionBar.dice.frame.Visible, true, "then the action bar shows the roll")
+	end)
+end
+
+tests["leaving a running game takes a second click to confirm"] = function()
+	withHud(function(hud)
+		hud:render(Snapshot.fromState(GameFixtures.newGame(2)), "p1")
+		local button = hud.gui:FindFirstChild("Leave game", true) :: TextButton
+		assert(button, "a Leave game button in a game")
+		Expect.equal(button.Visible, true)
+		leaves = 0
+		Ui.press(button)
+		Expect.equal(leaves, 0, "the first click only asks")
+		Expect.equal(Ui.face(button):FindFirstChild("Text").Text, "Click again to leave")
+		Ui.press(button)
+		Expect.equal(leaves, 1, "the second click leaves")
+		hud:render(nil, "p1")
+		Expect.equal(button.Visible, false, "not in the lobby")
 	end)
 end
 
