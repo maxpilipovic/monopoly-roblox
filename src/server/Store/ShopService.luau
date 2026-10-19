@@ -38,8 +38,13 @@ local function open(player: Player, chest: Chests.Chest, purchaseId: string?): b
 			Profile.addReceipt(p, purchaseId)
 		end
 	end)
-	if not PlayerData.save(player) and purchaseId then
-		return false
+	-- A paid chest is only reported granted once it's saved; a Studio test open doesn't wait.
+	if purchaseId then
+		if not PlayerData.save(player) then
+			return false
+		end
+	else
+		task.spawn(PlayerData.save, player)
 	end
 	chestRemote:FireClient(player, { chest = chest.id, item = item, count = count } :: Protocol.ChestResult)
 	return true

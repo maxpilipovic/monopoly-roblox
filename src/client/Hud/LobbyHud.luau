@@ -248,7 +248,7 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 	end
 
 	panel(self, "Games", Vector2.new(560, 580))
-	panel(self, "Pieces", Vector2.new(640, 520))
+	panel(self, "Pieces", Vector2.new(640, 566))
 	panel(self, "Chests", Vector2.new(720, 470))
 
 	local toast = Ui.label("Toast", root, UDim2.fromOffset(420, 40), 17, Theme.font.bodyBold)
@@ -264,7 +264,9 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 	-- The chest reveal: a full-screen dim with the chest, then the prize.
 	local reveal = Instance.new("Frame")
 	reveal.Name = "ChestReveal"
-	reveal.Size = UDim2.fromScale(1, 1)
+	-- Reaches up under the top bar too, so the whole screen dims.
+	reveal.Size = UDim2.new(1, 0, 1, 80)
+	reveal.Position = UDim2.fromOffset(0, -80)
 	reveal.BackgroundColor3 = Color3.new(0, 0, 0)
 	reveal.BackgroundTransparency = 0.35
 	reveal.Visible = false

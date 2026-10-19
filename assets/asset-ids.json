@@ -30,5 +30,69 @@
     "Emblems/Tap":  {
                         "assetId":  "109058835388508",
                         "hash":  "06CA47F72F242E40150C81040E15584A9E572CA59314567242A6EE2AA531A6E4"
-                    }
+                    },
+    "Pieces/Anchor":  {
+                          "assetId":  "78286402554147",
+                          "hash":  "667C33CE706D94DABD039B180CEFB76CEBB1BAFBE12A866A388F5ADD033EAECF"
+                      },
+    "Pieces/Battleship":  {
+                              "assetId":  "93531930209327",
+                              "hash":  "DCFCD8EDC477491B019983724C692FD5EDCB4881B7F05BC6ED64B8D88A6223C5"
+                          },
+    "Pieces/Cactus":  {
+                          "assetId":  "110366752242529",
+                          "hash":  "2BBECAFF4E943B0E64C3A5DBFB2F1E60DB4FCC502FF00305CD3E8BC01D308C64"
+                      },
+    "Pieces/Crown":  {
+                         "assetId":  "120630217215962",
+                         "hash":  "87708859E3320041CCB8DE80E34914D977D0D5AD78362287D34F69567D245A4C"
+                     },
+    "Pieces/Diamond":  {
+                           "assetId":  "86056092548116",
+                           "hash":  "FB3D740A7DAB9F0A947B3749AB25B77EA0FAAB5AEBF0B422CA4E64F5747A8E83"
+                       },
+    "Pieces/Duck":  {
+                        "assetId":  "129105719551059",
+                        "hash":  "40EE9C36BA97F8B92B938A199A4FE1726CF81F9F17D65CBD5B955C63DFC97D38"
+                    },
+    "Pieces/Ghost":  {
+                         "assetId":  "97225732720456",
+                         "hash":  "1601A0E20DFEC4B2E6CAE92EA08255D374F087E87A5775915AB40D3F9F438EDB"
+                     },
+    "Pieces/Lighthouse":  {
+                              "assetId":  "88641855541844",
+                              "hash":  "22B3779FC76B75238E1250A79F6DD2D2C8E6CACB0ABBD8BCD5854257BE8BE2E6"
+                          },
+    "Pieces/RaceCar":  {
+                           "assetId":  "128724710766647",
+                           "hash":  "A44DF47DAFC76DC3704F515C92D037BEC9EAA24C8D28981C9CAB30A21EE79FB3"
+                       },
+    "Pieces/Robot":  {
+                         "assetId":  "78867980169262",
+                         "hash":  "58ED36E558AF0F920CC70CC3F3BC5FA60EB0EA99DD1CA6B8B57243C34071DAA5"
+                     },
+    "Pieces/Rocket":  {
+                          "assetId":  "127568136326881",
+                          "hash":  "8E41763C951B9C1375604F433ED3EB7A51602B61C8A8E3D15D0A612DFFEDDBD2"
+                      },
+    "Pieces/Skull":  {
+                         "assetId":  "106943205404962",
+                         "hash":  "AB77C6043BAE35B17C676187C282EC26C266BA87F35C4346869519682351E607"
+                     },
+    "Pieces/TopHat":  {
+                          "assetId":  "140692523061039",
+                          "hash":  "B77452E4FC85B71AF82532BC3623F0DF2C05126A0B792A9EC918885EB1ED3118"
+                      },
+    "Pieces/Trophy":  {
+                          "assetId":  "136732828725333",
+                          "hash":  "FAD06530C9DDE48BDB6F3B3E30B246D15061F5B72C6FADBDA84781536FF2D79A"
+                      },
+    "Pieces/UFO":  {
+                       "assetId":  "133522675460249",
+                       "hash":  "FC922CDCBCC53F8E94951B16B527022651F9D530DFA1A5E7897D30846DBCFEBA"
+                   },
+    "Props/CashStack":  {
+                            "assetId":  "126741987789808",
+                            "hash":  "70BFE6B02667D004E3967F4EF54FFAE5650997201C94BFC660CD4A8C58B88E45"
+                        }
 }

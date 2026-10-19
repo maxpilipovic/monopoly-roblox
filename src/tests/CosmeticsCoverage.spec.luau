@@ -29,4 +29,14 @@ tests["every piece has a finish for its body"] = function()
 	end
 end
 
+tests["every piece and the cash bundle have an uploaded model"] = function()
+	local AssetIds = require(ReplicatedStorage.Shared.Cosmetics.AssetIds)
+	for _, item in Catalog.ITEMS do
+		if item.kind == "Piece" then
+			Expect.equal(AssetIds.Pieces ~= nil and AssetIds.Pieces[item.id] ~= nil, true, `{item.id} model`)
+		end
+	end
+	Expect.equal(AssetIds.Props ~= nil and AssetIds.Props.CashStack ~= nil, true, "cash bundle")
+end
+
 return tests

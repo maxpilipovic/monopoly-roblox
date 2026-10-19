@@ -45,15 +45,18 @@ function Assets.load()
 			local folder = Instance.new("Folder")
 			folder.Name = kind
 			folder.Parent = root
+			-- Loaded side by side: two dozen one after another made the lobby wait.
 			for shape, id in shapes do
-				local model = fetch(id)
-				if model then
-					model.Name = shape
-					for _, part in model:GetDescendants() do
-						part.Name = Assets.cleanName(part.Name)
+				task.spawn(function()
+					local model = fetch(id)
+					if model then
+						model.Name = shape
+						for _, part in model:GetDescendants() do
+							part.Name = Assets.cleanName(part.Name)
+						end
+						model.Parent = folder
 					end
-					model.Parent = folder
-				end
+				end)
 			end
 		end
 	end)

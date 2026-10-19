@@ -16,6 +16,26 @@ local AssetIds: { [string]: { [string]: number } } = {
 		Question = 87311930111033,
 		Tap = 109058835388508,
 	},
+	Pieces = {
+		Anchor = 78286402554147,
+		Battleship = 93531930209327,
+		Cactus = 110366752242529,
+		Crown = 120630217215962,
+		Diamond = 86056092548116,
+		Duck = 129105719551059,
+		Ghost = 97225732720456,
+		Lighthouse = 88641855541844,
+		RaceCar = 128724710766647,
+		Robot = 78867980169262,
+		Rocket = 127568136326881,
+		Skull = 106943205404962,
+		TopHat = 140692523061039,
+		Trophy = 136732828725333,
+		UFO = 133522675460249,
+	},
+	Props = {
+		CashStack = 126741987789808,
+	},
 }
 
 return AssetIds

@@ -17,6 +17,7 @@ PlayerData.STORE_NAME = "PlayerData_v1"
 local RETRIES = 3
 
 local store: DataStore? = nil
+local disabled = false -- a Studio place without API access: stop trying (each try costs seconds)
 local storeWarned = false
 local profiles: { [Player]: Profile.Profile } = {}
 local loaded: { [Player]: BindableEvent } = {}
@@ -24,6 +25,9 @@ local profileRemote: RemoteEvent? = nil
 local changedListeners: { (Player, Profile.Profile) -> () } = {}
 
 local function getStore(): DataStore?
+	if disabled then
+		return nil
+	end
 	if store then
 		return store
 	end
@@ -74,6 +78,11 @@ local function load(player: Player): Profile.Profile
 			if ok then
 				return Profile.reconcile(result)
 			end
+			if tostring(result):find("Studio access", 1, true) then
+				disabled = true
+				warnOnce("Studio has no access to API services")
+				break
+			end
 			if attempt == RETRIES then
 				warnOnce(`could not read {player.Name}'s data ({result})`)
 			else
@@ -99,6 +108,10 @@ function PlayerData.save(player: Player): boolean
 		local ok, err = pcall(dataStore.SetAsync, dataStore, key(player), profile, { player.UserId })
 		if ok then
 			return true
+		end
+		if tostring(err):find("Studio access", 1, true) then
+			disabled = true
+			return true -- nothing to save to in this place
 		end
 		if attempt == RETRIES then
 			warnOnce(`could not save {player.Name}'s data ({err})`)
