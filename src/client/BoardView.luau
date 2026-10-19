@@ -14,7 +14,7 @@ local TileEmblems = require(script.Parent.TileEmblems)
 local BoardView = {}
 BoardView.__index = BoardView
 
-local BUNDLE_HEIGHT = 0.34 -- studs per bundle of bills in a stack
+local BUNDLE_HEIGHT = 0.45 -- studs per bundle of bills in a stack (bundles about 3 studs long)
 local BILL_GREEN = Color3.fromRGB(150, 196, 128)
 local BAND = Color3.fromRGB(214, 172, 84)
 

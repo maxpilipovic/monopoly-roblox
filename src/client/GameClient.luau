@@ -215,6 +215,13 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 				hud:showCard(id, localPlayer.Name, os.clock())
 			end
 		end)
+		-- ...the Free Parking pot by setting PreviewPot to an amount...
+		hud.gui:GetAttributeChangedSignal("PreviewPot"):Connect(function()
+			local amount = hud.gui:GetAttribute("PreviewPot")
+			if typeof(amount) == "number" then
+				board:setPot(true, amount)
+			end
+		end)
 		-- ...and any deed by setting PreviewDeed to a board position.
 		hud.gui:GetAttributeChangedSignal("PreviewDeed"):Connect(function()
 			local position = hud.gui:GetAttribute("PreviewDeed")
