@@ -457,6 +457,16 @@ tests["a roll the 3D dice are showing skips the stage dice and reads out once th
 	end)
 end
 
+tests["the turn-order draw shows on screen and is gone in the lobby"] = function()
+	withHud(function(hud)
+		hud:render(Snapshot.fromState(GameFixtures.newGame(2)), "p1")
+		hud:showTurnOrder({ { name = "Ana", userId = 1 }, { name = "Bot 1" } })
+		Expect.equal(hud.turnOrder.frame.Visible, true)
+		hud:render(nil, "p1")
+		Expect.equal(hud.turnOrder.frame.Visible, false)
+	end)
+end
+
 tests["leaving a running game takes a second click to confirm"] = function()
 	withHud(function(hud)
 		hud:render(Snapshot.fromState(GameFixtures.newGame(2)), "p1")

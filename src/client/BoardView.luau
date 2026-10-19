@@ -9,6 +9,7 @@ local TweenService = game:GetService("TweenService")
 local BoardBuilder = require(ReplicatedStorage.Shared.Board.BoardBuilder)
 local CashStacks = require(ReplicatedStorage.Shared.Board.CashStacks)
 local DiceThrow = require(ReplicatedStorage.Shared.Dice.DiceThrow)
+local SceneBuilder = require(script.Parent.SceneBuilder)
 local TileEmblems = require(script.Parent.TileEmblems)
 
 local BoardView = {}
@@ -22,6 +23,7 @@ export type BoardView = typeof(setmetatable(
 	{} :: {
 		parent: Instance,
 		board: Model?,
+		scene: Model?,
 		pot: Model?,
 		amount: TextLabel?,
 		shownPot: number,
@@ -31,7 +33,7 @@ export type BoardView = typeof(setmetatable(
 ))
 
 function BoardView.new(parent: Instance): BoardView
-	return setmetatable({ parent = parent, board = nil, pot = nil, amount = nil, shownPot = -1, stacks = {} }, BoardView)
+	return setmetatable({ parent = parent, board = nil, scene = nil, pot = nil, amount = nil, shownPot = -1, stacks = {} }, BoardView)
 end
 
 local function inert(part: BasePart)
@@ -137,11 +139,12 @@ local function buildPot(self: BoardView, board: Model)
 	self.amount = amount
 end
 
--- Builds the board if it isn't up yet.
-function BoardView.ensure(self: BoardView)
+-- Builds the board, and the scene around it, if they aren't up yet.
+function BoardView.ensure(self: BoardView, sceneId: string?)
 	if self.board and self.board.Parent then
 		return
 	end
+	self.scene = SceneBuilder.build(sceneId, self.parent)
 	local board = BoardBuilder.build(self.parent)
 	TileEmblems.place(board)
 	self.board = board
@@ -205,6 +208,10 @@ end
 function BoardView.clear(self: BoardView)
 	if self.board then
 		self.board:Destroy()
+	end
+	if self.scene then
+		SceneBuilder.clear(self.scene)
+		self.scene = nil
 	end
 	self.board = nil
 	self.pot = nil

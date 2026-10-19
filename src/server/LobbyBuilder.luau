@@ -24,7 +24,10 @@ local IRON = Color3.fromRGB(38, 40, 46)
 local HEDGE = Color3.fromRGB(46, 104, 62)
 local GRASS = Color3.fromRGB(88, 150, 84)
 local WATER = Color3.fromRGB(92, 168, 222)
-local PLAZA_RADIUS = 70
+local PLAZA_RADIUS = 115
+local HALL_RADIUS = PLAZA_RADIUS + 22 -- the enclosing wall
+local WALL_HEIGHT = 46
+local DOME_HEIGHT = 64
 
 local function part(props: { [string]: any }, parent: Instance): BasePart
 	local p = Instance.new(props.ClassName or "Part") :: BasePart
@@ -73,11 +76,12 @@ local function facingCentre(position: Vector3): CFrame
 end
 
 local function buildGround(model: Model)
-	disc("Island", 150, 6, -0.4, GRASS, Enum.Material.Grass, model)
+	disc("Island", 260, 6, -0.4, GRASS, Enum.Material.Grass, model)
+	disc("HallFloor", HALL_RADIUS + 2, 1.2, 0.3, MARBLE_DARK, Enum.Material.Marble, model)
 	disc("PlazaEdge", PLAZA_RADIUS + 1.5, 1.2, 0.2, MARBLE_DARK, Enum.Material.Marble, model)
 	disc("Plaza", PLAZA_RADIUS, 1.2, 0.4, MARBLE, Enum.Material.Marble, model)
 	-- Gold inlay rings: a gold disc with marble laid over all but its rim.
-	for _, ring in { { 48, 46 }, { 30, 28.5 } } do
+	for _, ring in { { 84, 82 }, { 52, 50.5 } } do
 		disc("InlayGold", ring[1], 0.1, 0.45, GOLD, Enum.Material.Metal, model)
 		disc("InlayMarble", ring[2], 0.1, 0.46, MARBLE, Enum.Material.Marble, model)
 	end
@@ -251,17 +255,17 @@ end
 -- Statues: the game's own models, scaled up on plinths (placed when Assets has loaded them).
 local function buildStatues(model: Model)
 	local statues = {
-		{ kind = "Buildings", shape = "Hotel", height = 9, color = { Body = Color3.fromRGB(176, 18, 26), Roof = Color3.fromRGB(110, 12, 18), Trim = Color3.fromRGB(240, 230, 208) } },
-		{ kind = "Emblems", shape = "Locomotive", height = 6 },
-		{ kind = "Emblems", shape = "Question", height = 8 },
-		{ kind = "Buildings", shape = "House", height = 7, color = { Body = Color3.fromRGB(196, 28, 32), Roof = Color3.fromRGB(110, 12, 18), Trim = Color3.fromRGB(240, 230, 208) } },
-		{ kind = "Emblems", shape = "Chest", height = 6 },
-		{ kind = "Emblems", shape = "Bulb", height = 8 },
+		{ kind = "Buildings", shape = "Hotel", height = 14, color = { Body = Color3.fromRGB(176, 18, 26), Roof = Color3.fromRGB(110, 12, 18), Trim = Color3.fromRGB(240, 230, 208) } },
+		{ kind = "Emblems", shape = "Locomotive", height = 9 },
+		{ kind = "Emblems", shape = "Question", height = 12 },
+		{ kind = "Buildings", shape = "House", height = 10, color = { Body = Color3.fromRGB(196, 28, 32), Roof = Color3.fromRGB(110, 12, 18), Trim = Color3.fromRGB(240, 230, 208) } },
+		{ kind = "Emblems", shape = "Chest", height = 9 },
+		{ kind = "Emblems", shape = "Bulb", height = 12 },
 	}
 	local stands = {}
 	for index, _ in statues do
 		local angle = (index - 1) / #statues * 2 * math.pi + math.pi / 6
-		table.insert(stands, buildPlinth(around(39, angle, 0), model))
+		table.insert(stands, buildPlinth(around(64, angle, 0), model))
 	end
 	task.spawn(function()
 		local EmblemLook = require(ReplicatedStorage.Shared.Board.EmblemLook)
@@ -322,8 +326,8 @@ local function setLighting()
 	Lighting.Brightness = 2.6
 	Lighting.EnvironmentDiffuseScale = 1
 	Lighting.EnvironmentSpecularScale = 1
-	Lighting.Ambient = Color3.fromRGB(70, 66, 80)
-	Lighting.OutdoorAmbient = Color3.fromRGB(150, 140, 150)
+	Lighting.Ambient = Color3.fromRGB(118, 108, 112) -- the hall is roofed: lift the shade
+	Lighting.OutdoorAmbient = Color3.fromRGB(170, 160, 165)
 	local function ensure(className: string): Instance
 		local existing = Lighting:FindFirstChildOfClass(className)
 		if existing then
@@ -352,6 +356,110 @@ local function setLighting()
 	grade.TintColor = Color3.fromRGB(255, 248, 238)
 end
 
+-- The grand hall around the plaza: a ring of marble wall with tall windows between gold
+-- pilasters, a ribbed dome with a glass oculus, chandeliers, wall sconces and red carpet runners.
+local function buildEnclosure(model: Model)
+	local segments = 40
+	local segmentWidth = 2 * math.pi * HALL_RADIUS / segments + 0.6
+	for index = 0, segments - 1 do
+		local angle = (index + 0.5) / segments * 2 * math.pi
+		local base = around(HALL_RADIUS, angle, 0.4)
+		local face = facingCentre(base)
+		local isDoor = index % 10 == 0 -- four grand doorways (closed, decorative)
+		part({ Name = "WallBase", Size = Vector3.new(segmentWidth, 8, 3), CFrame = face * CFrame.new(0, 4, 0), Color = MARBLE_DARK, Material = Enum.Material.Marble }, model)
+		if isDoor then
+			part({ Name = "Door", Size = Vector3.new(segmentWidth - 4, 26, 1.5), CFrame = face * CFrame.new(0, 8 + 13, 0.6), Color = Color3.fromRGB(92, 52, 34), Material = Enum.Material.Wood }, model)
+			part({ Name = "DoorFrame", Size = Vector3.new(segmentWidth, 4, 3.2), CFrame = face * CFrame.new(0, 8 + 28, 0), Color = GOLD, Material = Enum.Material.Metal }, model)
+		else
+			part({ Name = "Window", Size = Vector3.new(segmentWidth - 2, 30, 0.6), CFrame = face * CFrame.new(0, 8 + 15, 0), Color = Color3.fromRGB(190, 220, 240), Material = Enum.Material.Glass, Transparency = 0.55 }, model)
+		end
+		part({ Name = "WallTop", Size = Vector3.new(segmentWidth, 8, 3), CFrame = face * CFrame.new(0, WALL_HEIGHT - 4, 0), Color = MARBLE, Material = Enum.Material.Marble }, model)
+		-- A gold pilaster on the seam to the next segment, with a sconce on it.
+		local seam = facingCentre(around(HALL_RADIUS - 0.4, (index + 1) / segments * 2 * math.pi, 0.4))
+		part({ Name = "Pilaster", Size = Vector3.new(2, WALL_HEIGHT, 3.6), CFrame = seam * CFrame.new(0, WALL_HEIGHT / 2, 0), Color = GOLD, Material = Enum.Material.Metal }, model)
+		if index % 2 == 0 then
+			local sconce = part({ Name = "Sconce", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.8, CFrame = seam * CFrame.new(0, 18, -2.4), Color = Color3.fromRGB(255, 226, 170), Material = Enum.Material.Neon }, model)
+			local glow = Instance.new("PointLight")
+			glow.Color = Color3.fromRGB(255, 205, 150)
+			glow.Range = 20
+			glow.Brightness = 1.2
+			glow.Parent = sconce
+		end
+	end
+
+	-- The dome: rings of panels rising from the wall to an open glass oculus, with gold ribs.
+	local rings = 7
+	local panels = 32
+	local oculus = 0.2 -- of the hall's radius left open at the top
+	for ring = 0, rings - 1 do
+		local t0, t1 = ring / rings, (ring + 1) / rings
+		local a0, a1 = t0 * math.acos(oculus), t1 * math.acos(oculus)
+		local r0, r1 = HALL_RADIUS * math.cos(a0), HALL_RADIUS * math.cos(a1)
+		local y0, y1 = WALL_HEIGHT + DOME_HEIGHT * math.sin(a0), WALL_HEIGHT + DOME_HEIGHT * math.sin(a1)
+		local width = 2 * math.pi * (r0 + r1) / 2 / panels + 0.8
+		for index = 0, panels - 1 do
+			local angle = (index + 0.5) / panels * 2 * math.pi
+			local low = Vector3.new(LobbyBuilder.CENTRE.X + math.cos(angle) * r0, y0, LobbyBuilder.CENTRE.Z + math.sin(angle) * r0)
+			local high = Vector3.new(LobbyBuilder.CENTRE.X + math.cos(angle) * r1, y1, LobbyBuilder.CENTRE.Z + math.sin(angle) * r1)
+			local length = (high - low).Magnitude + 0.6
+			part({
+				Name = "Dome",
+				Size = Vector3.new(width, 1.2, length),
+				CFrame = CFrame.lookAt((low + high) / 2, high),
+				Color = if ring % 2 == 0 then Color3.fromRGB(246, 240, 228) else Color3.fromRGB(236, 228, 214),
+				Material = Enum.Material.SmoothPlastic,
+			}, model)
+			if index % 4 == 0 then
+				part({ Name = "Rib", Size = Vector3.new(1.2, 1.6, length), CFrame = CFrame.lookAt((low + high) / 2, high) * CFrame.Angles(0, math.pi / panels, 0), Color = GOLD, Material = Enum.Material.Metal }, model)
+			end
+		end
+	end
+	local top = WALL_HEIGHT + DOME_HEIGHT * math.sin(math.acos(oculus))
+	local skylight = part({
+		Name = "Oculus",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.6, HALL_RADIUS * oculus * 2 + 2, HALL_RADIUS * oculus * 2 + 2),
+		CFrame = CFrame.new(LobbyBuilder.CENTRE + Vector3.new(0, top, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+		Color = Color3.fromRGB(200, 230, 255),
+		Material = Enum.Material.Glass,
+		Transparency = 0.6,
+	}, model)
+	skylight.CastShadow = false
+
+	-- Chandeliers: one over the fountain, four over the plaza.
+	local spots = { Vector3.new(0, 0, 0) }
+	for index = 0, 3 do
+		local angle = index * math.pi / 2 + math.pi / 4
+		table.insert(spots, Vector3.new(math.cos(angle) * 62, 0, math.sin(angle) * 62))
+	end
+	for index, spot in spots do
+		local hang = if index == 1 then 52 else 34
+		local centre = LobbyBuilder.CENTRE + spot + Vector3.new(0, hang, 0)
+		part({ Name = "Chain", Size = Vector3.new(0.3, top - hang, 0.3), CFrame = CFrame.new(centre + Vector3.new(0, (top - hang) / 2, 0)), Color = GOLD, Material = Enum.Material.Metal }, model)
+		local ringSize = if index == 1 then 9 else 6
+		for bulb = 0, 11 do
+			local a = bulb / 12 * 2 * math.pi
+			part({ Name = "Crystal", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.3, CFrame = CFrame.new(centre + Vector3.new(math.cos(a) * ringSize, 0, math.sin(a) * ringSize)), Color = Color3.fromRGB(255, 236, 190), Material = Enum.Material.Neon }, model)
+		end
+		local core = part({ Name = "ChandelierCore", Shape = Enum.PartType.Ball, Size = Vector3.one * 3, CFrame = CFrame.new(centre), Color = GOLD, Material = Enum.Material.Metal }, model)
+		local glow = Instance.new("PointLight")
+		glow.Color = Color3.fromRGB(255, 218, 170)
+		glow.Range = 60
+		glow.Brightness = if index == 1 then 2.4 else 1.8
+		glow.Shadows = true
+		glow.Parent = core
+	end
+
+	-- Red carpet runners from each doorway to the fountain.
+	for index = 0, 3 do
+		local angle = (index * 10 + 0.5) / segments * 2 * math.pi
+		local outer = around(HALL_RADIUS - 2, angle, 0.5)
+		local inner = around(18, angle, 0.5)
+		part({ Name = "Carpet", Size = Vector3.new(10, 0.15, (outer - inner).Magnitude), CFrame = CFrame.lookAt((outer + inner) / 2, inner), Color = Color3.fromRGB(150, 22, 34), Material = Enum.Material.Fabric }, model)
+		part({ Name = "CarpetEdge", Size = Vector3.new(11.2, 0.12, (outer - inner).Magnitude), CFrame = CFrame.lookAt((outer + inner) / 2, inner) * CFrame.new(0, -0.02, 0), Color = GOLD, Material = Enum.Material.Metal }, model)
+	end
+end
+
 function LobbyBuilder.build(parent: Instance): Model
 	local existing = parent:FindFirstChild(LobbyBuilder.MODEL_NAME)
 	if existing then
@@ -371,6 +479,7 @@ function LobbyBuilder.build(parent: Instance): Model
 	buildFountain(model)
 	buildLamps(model)
 	buildColonnade(model)
+	buildEnclosure(model)
 	buildBoards(model)
 	buildKiosks(model)
 	buildSpawn(model)

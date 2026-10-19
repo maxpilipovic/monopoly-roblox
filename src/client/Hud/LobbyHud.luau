@@ -17,6 +17,7 @@ local MatchSettings = require(ReplicatedStorage.Shared.Rules.MatchSettings)
 local PieceLook = require(ReplicatedStorage.Shared.Cosmetics.PieceLook)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local Ranks = require(ReplicatedStorage.Shared.Rules.Ranks)
+local Scenes = require(ReplicatedStorage.Shared.Board.Scenes)
 local RoomSettings = require(ReplicatedStorage.Shared.Rules.RoomSettings)
 local ModelView = require(script.Parent.ModelView)
 local Theme = require(script.Parent.Theme)
@@ -140,7 +141,7 @@ end
 
 -- A settings row: a label on the left, a control built by `control` on the right.
 local function settingRow(parent: Instance, order: number, label: string): Frame
-	local row = Ui.frame(label, UDim2.new(1, 0, 0, 40), parent)
+	local row = Ui.frame(label, UDim2.new(1, 0, 0, 38), parent)
 	row.LayoutOrder = order
 	local text = Ui.label("Label", row, UDim2.new(0.45, 0, 1, 0), 17, Theme.font.bodyBold)
 	text.TextXAlignment = Enum.TextXAlignment.Left
@@ -410,7 +411,7 @@ end
 
 -- The settings form, editable (each change goes through `onChange`) or read-only.
 local function settingsForm(parent: Instance, settings: RoomSettings.Settings, editable: boolean, onChange: (RoomSettings.Settings) -> ())
-	local form = Ui.frame("Settings", UDim2.new(1, 0, 0, 8 * 44), parent)
+	local form = Ui.frame("Settings", UDim2.new(1, 0, 0, 9 * 42), parent)
 	Ui.list(form, Enum.FillDirection.Vertical, 4, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Top)
 	local function changed(key: string, value: any)
 		local copy = table.clone(settings) :: any
@@ -458,7 +459,10 @@ local function settingsForm(parent: Instance, settings: RoomSettings.Settings, e
 	toggle(5, "Bots fill empty seats", "bots", settings.bots)
 	cycle(6, "Turn timer", (MatchSettings.timerLabel(settings.timer):gsub("^Timer: ", "")), "timer", MatchSettings.nextTimer(settings.timer))
 	cycle(7, "Game length", (MatchSettings.lengthLabel(settings.length):gsub("^Length: ", "")), "length", MatchSettings.nextLength(settings.length))
-	cycle(8, "Map", settings.map, "map", MatchSettings.nextMap(settings.map))
+	cycle(8, "Board names", settings.map, "map", MatchSettings.nextMap(settings.map))
+	local sceneIndex = table.find(Scenes.IDS, settings.scene) or 1
+	local scene = Scenes.byId[settings.scene] or Scenes.LIST[1]
+	cycle(9, "Scene", scene.name, "scene", Scenes.IDS[sceneIndex % #Scenes.IDS + 1])
 end
 
 local function footer(parent: Instance): Frame

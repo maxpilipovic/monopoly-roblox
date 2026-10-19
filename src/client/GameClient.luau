@@ -105,7 +105,7 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 			return
 		end
 		if not board:model() then
-			board:ensure()
+			board:ensure(snapshot.scene)
 			CameraDirector.setActive(true)
 			if onInGame then
 				onInGame(true)
@@ -143,6 +143,20 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 			if event.type == "CardDrawn" and Cards.byId[event.card] then
 				-- The queue holds the card until its time (and until the card before it is done).
 				hud:showCard(event.card, names[event.player] or event.player, time)
+			end
+			if event.type == "TurnOrder" then
+				-- The draw for the seats: faces for people, a robot for bots.
+				local order = {}
+				for _, id in event.order do
+					for _, player in snapshot.players do
+						if player.id == id then
+							table.insert(order, { name = player.name, userId = if player.isBot then nil else tonumber(id) })
+						end
+					end
+				end
+				at(time, function()
+					hud:showTurnOrder(order)
+				end)
 			end
 			if event.type == "Paid" then
 				at(time, function()

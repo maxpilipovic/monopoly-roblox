@@ -24,6 +24,7 @@ local OfferCard = require(script.Parent.Views.OfferCard)
 local PlayerList = require(script.Parent.Views.PlayerList)
 local PropertiesPanel = require(script.Parent.Views.PropertiesPanel)
 local Results = require(script.Parent.Views.Results)
+local TurnOrderSpin = require(script.Parent.Views.TurnOrderSpin)
 local Toasts = require(script.Parent.Views.Toasts)
 local TradeWindow = require(script.Parent.Views.TradeWindow)
 local TurnBanner = require(script.Parent.Views.TurnBanner)
@@ -58,6 +59,7 @@ export type HudView = typeof(setmetatable(
 		logFeed: LogFeed.LogFeed,
 		toasts: Toasts.Toasts,
 		results: Results.Results,
+		turnOrder: TurnOrderSpin.TurnOrderSpin,
 		leaveButton: TextButton,
 		leaveArmed: number, -- os.clock() until which a second click confirms leaving
 		propertiesPanel: PropertiesPanel.PropertiesPanel,
@@ -165,6 +167,7 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		logFeed = LogFeed.new(root),
 		toasts = Toasts.new(root, ABOVE_BAR),
 		results = Results.new(root, callbacks.onReturnToLobby),
+		turnOrder = TurnOrderSpin.new(root),
 		leaveButton = nil :: any,
 		leaveArmed = 0,
 		propertiesPanel = nil :: any,
@@ -335,6 +338,11 @@ end
 
 -- A roll just happened: the dice tumble large in the middle of the board and in the action bar,
 -- ahead of the snapshot that carries the roll.
+-- The draw for the seats at the start of a game (seat 1 first).
+function HudView.showTurnOrder(self: HudView, order: { TurnOrderSpin.Entry })
+	self.turnOrder:play(order)
+end
+
 function HudView.rollDice(self: HudView, dice: { number })
 	self.rollGeneration += 1
 	local generation = self.rollGeneration
@@ -519,6 +527,7 @@ function HudView.render(self: HudView, snapshot: Protocol.Snapshot?, localId: st
 		self.actionBar:setTimer(nil, false)
 		self.wasDebtor = false
 		self.results:render(nil, {})
+		self.turnOrder:hide()
 		self.tradeOpen = false
 		self.trade = TradeBuilder.new()
 		self.tradeWindow:reset()
