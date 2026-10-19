@@ -56,6 +56,8 @@ function GameFixtures.bareState(playerCount: number): Types.GameState
 		winReason = nil,
 		events = {},
 		rollDice = GameFixtures.scriptedDice({}),
+		rules = { auctions = true, freeParking = false },
+		freeParkingPot = 0,
 	}
 end
 

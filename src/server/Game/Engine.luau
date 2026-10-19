@@ -53,6 +53,9 @@ function Engine.currentPlayer(state: GameState): Player
 	return state.players[state.currentIndex]
 end
 
+-- Money paid to the bank for these reasons goes into the Free Parking pot when that rule is on.
+local POT_REASONS = { Tax = true, Card = true, JailFine = true }
+
 -- Moves money between players; a nil side is the bank.
 local function transfer(state: GameState, fromId: string?, toId: string?, amount: number, reason: string)
 	if fromId then
@@ -60,6 +63,10 @@ local function transfer(state: GameState, fromId: string?, toId: string?, amount
 	end
 	if toId then
 		(Engine.getPlayer(state, toId) :: Player).money += amount
+	end
+	-- House rule: fines and fees paid to the bank pile up on Free Parking instead.
+	if fromId and not toId and state.rules.freeParking and POT_REASONS[reason] then
+		state.freeParkingPot += amount
 	end
 	emit(state, { type = "Paid", from = fromId, to = toId, amount = amount, reason = reason })
 end
@@ -240,6 +247,11 @@ function resolveLanding(state: GameState, player: Player, rentRule: string?)
 	elseif tile.kind == "GoToJail" then
 		sendToJail(state, player, "GoToJail")
 		return
+	elseif tile.kind == "FreeParking" and state.rules.freeParking and state.freeParkingPot > 0 then
+		local pot = state.freeParkingPot
+		state.freeParkingPot = 0
+		transfer(state, nil, player.id, pot, "FreeParking")
+		emit(state, { type = "FreeParkingPaid", player = player.id, amount = pot })
 	end
 
 	finishMove(state)
@@ -615,7 +627,9 @@ local function goBankrupt(state: GameState, player: Player): (boolean, string?)
 			end
 		else
 			state.properties[position] = nil
-			table.insert(state.auctionQueue, position)
+			if state.rules.auctions then
+				table.insert(state.auctionQueue, position)
+			end
 		end
 	end
 
@@ -776,7 +790,8 @@ function Engine.new(
 	rollDice: Types.DiceRoller,
 	shuffle: Types.Shuffler?,
 	roundLimit: number?,
-	map: string?
+	map: string?,
+	rules: Types.HouseRules?
 ): GameState
 	assert(
 		#players >= Engine.MIN_PLAYERS and #players <= Engine.MAX_PLAYERS,
@@ -796,7 +811,7 @@ function Engine.new(
 			id = info.id,
 			name = info.name,
 			isBot = info.isBot,
-			money = Engine.STARTING_MONEY,
+			money = if rules and rules.startingMoney then rules.startingMoney else Engine.STARTING_MONEY,
 			position = 0,
 			bankrupt = false,
 			inJail = false,
@@ -839,6 +854,11 @@ function Engine.new(
 		winReason = nil,
 		events = {},
 		rollDice = rollDice,
+		rules = {
+			auctions = not (rules and rules.auctions == false),
+			freeParking = rules ~= nil and rules.freeParking == true,
+		},
+		freeParkingPot = 0,
 	}
 	emit(state, { type = "TurnStarted", player = playerStates[1].id })
 	return state
@@ -875,7 +895,13 @@ local function dispatch(state: GameState, player: Player, action: Types.Action):
 	elseif action.type == "Buy" and state.phase == "BuyDecision" then
 		return buy(state, player)
 	elseif action.type == "Decline" and state.phase == "BuyDecision" then
-		startAuction(state, player.position)
+		if state.rules.auctions then
+			startAuction(state, player.position)
+		else
+			-- House rule: no auctions, so the deed simply stays with the bank.
+			emit(state, { type = "PurchaseDeclined", player = player.id, position = player.position })
+			finishMove(state)
+		end
 		return true
 	elseif action.type == "PayJailFine" and state.phase == "Roll" and player.inJail then
 		return payJailFine(state, player)

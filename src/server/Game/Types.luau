@@ -58,6 +58,8 @@ export type DiceRoller = () -> (number, number)
 
 export type Shuffler = (ids: { string }) -> () -- shuffles in place
 
+export type HouseRules = { startingMoney: number?, auctions: boolean?, freeParking: boolean? }
+
 export type GameState = {
 	players: { Player },
 	currentIndex: number,
@@ -83,6 +85,8 @@ export type GameState = {
 	winReason: string?, -- how the game ended: "Bankruptcy" | "RoundLimit" | "TimeLimit"
 	events: { Event },
 	rollDice: DiceRoller,
+	rules: { auctions: boolean, freeParking: boolean },
+	freeParkingPot: number, -- fines and fees waiting on Free Parking (rules.freeParking)
 }
 
 return nil
