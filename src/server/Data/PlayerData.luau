@@ -20,6 +20,8 @@ local store: DataStore? = nil
 local disabled = false -- a Studio place without API access: stop trying (each try costs seconds)
 local storeWarned = false
 local profiles: { [Player]: Profile.Profile } = {}
+-- Players whose saved data couldn't be read: their stand-in profile must never overwrite it.
+local unreadable: { [Player]: boolean } = {}
 local loaded: { [Player]: BindableEvent } = {}
 local profileRemote: RemoteEvent? = nil
 local changedListeners: { (Player, Profile.Profile) -> () } = {}
@@ -70,29 +72,30 @@ local function push(player: Player)
 	end
 end
 
-local function load(player: Player): Profile.Profile
+-- The player's profile, and whether it really came from the store (or there is no store to use).
+local function load(player: Player): (Profile.Profile, boolean)
 	local dataStore = getStore()
 	if dataStore then
 		for attempt = 1, RETRIES do
 			local ok, result = pcall(dataStore.GetAsync, dataStore, key(player))
 			if ok then
-				return Profile.reconcile(result)
+				return Profile.reconcile(result), true
 			end
 			if tostring(result):find("Studio access", 1, true) then
 				disabled = true
 				warnOnce("Studio has no access to API services")
-				break
+				return Profile.new(), true
 			end
 			if attempt == RETRIES then
-				warnOnce(`could not read {player.Name}'s data ({result})`)
+				warn(`PlayerData: could not read {player.Name}'s data ({result}); this session won't save over it`)
 			else
 				task.wait(attempt)
 			end
 		end
-	else
-		warnOnce("DataStoreService is unavailable")
+		return Profile.new(), false
 	end
-	return Profile.new()
+	warnOnce("DataStoreService is unavailable")
+	return Profile.new(), true
 end
 
 -- Returns whether the profile is safely stored (true too when there's no DataStore to store it in).
@@ -101,6 +104,8 @@ function PlayerData.save(player: Player): boolean
 	local dataStore = getStore()
 	if not profile then
 		return false
+	elseif unreadable[player] then
+		return false -- saving the stand-in would wipe their real data
 	elseif not dataStore then
 		return true
 	end
@@ -159,10 +164,11 @@ end
 local function onPlayerAdded(player: Player)
 	local signal = Instance.new("BindableEvent")
 	loaded[player] = signal
-	local profile = load(player)
+	local profile, readable = load(player)
 	if not player.Parent then
 		return
 	end
+	unreadable[player] = if readable then nil else true
 	profiles[player] = profile
 	loaded[player] = nil
 	signal:Fire()
@@ -188,6 +194,7 @@ function PlayerData.start()
 	Players.PlayerRemoving:Connect(function(player)
 		PlayerData.save(player)
 		profiles[player] = nil
+		unreadable[player] = nil
 	end)
 	game:BindToClose(function()
 		local pending = 0
