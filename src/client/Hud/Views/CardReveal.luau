@@ -115,7 +115,9 @@ function CardReveal.new(parent: Instance, onDismiss: () -> ()): CardReveal
 	card.BackgroundTransparency = 1
 	card.AutoButtonColor = false
 	card.Text = ""
-	card.ClipsDescendants = true
+	-- Clips only while flipping: Roblox doesn't draw a ViewportFrame (the emblem) under a clipping
+	-- ancestor.
+	card.ClipsDescendants = false
 	card.Parent = frame
 	card.Activated:Connect(onDismiss)
 
@@ -143,7 +145,6 @@ function CardReveal.new(parent: Instance, onDismiss: () -> ()): CardReveal
 
 	-- Face up: parchment under a dark band, a foil line, the emblem beside the title.
 	local front = side("Front", card)
-	front.ClipsDescendants = true
 	Ui.stroke(front, Theme.color.ink, 2, 0.7) -- the paper needs an edge against the pale board
 	local header = Instance.new("Frame")
 	header.Name = "Header"
@@ -196,7 +197,12 @@ function CardReveal.new(parent: Instance, onDismiss: () -> ()): CardReveal
 	hint.TextTransparency = 0.55
 	hint.Text = "Click to dismiss"
 
-	-- A band of light that sweeps across the face once it's turned over.
+	-- A band of light that sweeps across the face once it's turned over, in its own clipping layer
+	-- so the emblem beside the title isn't under a clipping ancestor.
+	local shineClip = Ui.frame("ShineClip", UDim2.new(1, -12, 1, -12), front)
+	shineClip.Position = UDim2.fromOffset(6, 6)
+	shineClip.ClipsDescendants = true
+	shineClip.ZIndex = 5
 	local shine = Instance.new("Frame")
 	shine.Name = "Shine"
 	shine.Size = UDim2.new(0.4, 0, 1.6, 0)
@@ -206,7 +212,7 @@ function CardReveal.new(parent: Instance, onDismiss: () -> ()): CardReveal
 	shine.BackgroundColor3 = Color3.new(1, 1, 1)
 	shine.BorderSizePixel = 0
 	shine.ZIndex = 5
-	shine.Parent = front
+	shine.Parent = shineClip
 	local shineFade = Instance.new("UIGradient")
 	shineFade.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 1),
@@ -289,6 +295,7 @@ function CardReveal.show(self: CardReveal, face: CardFace.Face?)
 	self.back.Visible = true
 	self.front.Visible = false
 	self.card.Size = UDim2.fromScale(1, 1)
+	self.card.ClipsDescendants = false -- in case a flip was cut short by this card
 	self.card.Rotation = -6
 	self.scale.Scale = 0.6
 	self.frame.Visible = true
@@ -307,6 +314,7 @@ function CardReveal.show(self: CardReveal, face: CardFace.Face?)
 			return
 		end
 		-- Flip: narrow to an edge, swap sides, widen again.
+		self.card.ClipsDescendants = true
 		tween(self.card, FLIP_HALF_SECONDS, Enum.EasingStyle.Quad, Enum.EasingDirection.In, { Size = UDim2.fromScale(0, 1) })
 		task.wait(FLIP_HALF_SECONDS)
 		if stale() then
@@ -316,6 +324,7 @@ function CardReveal.show(self: CardReveal, face: CardFace.Face?)
 		self.front.Visible = true
 		tween(self.card, FLIP_HALF_SECONDS, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Size = UDim2.fromScale(1, 1) })
 		task.wait(FLIP_HALF_SECONDS)
+		self.card.ClipsDescendants = false
 		if stale() then
 			return
 		end

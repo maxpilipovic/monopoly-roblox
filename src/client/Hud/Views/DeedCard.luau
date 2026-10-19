@@ -18,6 +18,7 @@ export type DeedCard = typeof(setmetatable(
 		frame: Frame,
 		onClose: () -> (),
 		deed: DeedModel.Deed?,
+		emblem: EmblemView.EmblemView?, -- held here: the emblem turning loop only holds views weakly
 		note: string?,
 		closable: boolean,
 	},
@@ -41,7 +42,7 @@ function DeedCard.new(parent: Instance, onClose: () -> ()): DeedCard
 	Ui.stroke(frame, Theme.color.ink, 2, 0.6)
 	Ui.list(frame, Enum.FillDirection.Vertical, 0, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top)
 	Ui.padding(frame, { bottom = 10 })
-	return setmetatable({ frame = frame, onClose = onClose, deed = nil, note = nil, closable = false }, DeedCard)
+	return setmetatable({ frame = frame, onClose = onClose, deed = nil, note = nil, closable = false, emblem = nil }, DeedCard)
 end
 
 local function row(parent: Instance, order: number, label: string, value: string, emphasis: "current" | "normal" | "dim"): Frame
@@ -91,6 +92,7 @@ function DeedCard.render(self: DeedCard, deed: DeedModel.Deed?, note: string?, c
 		return -- called every frame; rebuild only for something new
 	end
 	self.deed = deed
+	self.emblem = nil
 	self.note = note
 	self.closable = closable
 	Ui.clear(self.frame)
@@ -158,6 +160,7 @@ function DeedCard.render(self: DeedCard, deed: DeedModel.Deed?, note: string?, c
 		local emblem = EmblemView.new("Emblem", self.frame, UDim2.fromOffset(110, 96), 48)
 		emblem.frame.LayoutOrder = 2
 		emblem:set(style.emblem, "", style.ink)
+		self.emblem = emblem
 	end
 	if not style.emblem then
 		local spacer = Ui.frame("Spacer", UDim2.new(1, 0, 0, 8), self.frame)

@@ -100,7 +100,7 @@ local function land(token: Token)
 	if not part.Parent then
 		return
 	end
-	local size = part.Size
+	local size = Vector3.new(TOKEN_HEIGHT, TokenLayout.TOKEN_DIAMETER, TokenLayout.TOKEN_DIAMETER) -- its rest size, not a mid-squash one
 	part.Size = Vector3.new(size.X * 0.75, size.Y * 1.18, size.Z * 1.18)
 	TweenService:Create(part, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = size }):Play()
 

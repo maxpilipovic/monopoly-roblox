@@ -459,6 +459,19 @@ tests["a roll the 3D dice are showing skips the stage dice and reads out once th
 	end)
 end
 
+tests["a jailed player's pill doesn't look like the red property group"] = function()
+	withHud(function(hud)
+		local state = GameFixtures.newGame(2)
+		state.players[2].inJail = true
+		hud:render(Snapshot.fromState(state), "p1")
+		local pill = hud.playerList.frame:FindFirstChild("JAIL", true) :: TextLabel
+		assert(pill, "a JAIL pill")
+		-- Jail is steel everywhere, like the jail card; red is a property group's colour.
+		local CardStyle = require(StarterPlayer.StarterPlayerScripts.Client.Hud.CardStyle)
+		Expect.equal(pill.BackgroundColor3, CardStyle.deck("Jail").back, "steel, not red")
+	end)
+end
+
 tests["the action bar doesn't show the last roll while new 3D dice are in the air"] = function()
 	withHud(function(hud)
 		local state = GameFixtures.newGame(2, { { 2, 3 } })

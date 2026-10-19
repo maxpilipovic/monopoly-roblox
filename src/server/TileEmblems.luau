@@ -11,15 +11,27 @@ local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 
 local TileEmblems = {}
 
-local WAIT_SECONDS = 60
+local FOLDER_WAIT_SECONDS = 60 -- for Assets to reach the emblems
+local SHAPE_WAIT_SECONDS = 20 -- for one emblem inside it
 -- How tall each emblem stands, in studs.
-local HEIGHTS = { Question = 2.6, Chest = 2.0, Locomotive = 2.2, Bulb = 2.6, Tap = 2.6 }
+local HEIGHTS = { Question = 3.2, Chest = 2.5, Locomotive = 2.7, Bulb = 3.2, Tap = 3.2 }
 
-local function template(shape: string): Model?
-	local assets = ReplicatedStorage:WaitForChild("Assets", WAIT_SECONDS)
-	local emblems = assets and assets:WaitForChild("Emblems", WAIT_SECONDS)
-	local model = emblems and emblems:WaitForChild(shape, WAIT_SECONDS)
-	return if model and model:IsA("Model") then model else nil
+-- Each shape is waited for once, whatever the answer, so a model that failed to load costs one
+-- wait rather than one per tile.
+local function templates(): (string) -> Model?
+	local assets = ReplicatedStorage:WaitForChild("Assets", FOLDER_WAIT_SECONDS)
+	local emblems = assets and assets:WaitForChild("Emblems", FOLDER_WAIT_SECONDS)
+	local found: { [string]: Model | false } = {}
+	return function(shape: string): Model?
+		if not emblems then
+			return nil
+		end
+		if found[shape] == nil then
+			local model = emblems:WaitForChild(shape, SHAPE_WAIT_SECONDS)
+			found[shape] = if model and model:IsA("Model") then model else false
+		end
+		return found[shape] or nil
+	end
 end
 
 function TileEmblems.place(board: Model)
@@ -28,6 +40,7 @@ function TileEmblems.place(board: Model)
 		if not tiles then
 			return
 		end
+		local template = templates()
 		local folder = Instance.new("Folder")
 		folder.Name = "Emblems"
 		folder.Parent = board

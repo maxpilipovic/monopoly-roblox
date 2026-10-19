@@ -185,6 +185,11 @@ function GameClient.start(hooks: Tokens.TokenHooks?)
 				hud:showCard(id, localPlayer.Name, os.clock())
 			end
 		end)
+		-- ...and any deed by setting PreviewDeed to a board position.
+		hud.gui:GetAttributeChangedSignal("PreviewDeed"):Connect(function()
+			local position = hud.gui:GetAttribute("PreviewDeed")
+			hud:inspect(if typeof(position) == "number" then position else nil)
+		end)
 	end
 
 	hud:render(nil, localId)

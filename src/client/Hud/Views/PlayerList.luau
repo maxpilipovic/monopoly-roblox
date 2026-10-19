@@ -5,6 +5,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local TokenLayout = require(ReplicatedStorage.Shared.Board.TokenLayout)
+local CardStyle = require(script.Parent.Parent.CardStyle)
 local HudModel = require(script.Parent.Parent.HudModel)
 local Theme = require(script.Parent.Parent.Theme)
 local Ui = require(script.Parent.Parent.Ui)
@@ -168,7 +169,7 @@ function PlayerList.render(self: PlayerList, rows: { HudModel.PlayerRow }, delta
 		end
 
 		if row.inJail and not row.bankrupt then
-			local jail = Ui.pill("JAIL", frame, Theme.color.danger)
+			local jail = Ui.pill("JAIL", frame, CardStyle.deck("Jail").back, CardStyle.GOLD) -- steel like the jail card: red is a property colour
 			jail.AnchorPoint = Vector2.new(1, 0.5)
 			jail.Position = UDim2.new(1, -82, 0.5, 0)
 		end
