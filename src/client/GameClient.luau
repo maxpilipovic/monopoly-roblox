@@ -156,6 +156,8 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 				end
 				at(time, function()
 					hud:showTurnOrder(order)
+					-- Meanwhile the camera tours the scene, landing overhead as the first turn begins.
+					CameraDirector.playIntro(math.max(Pacing.turnOrderSeconds(#order) - CameraDirector.RETURN_SECONDS, 1))
 				end)
 			end
 			if event.type == "Paid" then

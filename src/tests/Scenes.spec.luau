@@ -6,8 +6,9 @@ local Expect = require(script.Parent.Expect)
 
 local tests = {}
 
-tests["there are three scenes, each named and lit, matching the room setting"] = function()
-	Expect.equal(#Scenes.LIST, 3)
+tests["there are four scenes (City included), each named and lit, matching the room setting"] = function()
+	Expect.equal(#Scenes.LIST, 4)
+	Expect.equal(Scenes.byId.City ~= nil, true, "the city skyline")
 	local seen = {}
 	for _, scene in Scenes.LIST do
 		Expect.equal(seen[scene.id], nil, `duplicate {scene.id}`)

@@ -16,7 +16,7 @@ local CameraDirector = {}
 CameraDirector.HOLD_SECONDS = 1
 CameraDirector.RETURN_SECONDS = 0.8
 
-export type Mode = "Overhead" | "Following" | "Holding" | "Returning"
+export type Mode = "Overhead" | "Following" | "Holding" | "Returning" | "Intro"
 
 export type State = {
 	mode: Mode,
@@ -24,6 +24,7 @@ export type State = {
 	heading: Vector3, -- its direction of travel
 	since: number, -- when this mode began
 	from: CFrame?, -- where the camera was when Returning began
+	seconds: number?, -- how long an Intro lasts
 }
 
 export type Event =
@@ -31,6 +32,7 @@ export type Event =
 	| { kind: "Hopped", part: BasePart, from: number, to: number }
 	| { kind: "MoveFinished", part: BasePart }
 	| { kind: "Tick", camera: CFrame }
+	| { kind: "Intro", seconds: number } -- a flyover of the scene as a game begins
 
 function CameraDirector.initial(): State
 	return { mode = "Overhead", part = nil, heading = Vector3.new(-1, 0, 0), since = 0, from = nil }
@@ -62,11 +64,16 @@ function CameraDirector.next(state: State, event: Event, now: number): State
 		end
 		return state
 	end
+	if event.kind == "Intro" then
+		return { mode = "Intro", part = nil, heading = state.heading, since = now, from = nil, seconds = event.seconds }
+	end
 	-- Tick
 	local part = state.part
 	if (state.mode == "Following" or state.mode == "Holding") and (not part or not part.Parent) then
 		return returning(state, event.camera, now) -- the token was removed (back to the lobby)
 	elseif state.mode == "Holding" and now - state.since >= CameraDirector.HOLD_SECONDS then
+		return returning(state, event.camera, now)
+	elseif state.mode == "Intro" and now - state.since >= (state.seconds or 0) then
 		return returning(state, event.camera, now)
 	elseif state.mode == "Returning" and now - state.since >= CameraDirector.RETURN_SECONDS then
 		return { mode = "Overhead", part = nil, heading = state.heading, since = now, from = nil }
@@ -86,6 +93,15 @@ function CameraDirector.target(state: State, now: number, overhead: CFrame): CFr
 	elseif state.mode == "Returning" and state.from then
 		local t = math.clamp((now - state.since) / CameraDirector.RETURN_SECONDS, 0, 1)
 		return state.from:Lerp(overhead, easeInOut(t))
+	elseif state.mode == "Intro" then
+		-- From the far side, swing round and down to the players' side, closing in on the table.
+		local t = easeInOut(math.clamp((now - state.since) / math.max(state.seconds or 1, 0.1), 0, 1))
+		local angle = math.rad(-200) * (1 - t)
+		local radius = 190 - 80 * t
+		local height = 85 - 15 * t
+		local centre = Layout.ORIGIN.Position
+		local position = centre + Vector3.new(math.sin(angle) * radius, height, math.cos(angle) * radius)
+		return CFrame.lookAt(position, centre + Vector3.new(0, 4, 0))
 	end
 	return overhead
 end
@@ -108,6 +124,12 @@ end
 
 -- Off in the lobby (the player walks their character with the normal camera), on at the board.
 local active = false
+local introRequest: number? = nil
+
+-- Flies the camera round the scene for `seconds` (as a game begins), then back overhead.
+function CameraDirector.playIntro(seconds: number)
+	introRequest = seconds
+end
 
 function CameraDirector.setActive(on: boolean)
 	if active == on then
@@ -155,6 +177,11 @@ function CameraDirector.start(): Tokens.TokenHooks
 		camera.CameraType = Enum.CameraType.Scriptable
 		camera.FieldOfView = BoardCamera.FIELD_OF_VIEW
 		local now = os.clock()
+		local intro = introRequest
+		if intro then
+			introRequest = nil
+			state = CameraDirector.next(state, { kind = "Intro", seconds = intro }, now)
+		end
 		state = CameraDirector.next(state, { kind = "Tick", camera = camera.CFrame }, now)
 		local goal = CameraDirector.target(state, now, overhead(camera))
 		if state.mode == "Following" or state.mode == "Holding" then

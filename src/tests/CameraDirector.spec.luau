@@ -131,4 +131,28 @@ tests["the overhead inset comes from the HUD when it reports one"] = function()
 	playerGui:Destroy()
 end
 
+
+tests["an intro circles the scene for its seconds, then eases back overhead"] = function()
+	local state = CameraDirector.initial()
+	state = CameraDirector.next(state, { kind = "Intro", seconds = 6 }, 10)
+	Expect.equal(state.mode, "Intro")
+	local early = CameraDirector.target(state, 10.5, OVERHEAD)
+	local later = CameraDirector.target(state, 13, OVERHEAD)
+	Expect.equal((early.Position - later.Position).Magnitude > 20, true, "the camera travels round")
+	Expect.equal(early.Position.Y > 20, true, "from above the table")
+	state = tick(state, 15.9)
+	Expect.equal(state.mode, "Intro")
+	state = tick(state, 16.1)
+	Expect.equal(state.mode, "Returning")
+	state = tick(state, 16.1 + CameraDirector.RETURN_SECONDS + 0.01)
+	Expect.equal(state.mode, "Overhead")
+end
+
+tests["a move during the intro takes over the camera"] = function()
+	local part = token()
+	local state = CameraDirector.next(CameraDirector.initial(), { kind = "Intro", seconds = 6 }, 0)
+	state = CameraDirector.next(state, { kind = "MoveStarted", part = part, style = nil }, 1)
+	Expect.equal(state.mode, "Following")
+end
+
 return tests
