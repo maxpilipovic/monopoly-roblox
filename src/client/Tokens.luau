@@ -82,11 +82,12 @@ local PIECE_WIDTH = 1.35
 
 -- The player's piece standing on the token's spot, with a ring in their seat colour round its foot.
 -- Welded to the (now invisible) token part, so moving that part moves the piece.
-local function attachPiece(part: BasePart, seat: number, piece: string?): Model?
+local function attachPiece(part: BasePart, seat: number, piece: string?, aura: string?): Model?
 	local assets = ReplicatedStorage:FindFirstChild("Assets")
-	local pieces = assets and assets:FindFirstChild("Pieces")
 	local id = if piece and Catalog.byId[piece] then piece else Catalog.DEFAULT_PIECE
-	local source = pieces and pieces:FindFirstChild(id)
+	local kind, shape = Catalog.modelOf(id)
+	local folder = assets and assets:FindFirstChild(kind)
+	local source = folder and folder:FindFirstChild(shape)
 	if not (source and source:IsA("Model")) then
 		return nil
 	end
@@ -122,6 +123,11 @@ local function attachPiece(part: BasePart, seat: number, piece: string?): Model?
 	model.Parent = part
 	local item = Catalog.byId[id]
 	PieceEffects.attach(model, item and item.effect)
+	-- An aura is worn on top of whatever the piece does itself.
+	local worn = if aura then Catalog.byId[aura] else nil
+	if worn and worn.kind == "Aura" then
+		PieceEffects.attach(model, worn.effect)
+	end
 	part.Transparency = 1
 	return model
 end
@@ -271,7 +277,7 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 			if not token then
 				local part = makePart(player.seat, player.name, self.folder)
 				part.CFrame = standingCFrame(Tokens.startPosition(player, update.events), player.seat)
-				local piece = attachPiece(part, player.seat, player.piece)
+				local piece = attachPiece(part, player.seat, player.piece, player.aura)
 				token = {
 					part = part,
 					piece = piece,
@@ -287,7 +293,7 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 			token.inJail = player.inJail
 			if not token.piece then
 				-- The model may have finished loading since the token was made.
-				token.piece = attachPiece(token.part, token.seat, player.piece)
+				token.piece = attachPiece(token.part, token.seat, player.piece, player.aura)
 			end
 			if token.piece then
 				for _, child in (token.piece :: Model):GetDescendants() do

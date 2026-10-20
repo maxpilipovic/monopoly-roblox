@@ -198,6 +198,7 @@ export type PlayerRow = {
 	isYou: boolean,
 	isCurrent: boolean,
 	deeds: number, -- how many properties they own
+	title: string?, -- Catalog title id they show
 }
 
 -- One row per player for the player list, in seat order.
@@ -218,6 +219,7 @@ function HudModel.playerRows(snapshot: Protocol.Snapshot, localId: string): { Pl
 			isYou = player.id == localId,
 			isCurrent = player.id == snapshot.currentPlayer and snapshot.phase ~= "GameOver",
 			deeds = deeds[player.id] or 0,
+			title = player.title,
 		})
 	end
 	table.sort(rows, function(a, b)

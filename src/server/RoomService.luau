@@ -12,6 +12,8 @@ local Catalog = require(ReplicatedStorage.Shared.Cosmetics.Catalog)
 local Maps = require(ReplicatedStorage.Shared.Board.Maps)
 local MatchSettings = require(ReplicatedStorage.Shared.Rules.MatchSettings)
 local Pacing = require(ReplicatedStorage.Shared.Rules.Pacing)
+local Progress = require(ReplicatedStorage.Shared.Progress.Progress)
+local Rewards = require(ReplicatedStorage.Shared.Progress.Rewards)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local Ranks = require(ReplicatedStorage.Shared.Rules.Ranks)
 local RoomSettings = require(ReplicatedStorage.Shared.Rules.RoomSettings)
@@ -24,6 +26,7 @@ local Profile = require(script.Parent.Data.Profile)
 local RankedQueue = require(script.Parent.RankedQueue)
 local Rooms = require(script.Parent.Rooms)
 local Snapshot = require(script.Parent.Game.Snapshot)
+local Tally = require(script.Parent.Game.Tally)
 local Throttle = require(script.Parent.Game.Throttle)
 local TurnClock = require(script.Parent.Game.TurnClock)
 
@@ -46,6 +49,8 @@ type Live = {
 	ending: boolean, -- the results screen is up
 	rated: { [string]: boolean }, -- players whose result is already in their profile
 	returned: { [string]: boolean }, -- players who left the results screen for the lobby
+	tally: Tally.Tally, -- counts the game toward everyone's challenges
+	rolls: { [string]: number }, -- each human's rolls this game (a game barely played pays no coins)
 }
 
 local registry = Rooms.new()
@@ -180,22 +185,54 @@ end
 
 -- Records one player's result. In a ranked game the rating moves by their finishing place (and
 -- they're told where they placed and by how much); a casual game only counts as a game played (and won).
-local function rate(l: Live, player: Player, place: number, delta: number)
+-- Coins are paid for a game seen through (never for walking out), and the game counts toward
+-- challenges: played, won, and a top-two finish (a 1 v 1 counts only the win).
+local function rate(l: Live, player: Player, place: number, delta: number, walkedOut: boolean?)
 	local id = tostring(player.UserId)
 	if l.rated[id] then
 		return
 	end
 	l.rated[id] = true
 	local ranked = l.room.ranked
+	local seats = #l.session.state.players
 	local elo = 0
+	local coins = Rewards.gameCoins(place, seats, ranked, not walkedOut, l.rolls[id] or 0)
 	PlayerData.update(player, function(profile)
 		Profile.recordGame(profile, place == 1, if ranked then delta else 0, ranked)
 		elo = profile.stats.elo
+		Progress.add(profile, {
+			games = 1,
+			wins = if place == 1 then 1 else 0,
+			podiums = if place == 1 or (place == 2 and seats >= 3) then 1 else 0,
+			rankedWins = if ranked and place == 1 then 1 else 0,
+		})
+		Progress.addCoins(profile, coins)
 	end, "now")
-	if ranked and player.Parent and not l.returned[id] then
+	if player.Parent and not l.returned[id] and (ranked or coins > 0) then
+		local parts = { `{Placement.ordinal(place)} of {seats}` }
+		if ranked then
+			table.insert(parts, `Rating {Ranks.changeText(elo, delta)}`)
+		end
+		if coins > 0 then
+			table.insert(parts, `+{coins} coins`)
+		end
 		local message = update(l, {})
-		message.notice = `{Placement.ordinal(place)} of {#l.session.state.players} · Rating {Ranks.changeText(elo, delta)}`
+		message.notice = table.concat(parts, " · ")
 		updateRemote:FireClient(player, message)
+	end
+end
+
+-- Adds what just happened in the game to each human player's lifetime counters.
+local function countProgress(l: Live, events: { any })
+	local counts = Tally.count(l.tally, events, l.session.state)
+	for id, stats in counts do
+		local player = playerFor(id)
+		if player and Rooms.roomOf(registry, id) == l.room and not l.rated[id] then
+			l.rolls[id] = (l.rolls[id] or 0) + (stats.rolls or 0)
+			PlayerData.update(player, function(profile)
+				Progress.add(profile, stats)
+			end, "soon")
+		end
 	end
 end
 
@@ -266,6 +303,7 @@ end
 -- Sends the room's players the state and what just happened; returns the time it takes to watch.
 local function broadcast(l: Live, refresh: boolean?, actedBy: string?): number
 	local events = GameSession.takeNewEvents(l.session)
+	countProgress(l, events)
 	local pause = Pacing.timeline(events).total
 	if refresh then
 		refreshClock(l, actedBy, pause)
@@ -345,9 +383,7 @@ local function startGame(room: Rooms.Room)
 		else
 			local player = playerFor(seat.id)
 			local profile = player and PlayerData.peek(player)
-			session.looks[seat.id] = if profile
-				then { piece = profile.equipped.piece, rentEffect = profile.equipped.rentEffect }
-				else { piece = Catalog.DEFAULT_PIECE }
+			session.looks[seat.id] = if profile then table.clone(profile.equipped) else { piece = Catalog.DEFAULT_PIECE }
 		end
 	end
 	local roundLimit = studioNumber("RoundLimit")
@@ -363,6 +399,8 @@ local function startGame(room: Rooms.Room)
 		ending = false,
 		rated = {},
 		returned = {},
+		tally = Tally.new(),
+		rolls = {},
 	}
 	room.status = "Playing"
 	room.session = session
@@ -400,7 +438,8 @@ local function leaveRoom(player: Player)
 	local l = live[room.id]
 	if l and not l.ending then
 		useMap(l)
-		rate(l, player, leavingResult(l, id))
+		local place, delta = leavingResult(l, id)
+		rate(l, player, place, delta, true)
 		GameSession.replaceWithBot(l.session, id)
 	end
 	Rooms.leave(registry, id)

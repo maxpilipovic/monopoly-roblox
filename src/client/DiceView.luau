@@ -6,11 +6,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local DiceLook = require(ReplicatedStorage.Shared.Cosmetics.DiceLook)
 local DiceThrow = require(ReplicatedStorage.Shared.Dice.DiceThrow)
 local Throws = require(ReplicatedStorage.Shared.Dice.Throws)
 
-local BODY_COLOR = Color3.fromRGB(240, 234, 220) -- ivory
-local PIP_COLOR = Color3.fromRGB(22, 22, 26)
 local MODEL_SIZE = 1.2 -- studs, the Rounded die as uploaded
 local WAIT_SECONDS = 30 -- for the server to load the model
 
@@ -31,7 +30,6 @@ export type DiceView = typeof(setmetatable(
 local function build(template: Model): Model
 	local die = template:Clone()
 	local body = die:FindFirstChild("Body") :: BasePart
-	local pips = die:FindFirstChild("Pips") :: BasePart
 	die.PrimaryPart = body
 	die.WorldPivot = body.CFrame -- frames place the die by its centre
 	die:ScaleTo(DiceThrow.SIZE / MODEL_SIZE)
@@ -43,10 +41,7 @@ local function build(template: Model): Model
 			part.CanTouch = false
 		end
 	end
-	body.Color = BODY_COLOR
-	body.Material = Enum.Material.SmoothPlastic
-	pips.Color = PIP_COLOR
-	pips.Material = Enum.Material.SmoothPlastic
+	DiceLook.apply(die, nil)
 	return die
 end
 
@@ -79,9 +74,12 @@ local function stop(self: DiceView)
 	end
 end
 
--- Throws the dice from the roller's side (0-3) so they land showing `dice`.
-function DiceView.roll(self: DiceView, dice: { number }, side: number)
+-- Throws the dice from the roller's side (0-3) so they land showing `dice`, in the roller's skin.
+function DiceView.roll(self: DiceView, dice: { number }, side: number, skin: string?)
 	stop(self)
+	for _, die in self.dice do
+		DiceLook.apply(die, skin)
+	end
 	local throw = Throws[self.random:NextInteger(1, #Throws)]
 	local spin = { self.random:NextInteger(0, 3), self.random:NextInteger(0, 3) }
 	local plan = DiceThrow.plan(throw, dice, side, spin)

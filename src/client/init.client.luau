@@ -14,6 +14,8 @@ local storeRemote = remotes:WaitForChild(Protocol.STORE) :: RemoteEvent
 local roomsRemote = remotes:WaitForChild(Protocol.ROOMS) :: RemoteEvent
 local profileRemote = remotes:WaitForChild(Protocol.PROFILE) :: RemoteEvent
 local chestRemote = remotes:WaitForChild(Protocol.CHEST) :: RemoteEvent
+local progressRemote = remotes:WaitForChild(Protocol.PROGRESS) :: RemoteEvent
+local rewardRemote = remotes:WaitForChild(Protocol.REWARD) :: RemoteEvent
 
 local lobby = LobbyHud.new(Players.LocalPlayer:WaitForChild("PlayerGui"), {
 	onLobby = function(request)
@@ -21,6 +23,9 @@ local lobby = LobbyHud.new(Players.LocalPlayer:WaitForChild("PlayerGui"), {
 	end,
 	onStore = function(request)
 		storeRemote:FireServer(request)
+	end,
+	onProgress = function(request)
+		progressRemote:FireServer(request)
 	end,
 })
 roomsRemote.OnClientEvent:Connect(function(update)
@@ -31,6 +36,9 @@ profileRemote.OnClientEvent:Connect(function(profile)
 end)
 chestRemote.OnClientEvent:Connect(function(result)
 	lobby:showChest(result)
+end)
+rewardRemote.OnClientEvent:Connect(function(view)
+	lobby:showReward(view)
 end)
 profileRemote:FireServer() -- in case the first push came before we were listening
 

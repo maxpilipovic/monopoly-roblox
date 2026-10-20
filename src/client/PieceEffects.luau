@@ -168,6 +168,154 @@ local BUILDERS: { [string]: (BasePart, Vector3) -> () } = {
 		})
 		light(part, Color3.fromRGB(170, 70, 255), 10, 1.8)
 	end,
+
+	-- Auras and challenge pieces.
+	Stardust = function(part, size)
+		emitter(attachment(part, Vector3.zero), {
+			Texture = SPARKLE, Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 220, 255)),
+			LightEmission = 1, Rate = 8, Lifetime = NumberRange.new(0.8, 1.4), Speed = NumberRange.new(0.2, 0.6),
+			SpreadAngle = Vector2.new(180, 180), Size = sequence(0.22, 0),
+			Shape = Enum.ParticleEmitterShape.Sphere, ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume,
+		})
+		local _ = size
+	end,
+	Embers = function(part, size)
+		emitter(attachment(part, Vector3.new(0, -size.Y * 0.3, 0)), {
+			Texture = SPARKLE, Color = ColorSequence.new(Color3.fromRGB(255, 190, 80), Color3.fromRGB(255, 70, 20)),
+			LightEmission = 1, Rate = 10, Lifetime = NumberRange.new(1, 1.6), Speed = NumberRange.new(0.8, 1.6),
+			SpreadAngle = Vector2.new(25, 25), Size = sequence(0.18, 0), Acceleration = Vector3.new(0, 1.5, 0),
+		})
+		light(part, Color3.fromRGB(255, 130, 50), 6, 0.8)
+	end,
+	Rainbow = function(part, size)
+		trail(part, size, ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 60, 60)),
+			ColorSequenceKeypoint.new(0.2, Color3.fromRGB(255, 170, 40)),
+			ColorSequenceKeypoint.new(0.4, Color3.fromRGB(255, 240, 60)),
+			ColorSequenceKeypoint.new(0.6, Color3.fromRGB(70, 230, 100)),
+			ColorSequenceKeypoint.new(0.8, Color3.fromRGB(60, 150, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 90, 255)),
+		}), 0.8)
+		emitter(attachment(part, Vector3.new(0, size.Y * 0.4, 0)), {
+			Texture = SPARKLE, Color = ColorSequence.new(Color3.fromRGB(255, 120, 220), Color3.fromRGB(120, 220, 255)),
+			LightEmission = 1, Rate = 6, Lifetime = NumberRange.new(0.6, 1), Speed = NumberRange.new(0.5, 1.2),
+			SpreadAngle = Vector2.new(180, 180), Size = sequence(0.2, 0),
+		})
+	end,
+	Snowfall = function(part, size)
+		emitter(attachment(part, Vector3.new(0, size.Y * 0.9, 0)), {
+			Texture = SPARKLE, Color = ColorSequence.new(Color3.fromRGB(240, 248, 255)), Rate = 10,
+			Lifetime = NumberRange.new(1, 1.4), Speed = NumberRange.new(0.2, 0.4), Acceleration = Vector3.new(0, -1.5, 0),
+			Shape = Enum.ParticleEmitterShape.Disc, ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume,
+			Size = sequence(0.14, 0.1), Transparency = sequence(0, 0.6),
+		})
+	end,
+	Storm = function(part, size)
+		emitter(attachment(part, Vector3.new(0, size.Y * 0.2, 0)), {
+			Texture = SPARKLE, Color = ColorSequence.new(Color3.fromRGB(150, 200, 255), Color3.fromRGB(255, 255, 255)),
+			LightEmission = 1, Rate = 16, Lifetime = NumberRange.new(0.1, 0.25), Speed = NumberRange.new(4, 7),
+			SpreadAngle = Vector2.new(180, 180), Size = sequence(0.3, 0),
+		})
+		emitter(attachment(part, Vector3.new(0, size.Y * 0.9, 0)), {
+			Texture = SMOKE, Color = ColorSequence.new(Color3.fromRGB(90, 96, 120)), Rate = 4,
+			Lifetime = NumberRange.new(1, 1.5), Speed = NumberRange.new(0.1, 0.3), Size = sequence(0.6, 1.1),
+			Transparency = sequence(0.5, 1),
+		})
+		light(part, Color3.fromRGB(150, 200, 255), 8, 1.4)
+	end,
+	GoldDust = function(part, size)
+		emitter(attachment(part, Vector3.new(0, size.Y * 0.5, 0)), {
+			Texture = SPARKLE, Color = ColorSequence.new(Color3.fromRGB(255, 226, 120), Color3.fromRGB(230, 170, 50)),
+			LightEmission = 1, Rate = 12, Lifetime = NumberRange.new(0.8, 1.3), Speed = NumberRange.new(0.3, 0.8),
+			SpreadAngle = Vector2.new(60, 60), Acceleration = Vector3.new(0, -3, 0), Size = sequence(0.18, 0.05),
+		})
+		light(part, Color3.fromRGB(255, 210, 110), 7, 1)
+	end,
+	Blueprint = function(part, size)
+		emitter(attachment(part, Vector3.zero), {
+			Texture = SPARKLE, Color = ColorSequence.new(Color3.fromRGB(90, 170, 255)), LightEmission = 1, Rate = 10,
+			Lifetime = NumberRange.new(0.6, 1), Speed = NumberRange.new(0.4, 0.8),
+			Shape = Enum.ParticleEmitterShape.Box, ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface,
+			Size = sequence(0.16, 0), Transparency = sequence(0, 0.4),
+		})
+		light(part, Color3.fromRGB(90, 170, 255), 6, 0.9)
+		local _ = size
+	end,
+	Clover = function(part, size)
+		emitter(attachment(part, Vector3.new(0, size.Y * 0.3, 0)), {
+			Texture = SPARKLE, Color = ColorSequence.new(Color3.fromRGB(120, 255, 120), Color3.fromRGB(255, 220, 90)),
+			LightEmission = 1, Rate = 9, Lifetime = NumberRange.new(0.8, 1.2), Speed = NumberRange.new(0.6, 1.2),
+			SpreadAngle = Vector2.new(180, 30), Size = sequence(0.22, 0), Rotation = NumberRange.new(0, 360),
+			RotSpeed = NumberRange.new(-120, 120),
+		})
+		light(part, Color3.fromRGB(120, 255, 140), 6, 0.9)
+	end,
+	Shadow = function(part, size)
+		emitter(attachment(part, Vector3.new(0, -size.Y * 0.3, 0)), {
+			Texture = SMOKE, Color = ColorSequence.new(Color3.fromRGB(20, 14, 30)), Rate = 10,
+			Lifetime = NumberRange.new(1, 1.6), Speed = NumberRange.new(0.3, 0.8), SpreadAngle = Vector2.new(180, 30),
+			Size = sequence(0.5, 1.3), Transparency = sequence(0.3, 1), LightInfluence = 1,
+		})
+		trail(part, size, ColorSequence.new(Color3.fromRGB(40, 20, 60)), 0.5)
+	end,
+	CashFlow = function(part, size)
+		emitter(attachment(part, Vector3.new(0, size.Y * 0.6, 0)), {
+			Color = ColorSequence.new(Color3.fromRGB(120, 200, 110)), Rate = 5, Lifetime = NumberRange.new(1.2, 1.8),
+			Speed = NumberRange.new(1, 2), SpreadAngle = Vector2.new(50, 50), Acceleration = Vector3.new(0, -3, 0),
+			Size = sequence(0.3, 0.25), Rotation = NumberRange.new(0, 360), RotSpeed = NumberRange.new(-150, 150),
+			Squash = NumberSequence.new(-0.5),
+		})
+		trail(part, size, ColorSequence.new(Color3.fromRGB(110, 220, 120)), 0.4)
+	end,
+	Starburst = function(part, size)
+		emitter(attachment(part, Vector3.new(0, size.Y * 0.4, 0)), {
+			Texture = SPARKLE, Color = ColorSequence.new(Color3.fromRGB(255, 240, 180), Color3.fromRGB(120, 200, 255)),
+			LightEmission = 1, Rate = 14, Lifetime = NumberRange.new(0.5, 0.9), Speed = NumberRange.new(2, 3.5),
+			SpreadAngle = Vector2.new(180, 180), Size = sequence(0.3, 0), Drag = 3,
+		})
+		light(part, Color3.fromRGB(255, 230, 170), 10, 1.6)
+	end,
+	CoinShower = function(part, size)
+		emitter(attachment(part, Vector3.new(0, size.Y * 0.5, 0)), {
+			Color = ColorSequence.new(Color3.fromRGB(255, 206, 70)), LightEmission = 0.4, Rate = 6,
+			Lifetime = NumberRange.new(0.8, 1.2), Speed = NumberRange.new(2.5, 3.5), SpreadAngle = Vector2.new(35, 35),
+			Acceleration = Vector3.new(0, -12, 0), Size = sequence(0.25, 0.25), Rotation = NumberRange.new(0, 360),
+			RotSpeed = NumberRange.new(-300, 300), Squash = NumberSequence.new(0.6),
+		})
+		light(part, Color3.fromRGB(255, 210, 100), 7, 1)
+	end,
+	Chimney = function(part, size)
+		emitter(attachment(part, Vector3.new(size.X * 0.2, size.Y * 0.55, 0)), {
+			Texture = SMOKE, Color = ColorSequence.new(Color3.fromRGB(220, 220, 225)), Rate = 4,
+			Lifetime = NumberRange.new(1.4, 2), Speed = NumberRange.new(0.6, 1), SpreadAngle = Vector2.new(10, 10),
+			Size = sequence(0.25, 0.9), Transparency = sequence(0.4, 1), Acceleration = Vector3.new(0.4, 0, 0),
+		})
+		light(part, Color3.fromRGB(255, 200, 120), 5, 0.6)
+	end,
+	ShadowFlames = function(part, size)
+		emitter(attachment(part, Vector3.new(0, -size.Y * 0.4, 0)), {
+			Texture = FIRE, Color = ColorSequence.new(Color3.fromRGB(255, 60, 40), Color3.fromRGB(80, 0, 10)), LightEmission = 0.6,
+			Rate = 26, Lifetime = NumberRange.new(0.3, 0.5), Speed = NumberRange.new(1.5, 3), SpreadAngle = Vector2.new(20, 20),
+			Size = sequence(0.5, 0.1), Transparency = sequence(0.1, 1),
+		})
+		trail(part, size, ColorSequence.new(Color3.fromRGB(255, 40, 40), Color3.fromRGB(40, 0, 0)), 0.45)
+		light(part, Color3.fromRGB(255, 50, 40), 8, 1.4)
+	end,
+	Steam = function(part, size)
+		emitter(attachment(part, Vector3.new(0, size.Y * 0.5, 0)), {
+			Texture = SMOKE, Color = ColorSequence.new(Color3.fromRGB(245, 245, 250)), Rate = 10,
+			Lifetime = NumberRange.new(1, 1.6), Speed = NumberRange.new(1.5, 2.5), SpreadAngle = Vector2.new(12, 12),
+			Size = sequence(0.35, 1.2), Transparency = sequence(0.2, 1), Drag = 1,
+		})
+	end,
+	Lightbulb = function(part, size)
+		emitter(attachment(part, Vector3.new(0, size.Y * 0.2, 0)), {
+			Texture = SPARKLE, Color = ColorSequence.new(Color3.fromRGB(255, 240, 160)), LightEmission = 1, Rate = 10,
+			Lifetime = NumberRange.new(0.5, 0.9), Speed = NumberRange.new(1, 2), SpreadAngle = Vector2.new(180, 180),
+			Size = sequence(0.25, 0),
+		})
+		light(part, Color3.fromRGB(255, 236, 160), 12, 2)
+	end,
 }
 
 -- Adds `effect` to a piece model (nil does nothing).

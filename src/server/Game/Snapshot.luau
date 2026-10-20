@@ -15,9 +15,11 @@ export type MatchInfo = {
 	length: string,
 	endsAt: number?,
 	turnDeadline: number?,
-	looks: { [string]: { piece: string?, rentEffect: string? } }?, -- each player's equipped cosmetics
+	looks: { [string]: Look }?, -- each player's equipped cosmetics
 	scene: string?,
 }
+
+export type Look = { piece: string?, rentEffect: string?, aura: string?, dice: string?, title: string? }
 
 local NO_MATCH: MatchInfo = { timer = "Off", length = "Off" }
 
@@ -25,6 +27,7 @@ function Snapshot.fromState(state: Types.GameState, info: MatchInfo?): Protocol.
 	local match = info or NO_MATCH
 	local players = {}
 	for seat, player in state.players do
+		local look: Look = if match.looks then match.looks[player.id] or {} else {}
 		table.insert(players, {
 			id = player.id,
 			name = player.name,
@@ -37,8 +40,11 @@ function Snapshot.fromState(state: Types.GameState, info: MatchInfo?): Protocol.
 			jailAttempts = player.jailAttempts,
 			seat = seat,
 			netWorth = PropertyRules.netWorth(state, player.id, player.money),
-			piece = if match.looks and match.looks[player.id] then match.looks[player.id].piece else nil,
-			rentEffect = if match.looks and match.looks[player.id] then match.looks[player.id].rentEffect else nil,
+			piece = look.piece,
+			rentEffect = look.rentEffect,
+			aura = look.aura,
+			dice = look.dice,
+			title = look.title,
 		})
 	end
 

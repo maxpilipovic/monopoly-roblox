@@ -93,10 +93,12 @@ local function template(kind: string, shape: string): Model?
 	return if model and model:IsA("Model") then model else nil
 end
 
-function ModelView.set(self: ModelView, kind: string?, shape: string?, finish: ((Model) -> ())?, fallback: string?)
+-- `variant` names the finish, so the same model in another finish is rebuilt (a Top Hat, then a
+-- Golden Top Hat, in one view).
+function ModelView.set(self: ModelView, kind: string?, shape: string?, finish: ((Model) -> ())?, fallback: string?, variant: string?)
 	self.mark.Text = fallback or ""
 	local source = if kind and shape then template(kind, shape) else nil
-	local key = if kind and shape then `{kind}/{shape}/{source ~= nil}` else nil
+	local key = if kind and shape then `{kind}/{shape}/{variant or ""}/{source ~= nil}` else nil
 	if key == self.key then
 		self.mark.Visible = self.model == nil
 		return

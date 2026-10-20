@@ -5,7 +5,9 @@ local ServerStorage = game:GetService("ServerStorage")
 local Assets = require(script.Assets)
 local Leaderboards = require(script.Data.Leaderboards)
 local LobbyBuilder = require(script.LobbyBuilder)
+local Nameplates = require(script.Nameplates)
 local PlayerData = require(script.Data.PlayerData)
+local ProgressService = require(script.Store.ProgressService)
 local RoomService = require(script.RoomService)
 local ShopService = require(script.Store.ShopService)
 
@@ -16,6 +18,8 @@ RoomService.start() -- makes the Remotes folder the other services add to
 PlayerData.start()
 Leaderboards.start()
 ShopService.start()
+ProgressService.start()
+Nameplates.start()
 
 -- Studio only: tooling that can't require our modules runs the tests by setting the workspace
 -- attribute RunTests to a spec filter ("" for all); the report lands in TestResults.

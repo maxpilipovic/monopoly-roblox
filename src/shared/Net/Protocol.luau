@@ -15,6 +15,9 @@ export type PlayerView = {
 	netWorth: number,
 	piece: string?, -- Catalog piece id this player plays with
 	rentEffect: string?, -- Catalog rent effect played over whoever pays them rent
+	aura: string?, -- Catalog aura worn on their piece
+	dice: string?, -- Catalog dice skin they roll with
+	title: string?, -- Catalog title shown with their name
 }
 
 export type PropertyView = {
@@ -89,11 +92,17 @@ export type Update = {
 	notice: string?, -- only to a player whose action was refused: why
 }
 
--- A player's own saved data, as their client sees it.
+-- A player's own saved data, as their client sees it (progression in the shape Shared.Progress.Progress reads).
 export type ProfileView = {
-	stats: { wins: number, games: number, streak: number, bestStreak: number, elo: number },
+	stats: { wins: number, games: number, streak: number, bestStreak: number, elo: number, peakElo: number, rankedGames: number, rankedWins: number },
 	inventory: { [string]: number },
-	equipped: { piece: string, rentEffect: string? },
+	equipped: { piece: string, rentEffect: string?, aura: string?, dice: string?, title: string? },
+	coins: number,
+	counters: { [string]: number },
+	keys: { [string]: number },
+	daily: any, -- Progress.DailyState
+	achievements: { [string]: number },
+	tree: { claimed: { [string]: boolean }, starts: { [string]: number } },
 }
 
 -- The casual games on this server and which one (if any) the receiving player is in.
@@ -108,9 +117,16 @@ export type RoomsUpdate = {
 -- Requests on the LOBBY remote: { type = "Create", settings } | { type = "Join", room } | { type = "Leave" }
 -- | { type = "Settings", settings } | { type = "Start" } | { type = "ReturnToLobby" }
 -- | { type = "Queue", mode = "Duel" | "Table" } | { type = "Unqueue" }
--- Requests on the STORE remote: { type = "Equip", item } | { type = "UnequipEffect" } | { type = "Buy", chest }
+-- Requests on the STORE remote: { type = "Equip", item } | { type = "Unequip", kind } | { type = "UnequipEffect" }
+-- | { type = "Buy", chest } (Robux) | { type = "BuyWithCoins", chest } | { type = "UseKey", chest }
 -- | { type = "TestOpen", chest } (Studio only)
-export type ChestResult = { chest: string, item: string, count: number }
+-- refund: the item was already owned, so it became this many coins instead.
+export type ChestResult = { chest: string, item: string, count: number, refund: number? }
+
+-- Requests on the PROGRESS remote: { type = "ClaimDaily", slot } | { type = "SwapDaily", slot }
+-- | { type = "ClaimAchievement", track } | { type = "ClaimNode", node }
+-- A claimed reward, sent back for the celebration (or just a notice when the claim was refused).
+export type RewardView = { source: string, title: string, coins: number?, item: string?, key: string?, notice: string? }
 
 local Protocol = {}
 
@@ -123,5 +139,7 @@ Protocol.PROFILE = "ProfileUpdate"
 Protocol.ROOMS = "RoomsUpdate"
 Protocol.STORE = "StoreRequest"
 Protocol.CHEST = "ChestOpened"
+Protocol.PROGRESS = "ProgressRequest"
+Protocol.REWARD = "RewardEarned"
 
 return table.freeze(Protocol)

@@ -91,6 +91,60 @@ tests["a purchase is remembered so it's never granted twice, keeping the last 50
 	Expect.equal(Profile.hasReceipt(profile, "p60"), true)
 end
 
+tests["a save from before progression starts with no coins and its games counted"] = function()
+	local profile = Profile.reconcile({ stats = { games = 12, wins = 4, rankedWins = 2 } })
+	Expect.equal(profile.coins, 0)
+	Expect.equal(profile.counters.games, 12)
+	Expect.equal(profile.counters.wins, 4)
+	Expect.equal(profile.counters.rankedWins, 2)
+	Expect.equal(profile.tree.starts.Root, 0, "the tree's root is open")
+	Expect.equal(profile.daily.day, -1, "dailies are dealt on first visit")
+end
+
+tests["progression survives a save and load"] = function()
+	local profile = Profile.new()
+	profile.coins = 1234
+	profile.counters.doubles = 9
+	profile.keys.Gold = 2
+	profile.achievements.Winner = 3
+	profile.tree.claimed.Root = true
+	profile.tree.starts.Tycoon1 = 40
+	profile.daily = { day = 5, ids = { "Easy_games_2", "Medium_games_4", "Hard_wins_1" }, starts = { 1, 2, 3 }, claimed = { true, false, false }, swaps = 1, bonus = false }
+	local loaded = Profile.reconcile(table.clone(profile))
+	Expect.equal(loaded.coins, 1234)
+	Expect.equal(loaded.counters.doubles, 9)
+	Expect.equal(loaded.keys.Gold, 2)
+	Expect.equal(loaded.achievements.Winner, 3)
+	Expect.equal(loaded.tree.claimed.Root, true)
+	Expect.equal(loaded.tree.starts.Tycoon1, 40)
+	Expect.equal(loaded.daily.ids[3], "Hard_wins_1")
+	Expect.equal(loaded.daily.starts[2], 2)
+	Expect.equal(loaded.daily.claimed[1], true)
+	Expect.equal(loaded.daily.swaps, 1)
+end
+
+tests["auras, dice and titles each have their own slot"] = function()
+	local profile = Profile.new()
+	Expect.equal((Profile.equip(profile, "DiceIvory")), true, "ivory dice are everyone's")
+	Expect.equal((Profile.equip(profile, "AuraRainbow")), false, "not owned")
+	Profile.grant(profile, "AuraRainbow")
+	Profile.grant(profile, "DiceGold")
+	Profile.grant(profile, "TitleMogul")
+	for _, id in { "AuraRainbow", "DiceGold", "TitleMogul" } do
+		Expect.equal((Profile.equip(profile, id)), true, id)
+	end
+	Expect.equal(profile.equipped.aura, "AuraRainbow")
+	Expect.equal(profile.equipped.dice, "DiceGold")
+	Expect.equal(profile.equipped.title, "TitleMogul")
+	Expect.equal(profile.equipped.piece, "TopHat", "the piece is untouched")
+	local loaded = Profile.reconcile(table.clone(profile))
+	Expect.equal(loaded.equipped.title, "TitleMogul", "kept across a load")
+	Profile.unequip(profile, "Title")
+	Profile.unequip(profile, "Piece")
+	Expect.equal(profile.equipped.title, nil)
+	Expect.equal(profile.equipped.piece, "TopHat", "a piece can't be taken off")
+end
+
 tests["items the catalogue no longer knows are kept, not wiped"] = function()
 	local profile = Profile.reconcile({ inventory = { Crown = 1, RetiredThing = 2 } })
 	Expect.equal(profile.inventory.Crown, 1)

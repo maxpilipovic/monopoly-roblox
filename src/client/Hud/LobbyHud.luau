@@ -1,7 +1,9 @@
 --!strict
--- The lobby's screen: your stats card (Elo, wins, streaks), a dock (Play, Pieces, Chests), and the
--- panels those open: the casual games browser (list, create, your room), your pieces and rent
--- effects, and the chest shop with its opening reveal. Hidden while you're at a board.
+-- The lobby's screen: your stats card (Elo, wins, streaks, title), your coins and chest keys, a
+-- dock (Play, Challenges, Collection, Chests), and the panels those open: the casual games browser
+-- (list, create, your room), challenges (ChallengesPanel), your collection of pieces, auras, dice,
+-- rent effects and titles, and the chest shop with its opening reveal; plus the reward celebration
+-- when a challenge is claimed. Hidden while you're at a board.
 -- Nothing here goes under a ClipsDescendants frame where a 3D preview is shown: Roblox doesn't
 -- draw ViewportFrames there.
 
@@ -12,13 +14,18 @@ local TweenService = game:GetService("TweenService")
 
 local Catalog = require(ReplicatedStorage.Shared.Cosmetics.Catalog)
 local Chests = require(ReplicatedStorage.Shared.Store.Chests)
+local Progress = require(ReplicatedStorage.Shared.Progress.Progress)
+local Rewards = require(ReplicatedStorage.Shared.Progress.Rewards)
+local Stats = require(ReplicatedStorage.Shared.Progress.Stats)
+local Unlocks = require(ReplicatedStorage.Shared.Progress.Unlocks)
 local EmblemLook = require(ReplicatedStorage.Shared.Board.EmblemLook)
 local MatchSettings = require(ReplicatedStorage.Shared.Rules.MatchSettings)
-local PieceLook = require(ReplicatedStorage.Shared.Cosmetics.PieceLook)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local Ranks = require(ReplicatedStorage.Shared.Rules.Ranks)
 local Scenes = require(ReplicatedStorage.Shared.Board.Scenes)
 local RoomSettings = require(ReplicatedStorage.Shared.Rules.RoomSettings)
+local ChallengesPanel = require(script.Parent.Lobby.ChallengesPanel)
+local ItemArt = require(script.Parent.Lobby.ItemArt)
 local ModelView = require(script.Parent.ModelView)
 local Theme = require(script.Parent.Theme)
 local Ui = require(script.Parent.Ui)
@@ -35,15 +42,16 @@ local function clockText(seconds: number): string
 	seconds = math.max(0, math.floor(seconds))
 	return string.format("%d:%02d", seconds // 60, seconds % 60)
 end
-local EFFECT_GLYPHS = {
-	CoinBurst = "🪙",
-	ConfettiPop = "🎉",
-	MoneyRain = "💸",
-	GoldenAura = "✨",
-	Lightning = "⚡",
-	Fireworks = "🎆",
-	BlackHole = "🕳️",
+local EFFECT_GLYPHS = ItemArt.GLYPHS
+local COLLECTION_TABS = {
+	{ kind = "Piece", label = "Pieces" },
+	{ kind = "Aura", label = "Auras" },
+	{ kind = "Dice", label = "Dice" },
+	{ kind = "RentEffect", label = "Rent effects" },
+	{ kind = "Title", label = "Titles" },
 }
+local SLOTS = { Piece = "piece", RentEffect = "rentEffect", Aura = "aura", Dice = "dice", Title = "title" }
+local PAGE_SIZE = 15 -- five by three; the collection pages rather than scrolls (3D previews don't draw in a scrolling frame)
 local CHEST_LOOKS = {
 	Silver = { Body = { Color3.fromRGB(58, 62, 72), Enum.Material.SmoothPlastic }, Trim = { Color3.fromRGB(210, 214, 224), Enum.Material.Metal } },
 	Gold = { Body = { Color3.fromRGB(46, 30, 18), Enum.Material.Wood }, Trim = { Color3.fromRGB(230, 184, 70), Enum.Material.Metal } },
@@ -53,6 +61,7 @@ local CHEST_LOOKS = {
 export type Callbacks = {
 	onLobby: (request: { [string]: any }) -> (),
 	onStore: (request: { [string]: any }) -> (),
+	onProgress: (request: { [string]: any }) -> (),
 }
 
 export type LobbyHud = typeof(setmetatable(
@@ -69,8 +78,17 @@ export type LobbyHud = typeof(setmetatable(
 		open: string?,
 		draft: RoomSettings.Settings, -- the create form's settings
 		creating: boolean,
-		piecesTab: string,
+		piecesTab: string, -- the collection's tab: a Catalog kind
+		collectionPage: number,
 		playTab: string, -- "Ranked" | "Casual"
+		challengesTab: string,
+		treeState: { zoom: number, canvas: Vector2?, selected: string? },
+		dailyClock: TextLabel?,
+		wallet: Frame,
+		walletCoins: TextLabel,
+		walletKeys: TextLabel,
+		titleTag: TextLabel,
+		dockButtons: { [string]: TextButton },
 		chestDetail: string?, -- the chest whose full item list is open
 		queueLabel: TextLabel?, -- the "Searching…" line, ticked every frame
 		titleLabel: TextLabel,
@@ -92,12 +110,6 @@ local function finishChest(chestId: string): (Model) -> ()
 				part.Material = finish[2]
 			end
 		end
-	end
-end
-
-local function finishPiece(id: string): (Model) -> ()
-	return function(model: Model)
-		PieceLook.apply(model, id)
 	end
 end
 
@@ -199,8 +211,17 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 		open = nil,
 		draft = RoomSettings.validate(nil),
 		creating = false,
-		piecesTab = "Pieces",
+		piecesTab = "Piece",
+		collectionPage = 1,
 		playTab = "Ranked",
+		challengesTab = "Daily",
+		treeState = { zoom = 0.6, canvas = nil, selected = nil },
+		dailyClock = nil,
+		wallet = nil :: any,
+		walletCoins = nil :: any,
+		walletKeys = nil :: any,
+		titleTag = nil :: any,
+		dockButtons = {},
 		chestDetail = nil,
 		queueLabel = nil,
 		titleLabel = nil :: any,
@@ -211,7 +232,7 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 	}, LobbyHud)
 
 	-- Stats card, top left.
-	local card = Ui.panel("StatsCard", UDim2.fromOffset(330, 168), UDim2.fromOffset(16, 16), Vector2.zero, root)
+	local card = Ui.panel("StatsCard", UDim2.fromOffset(330, 184), UDim2.fromOffset(16, 16), Vector2.zero, root)
 	self.statsCard = card
 	local avatar = Instance.new("ImageLabel")
 	avatar.Name = "Avatar"
@@ -236,26 +257,33 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 	name.TextTruncate = Enum.TextTruncate.AtEnd
 	name.TextWrapped = false
 	name.Text = if player then player.DisplayName else "Player"
+	-- The equipped title, in its rarity's colour.
+	local titleTag = Ui.label("TitleTag", card, UDim2.new(1, -110, 0, 18), 15, Theme.font.display)
+	titleTag.Position = UDim2.fromOffset(100, 44)
+	titleTag.TextXAlignment = Enum.TextXAlignment.Left
+	titleTag.TextTruncate = Enum.TextTruncate.AtEnd
+	titleTag.TextWrapped = false
+	self.titleTag = titleTag
 	local eloCaption = Ui.label("EloCaption", card, UDim2.fromOffset(60, 18), 13, Theme.font.bodyBold)
-	eloCaption.Position = UDim2.fromOffset(100, 50)
+	eloCaption.Position = UDim2.fromOffset(100, 64)
 	eloCaption.TextXAlignment = Enum.TextXAlignment.Left
 	eloCaption.TextColor3 = Theme.color.textDim
 	eloCaption.Text = "ELO"
 	local elo = Ui.label("Elo", card, UDim2.fromOffset(160, 34), 32, Theme.font.display)
-	elo.Position = UDim2.fromOffset(100, 64)
+	elo.Position = UDim2.fromOffset(100, 78)
 	elo.TextXAlignment = Enum.TextXAlignment.Left
 	elo.TextColor3 = GOLD
 	elo.Text = "1000"
 	self.statLabels.elo = elo
 	-- The chess-style title for that rating, e.g. "Novice" or "Grandmaster".
 	local title = Ui.label("Title", card, UDim2.fromOffset(150, 20), 15, Theme.font.display)
-	title.Position = UDim2.fromOffset(176, 74)
+	title.Position = UDim2.fromOffset(176, 88)
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.TextTruncate = Enum.TextTruncate.AtEnd
 	title.TextWrapped = false
 	self.titleLabel = title
 	local stats = Ui.frame("Stats", UDim2.new(1, -32, 0, 52), card)
-	stats.Position = UDim2.fromOffset(16, 104)
+	stats.Position = UDim2.fromOffset(16, 120)
 	Ui.list(stats, Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center)
 	for index, info in { { "wins", "Total wins" }, { "bestStreak", "Best streak" }, { "streak", "Streak" }, { "peakElo", "Peak Elo" } } do
 		local tile = Ui.surface(info[1], UDim2.fromOffset(68, 52), stats)
@@ -269,24 +297,49 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 		self.statLabels[info[1]] = value
 	end
 
+	-- The wallet, top right: coins and chest keys; tapping it opens the chests.
+	local wallet = Ui.panel("Wallet", UDim2.fromOffset(250, 56), UDim2.new(1, -16, 0, 16), Vector2.new(1, 0), root)
+	self.wallet = wallet
+	local coins = Ui.label("Coins", wallet, UDim2.new(1, -110, 1, 0), 26, Theme.font.display)
+	coins.Position = UDim2.fromOffset(14, 0)
+	coins.TextXAlignment = Enum.TextXAlignment.Left
+	coins.TextColor3 = Color3.fromRGB(255, 210, 80)
+	coins.Text = `{ItemArt.COIN} 0`
+	self.walletCoins = coins
+	local keys = Ui.label("Keys", wallet, UDim2.fromOffset(60, 22), 15, Theme.font.bodyBold)
+	keys.AnchorPoint = Vector2.new(1, 0.5)
+	keys.Position = UDim2.new(1, -56, 0.5, 0)
+	keys.TextXAlignment = Enum.TextXAlignment.Right
+	keys.TextColor3 = Theme.color.textDim
+	self.walletKeys = keys
+	local more = Ui.button("+", wallet, function()
+		self:toggle("Chests")
+	end, "primary")
+	more.Size = UDim2.fromOffset(40, 40)
+	more.AnchorPoint = Vector2.new(1, 0.5)
+	more.Position = UDim2.new(1, -8, 0.5, 0)
+	Ui.setTextSize(more, 24)
+
 	-- The dock, bottom centre.
-	local dock = Ui.frame("Dock", UDim2.fromOffset(500, 64), root)
+	local dock = Ui.frame("Dock", UDim2.fromOffset(660, 64), root)
 	dock.AnchorPoint = Vector2.new(0.5, 1)
 	dock.Position = UDim2.new(0.5, 0, 1, -20)
 	Ui.list(dock, Enum.FillDirection.Horizontal, 14, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Center)
 	self.dock = dock
-	for index, info in { { "Play", "primary" }, { "Pieces", "secondary" }, { "Chests", "accent" } } do
+	for index, info in { { "Play", "primary", "Games" }, { "Challenges", "secondary", "Challenges" }, { "Collection", "secondary", "Pieces" }, { "Chests", "accent", "Chests" } } do
 		local button = Ui.button(info[1], dock, function()
-			self:toggle(if info[1] == "Play" then "Games" else info[1])
+			self:toggle(info[3])
 		end, info[2] :: Ui.Style)
 		button.Size = UDim2.fromOffset(150, 58)
 		button.LayoutOrder = index
-		Ui.setTextSize(button, 22)
+		Ui.setTextSize(button, if #info[1] > 8 then 19 else 22)
+		self.dockButtons[info[1]] = button
 	end
 
 	panel(self, "Games", Vector2.new(560, 580))
-	panel(self, "Pieces", Vector2.new(640, 566))
-	panel(self, "Chests", Vector2.new(720, 470))
+	panel(self, "Challenges", ChallengesPanel.SIZE)
+	panel(self, "Pieces", Vector2.new(660, 600))
+	panel(self, "Chests", Vector2.new(720, 540))
 
 	local toast = Ui.label("Toast", root, UDim2.fromOffset(420, 40), 17, Theme.font.bodyBold)
 	toast.AnchorPoint = Vector2.new(0.5, 0)
@@ -323,6 +376,7 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 	-- The ranked queue's clock ticks while you search.
 	if RunService:IsClient() then
 		RunService.Heartbeat:Connect(function()
+			ChallengesPanel.tick(self)
 			local label = self.queueLabel
 			local queued = if self.rooms then self.rooms.queue else nil
 			if label and label.Parent and queued then
@@ -474,9 +528,15 @@ local function footer(parent: Instance): Frame
 end
 
 local function renderBrowse(self: LobbyHud, content: Frame)
+	-- Its own line under the tabs, never over them.
+	local note = Ui.label("CasualNote", content, UDim2.new(1, 0, 0, 20), 14, Theme.font.body)
+	note.TextXAlignment = Enum.TextXAlignment.Left
+	note.TextColor3 = Theme.color.textDim
+	note.Text = `Casual games never change your rating, but still earn {ItemArt.COIN} coins.`
 	local list = Instance.new("ScrollingFrame")
 	list.Name = "Rooms"
-	list.Size = UDim2.new(1, 0, 1, -64)
+	list.Position = UDim2.fromOffset(0, 28)
+	list.Size = UDim2.new(1, 0, 1, -92)
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
 	list.ScrollBarThickness = 6
@@ -682,29 +742,25 @@ local function renderGames(self: LobbyHud)
 	if self.playTab == "Ranked" then
 		renderRanked(self, content)
 	else
-		local note = Ui.label("CasualNote", frame, UDim2.fromOffset(200, 38), 13, Theme.font.body)
-		note.AnchorPoint = Vector2.new(1, 0)
-		note.Position = UDim2.new(1, -64, 0, 60)
-		note.TextXAlignment = Enum.TextXAlignment.Right
-		note.TextColor3 = Theme.color.textDim
-		note.Text = "Casual games never change your rating."
 		renderBrowse(self, content)
 	end
 end
 
-local function itemTile(self: LobbyHud, parent: Instance, order: number, item: Catalog.Item?, owned: number, equipped: boolean)
+local function itemTile(self: LobbyHud, parent: Instance, order: number, item: Catalog.Item, owned: boolean, equipped: boolean)
 	local tile = Instance.new("TextButton")
-	tile.Name = if item then item.id else "None"
+	tile.Name = item.id
 	tile.LayoutOrder = order
 	tile.BackgroundColor3 = if equipped then Theme.color.surfaceHigh else Theme.color.surface
-	tile.AutoButtonColor = owned > 0
+	tile.AutoButtonColor = owned
 	tile.Text = ""
 	tile.Parent = parent
 	Ui.corner(tile, Theme.radius.surface)
+	local rarityColor = Catalog.RARITY_COLORS[item.rarity]
 	if equipped then
-		Ui.stroke(tile, GOLD, 2, 0)
+		Ui.stroke(tile, GOLD, 2.5, 0)
+	elseif owned and item.rarity == "Legendary" then
+		Ui.stroke(tile, rarityColor, 1.5, 0.3)
 	end
-	local rarityColor = if item then Catalog.RARITY_COLORS[item.rarity] else Theme.color.textDim
 	local bar = Instance.new("Frame")
 	bar.Name = "Rarity"
 	bar.Size = UDim2.new(1, -16, 0, 4)
@@ -713,32 +769,53 @@ local function itemTile(self: LobbyHud, parent: Instance, order: number, item: C
 	bar.BorderSizePixel = 0
 	bar.Parent = tile
 	Ui.corner(bar, 2)
-	if item and item.kind == "Piece" then
-		local view = ModelView.new("Preview", tile, UDim2.new(1, 0, 0, 78))
-		view.frame.Position = UDim2.fromOffset(0, 12)
-		view:set("Pieces", item.id, finishPiece(item.id), "?")
-	else
-		local glyph = Ui.label("Glyph", tile, UDim2.new(1, 0, 0, 70), 44, Theme.font.display)
-		glyph.Position = UDim2.fromOffset(0, 14)
-		glyph.Text = if item then EFFECT_GLYPHS[item.id] or "★" else "—"
+	local art = ItemArt.build(tile, item.id, UDim2.new(1, 0, 0, 78))
+	art.Position = UDim2.fromOffset(0, 12)
+	if not owned then
+		if art:IsA("ViewportFrame") then
+			art.ImageTransparency = 0.55
+			art.ImageColor3 = Color3.fromRGB(120, 120, 140)
+		elseif art:IsA("TextLabel") then
+			art.TextTransparency = 0.55
+		end
+		local lock = Ui.label("Lock", tile, UDim2.fromOffset(26, 26), 18, Theme.font.display)
+		lock.AnchorPoint = Vector2.new(1, 0)
+		lock.Position = UDim2.new(1, -4, 0, 12)
+		lock.Text = "🔒"
 	end
 	local name = Ui.label("Name", tile, UDim2.new(1, -8, 0, 20), 14, Theme.font.bodyBold)
 	name.Position = UDim2.fromOffset(4, 92)
-	name.Text = if item then item.name else "No effect"
+	name.TextTruncate = Enum.TextTruncate.AtEnd
+	name.TextWrapped = false
+	name.Text = item.name
 	local status = Ui.label("Status", tile, UDim2.new(1, -8, 0, 18), 12, Theme.font.bodyBold)
 	status.Position = UDim2.fromOffset(4, 112)
-	status.TextColor3 = if equipped then GOLD elseif owned > 0 then Theme.color.textDim else Theme.color.moneyDown
-	status.Text = if equipped then "EQUIPPED" elseif owned > 1 then `Owned ×{owned}` elseif owned > 0 then (if item then item.rarity else "") else "Locked"
-	if owned <= 0 then
-		tile.BackgroundTransparency = 0.35
+	status.TextColor3 = if equipped then GOLD elseif owned then rarityColor elseif item.exclusive then Color3.fromRGB(255, 170, 90) else Theme.color.textDim
+	status.Text = if equipped then "EQUIPPED"
+		elseif owned then string.upper(item.rarity)
+		elseif item.exclusive then "CHALLENGE"
+		else "IN CHESTS"
+	if not owned then
+		tile.BackgroundTransparency = 0.3
 	end
 	tile.Activated:Connect(function()
-		if owned <= 0 then
-			self:notice("Win this from a chest")
-		elseif item then
-			self.callbacks.onStore({ type = "Equip", item = item.id })
+		if not owned then
+			local source = Unlocks.sourceOf(item.id)
+			if source then
+				self:notice(`Unlock it: {source}`)
+				local node = Unlocks.nodeFor(item.id)
+				if node then
+					self.challengesTab = "Empire Tree"
+					self.treeState.selected = node
+					self.treeState.canvas = nil
+				end
+			else
+				self:notice(`Win {item.name} from a chest`)
+			end
+		elseif equipped then
+			self.callbacks.onStore({ type = "Unequip", kind = item.kind })
 		else
-			self.callbacks.onStore({ type = "UnequipEffect" })
+			self.callbacks.onStore({ type = "Equip", item = item.id })
 		end
 	end)
 end
@@ -749,42 +826,100 @@ local function renderPieces(self: LobbyHud)
 		return child.Name == "Close"
 	end)
 	heading("Your collection", frame)
-	local tabs = Ui.frame("Tabs", UDim2.fromOffset(330, 40), frame)
-	tabs.Position = UDim2.fromOffset(20, 58)
-	Ui.list(tabs, Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center)
-	for index, tab in { "Pieces", "Rent effects" } do
-		local button = Ui.button(tab, tabs, function()
-			self.piecesTab = tab
-			self:render()
-		end, if self.piecesTab == tab then "accent" else "secondary")
-		button.Size = UDim2.fromOffset(150, 38)
-		button.LayoutOrder = index
-		Ui.setTextSize(button, 16)
+	local profile = self.profile
+	local data = profile :: any
+	local equipped = if profile then profile.equipped else { piece = Catalog.DEFAULT_PIECE }
+	local kind = self.piecesTab
+
+	-- Owned out of how many, across everything.
+	local owned, total = 0, 0
+	for _, item in Catalog.ITEMS do
+		total += 1
+		if data and Progress.owns(data, item.id) then
+			owned += 1
+		end
 	end
-	local grid = Ui.frame("Grid", UDim2.new(1, -40, 1, -120), frame)
-	grid.Position = UDim2.fromOffset(20, 106)
+	local count = Ui.label("Count", frame, UDim2.fromOffset(200, 24), 15, Theme.font.bodyBold)
+	count.AnchorPoint = Vector2.new(1, 0)
+	count.Position = UDim2.new(1, -60, 0, 20)
+	count.TextXAlignment = Enum.TextXAlignment.Right
+	count.TextColor3 = Theme.color.textDim
+	count.Text = `{owned} / {total} collected`
+
+	local tabs = Ui.frame("Tabs", UDim2.new(1, -40, 0, 40), frame)
+	tabs.Position = UDim2.fromOffset(20, 58)
+	Ui.list(tabs, Enum.FillDirection.Horizontal, 6, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center)
+	for index, tab in COLLECTION_TABS do
+		local button = Ui.button(tab.label, tabs, function()
+			self.piecesTab = tab.kind
+			self.collectionPage = 1
+			self:render()
+		end, if kind == tab.kind then "accent" else "secondary")
+		button.Size = UDim2.fromOffset(if tab.kind == "RentEffect" then 128 else 112, 36)
+		button.LayoutOrder = index
+		Ui.setTextSize(button, 15)
+	end
+
+	-- This tab's items: equipped first, then owned, then the rest; each by rarity.
+	local items = {}
+	for index, item in Catalog.ITEMS do
+		if item.kind == kind then
+			local isOwned = data ~= nil and Progress.owns(data, item.id)
+			local slot = (equipped :: any)[SLOTS[kind]]
+			local isOn = slot == item.id or (kind == "Dice" and slot == nil and item.id == Catalog.DEFAULT_DICE)
+			local rank = (if isOn then 0 elseif isOwned then 1 else 2) * 10000
+				+ (table.find(Catalog.RARITIES, item.rarity) or 0) * 100
+				+ index
+			table.insert(items, { item = item, owned = isOwned, on = isOn, rank = rank })
+		end
+	end
+	table.sort(items, function(a, b)
+		return a.rank < b.rank
+	end)
+	local pages = math.max(1, math.ceil(#items / PAGE_SIZE))
+	self.collectionPage = math.clamp(self.collectionPage, 1, pages)
+
+	local grid = Ui.frame("Grid", UDim2.fromOffset(5 * 118, 3 * 142), frame)
+	grid.AnchorPoint = Vector2.new(0.5, 0)
+	grid.Position = UDim2.new(0.5, 0, 0, 108)
 	local layout = Instance.new("UIGridLayout")
 	layout.CellSize = UDim2.fromOffset(110, 134)
 	layout.CellPadding = UDim2.fromOffset(8, 8)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = grid
-	local profile = self.profile
-	local inventory = if profile then profile.inventory else {}
-	local equipped = if profile then profile.equipped else { piece = Catalog.DEFAULT_PIECE, rentEffect = nil }
-	local kind = if self.piecesTab == "Pieces" then "Piece" else "RentEffect"
-	local order = 0
-	if kind == "RentEffect" then
-		order += 1
-		itemTile(self, grid, order, nil, 1, equipped.rentEffect == nil)
+	local first = (self.collectionPage - 1) * PAGE_SIZE
+	for index = first + 1, math.min(first + PAGE_SIZE, #items) do
+		local entry = items[index]
+		itemTile(self, grid, index, entry.item, entry.owned, entry.on)
 	end
-	for _, item in Catalog.ITEMS do
-		if item.kind == kind then
-			order += 1
-			local owned = if item.default then 1 else inventory[item.id] or 0
-			local isOn = if kind == "Piece" then equipped.piece == item.id else equipped.rentEffect == item.id
-			itemTile(self, grid, order, item, owned, isOn)
-		end
-	end
+
+	local footerBar = Ui.frame("Pager", UDim2.new(1, -40, 0, 40), frame)
+	footerBar.Position = UDim2.new(0, 20, 1, -52)
+	local hint = Ui.label("Hint", footerBar, UDim2.new(1, -220, 1, 0), 13, Theme.font.body)
+	hint.TextXAlignment = Enum.TextXAlignment.Left
+	hint.TextColor3 = Theme.color.textDim
+	hint.Text = if kind == "Piece" or kind == "Dice"
+		then "Click to equip. Locked ones show how to unlock them."
+		else "Click to equip; click again to take it off."
+	local pager = Ui.frame("Buttons", UDim2.fromOffset(210, 40), footerBar)
+	pager.AnchorPoint = Vector2.new(1, 0)
+	pager.Position = UDim2.fromScale(1, 0)
+	Ui.list(pager, Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Center)
+	local back = Ui.button("‹", pager, function()
+		self.collectionPage -= 1
+		self:render()
+	end, if self.collectionPage > 1 then "secondary" else "disabled")
+	back.Size = UDim2.fromOffset(44, 38)
+	back.LayoutOrder = 1
+	local pageLabel = Ui.label("Page", pager, UDim2.fromOffset(90, 38), 15, Theme.font.bodyBold)
+	pageLabel.LayoutOrder = 2
+	pageLabel.Text = `Page {self.collectionPage} / {pages}`
+	local forward = Ui.button("›", pager, function()
+		self.collectionPage += 1
+		self:render()
+	end, if self.collectionPage < pages then "secondary" else "disabled")
+	forward.Size = UDim2.fromOffset(44, 38)
+	forward.LayoutOrder = 3
 end
 
 local function renderChests(self: LobbyHud)
@@ -820,7 +955,7 @@ local function renderChests(self: LobbyHud)
 			local name = Ui.label("Name", row, UDim2.new(0.55, -24, 1, 0), 15, Theme.font.bodyBold)
 			name.Position = UDim2.fromOffset(22, 0)
 			name.TextXAlignment = Enum.TextXAlignment.Left
-			name.Text = `{line.name}  ·  {if item and item.kind == "Piece" then "piece" else "rent effect"}`
+			name.Text = `{line.name}  ·  {if item then string.lower(Catalog.KIND_NAMES[item.kind]) else ""}`
 			local rarity = Ui.label("Rarity", row, UDim2.new(0.25, 0, 1, 0), 14, Theme.font.bodyBold)
 			rarity.Position = UDim2.fromScale(0.55, 0)
 			rarity.TextColor3 = Catalog.RARITY_COLORS[line.rarity]
@@ -840,28 +975,30 @@ local function renderChests(self: LobbyHud)
 		return
 	end
 	heading("Chests", frame)
+	local profile = self.profile
+	local coins = if profile then profile.coins else 0
 	local note = Ui.label("Note", frame, UDim2.new(1, -40, 0, 18), 13, Theme.font.body)
 	note.Position = UDim2.fromOffset(20, 50)
 	note.TextXAlignment = Enum.TextXAlignment.Left
 	note.TextColor3 = Theme.color.textDim
-	note.Text = "Win new pieces and rent effects. Odds are shown on each chest."
+	note.Text = `Pieces, auras, dice skins and rent effects. Duplicates turn into coins. Odds are on each chest.`
 	local row = Ui.frame("Row", UDim2.new(1, -40, 1, -90), frame)
 	row.Position = UDim2.fromOffset(20, 78)
 	Ui.list(row, Enum.FillDirection.Horizontal, 14, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top)
 	for index, chest in Chests.LIST do
-		local card = Ui.surface(chest.id, UDim2.fromOffset(212, 372), row)
+		local card = Ui.surface(chest.id, UDim2.fromOffset(212, 440), row)
 		card.LayoutOrder = index
-		local view = ModelView.new("Preview", card, UDim2.new(1, 0, 0, 120))
-		view:set("Emblems", "Chest", finishChest(chest.id), "?")
+		local view = ModelView.new("Preview", card, UDim2.new(1, 0, 0, 110))
+		view:set("Emblems", "Chest", finishChest(chest.id), "?", chest.id)
 		local title = Ui.label("Name", card, UDim2.new(1, 0, 0, 28), 20, Theme.font.display)
-		title.Position = UDim2.fromOffset(0, 120)
+		title.Position = UDim2.fromOffset(0, 108)
 		title.Text = chest.name
-		local blurb = Ui.label("Blurb", card, UDim2.new(1, -20, 0, 40), 13, Theme.font.body)
-		blurb.Position = UDim2.fromOffset(10, 148)
+		local blurb = Ui.label("Blurb", card, UDim2.new(1, -20, 0, 36), 13, Theme.font.body)
+		blurb.Position = UDim2.fromOffset(10, 134)
 		blurb.TextColor3 = Theme.color.textDim
 		blurb.Text = chest.blurb
-		local odds = Ui.frame("Odds", UDim2.new(1, -24, 0, 92), card)
-		odds.Position = UDim2.fromOffset(12, 192)
+		local odds = Ui.frame("Odds", UDim2.new(1, -24, 0, 88), card)
+		odds.Position = UDim2.fromOffset(12, 174)
 		Ui.list(odds, Enum.FillDirection.Vertical, 2, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Top)
 		for line, text in Chests.oddsLines(chest) do
 			local rarity = Catalog.RARITIES[line]
@@ -871,16 +1008,10 @@ local function renderChests(self: LobbyHud)
 			label.TextColor3 = Catalog.RARITY_COLORS[rarity]
 			label.Text = text
 		end
-		local live = chest.productId ~= 0
-		local buy = Ui.button(if live then `R$ {chest.price}` elseif RunService:IsStudio() then "Test open" else "Coming soon", card, function()
-			self.callbacks.onStore({ type = if live then "Buy" else "TestOpen", chest = chest.id })
-		end, if live or RunService:IsStudio() then "accent" else "disabled")
-		buy.Size = UDim2.new(1, -24, 0, 50)
-		buy.Position = UDim2.new(0, 12, 1, -62)
 		local items = Instance.new("TextButton")
 		items.Name = "ItemOdds"
 		items.Size = UDim2.new(1, -24, 0, 18)
-		items.Position = UDim2.new(0, 12, 1, -86)
+		items.Position = UDim2.fromOffset(12, 266)
 		items.BackgroundTransparency = 1
 		items.FontFace = Theme.font.bodyBold
 		items.TextSize = 13
@@ -891,6 +1022,38 @@ local function renderChests(self: LobbyHud)
 			self.chestDetail = chest.id
 			self:render()
 		end)
+
+		-- Ways to open it: a key you've won, coins, or Robux.
+		local buttons = Ui.frame("Buttons", UDim2.new(1, -24, 0, 150), card)
+		buttons.Position = UDim2.new(0, 12, 1, -158)
+		Ui.list(buttons, Enum.FillDirection.Vertical, 8, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Bottom)
+		local keys = if profile then profile.keys[chest.id] or 0 else 0
+		if keys > 0 then
+			local useKey = Ui.button(`{ItemArt.KEY} Open with key ×{keys}`, buttons, function()
+				self.callbacks.onStore({ type = "UseKey", chest = chest.id })
+			end, "primary")
+			useKey.Size = UDim2.new(1, 0, 0, 44)
+			useKey.LayoutOrder = 1
+			Ui.setTextSize(useKey, 16)
+		end
+		local price = Rewards.CHEST_COINS[chest.id]
+		local affordable = coins >= price
+		local withCoins = Ui.button(`{ItemArt.COIN} {Stats.commas(price)}`, buttons, function()
+			if affordable then
+				self.callbacks.onStore({ type = "BuyWithCoins", chest = chest.id })
+			else
+				self:notice(`You need {Stats.commas(price - coins)} more coins. Play games and finish challenges to earn them!`)
+			end
+		end, if affordable then "accent" else "disabled")
+		withCoins.Size = UDim2.new(1, 0, 0, 48)
+		withCoins.LayoutOrder = 2
+		local live = chest.productId ~= 0
+		local robux = Ui.button(if live then `R$ {chest.price}` elseif RunService:IsStudio() then "Test open (Studio)" else "Robux: coming soon", buttons, function()
+			self.callbacks.onStore({ type = if live then "Buy" else "TestOpen", chest = chest.id })
+		end, if live or RunService:IsStudio() then "secondary" else "disabled")
+		robux.Size = UDim2.new(1, 0, 0, 38)
+		robux.LayoutOrder = 3
+		Ui.setTextSize(robux, 15)
 	end
 end
 
@@ -904,6 +1067,24 @@ function LobbyHud.render(self: LobbyHud)
 		local rank = Ranks.titleFor(profile.stats.elo)
 		self.titleLabel.Text = rank.name .. (if Ranks.isProvisional(profile.stats.rankedGames) then " ?" else "")
 		self.titleLabel.TextColor3 = rank.color
+		local title = if profile.equipped.title then Catalog.byId[profile.equipped.title] else nil
+		self.titleTag.Text = if title then `« {title.name} »` else "No title yet · earn one in Challenges"
+		self.titleTag.TextColor3 = if title then Catalog.RARITY_COLORS[title.rarity] else Theme.color.textDim
+		self.titleTag.TextSize = if title then 15 else 12
+		self.walletCoins.Text = `{ItemArt.COIN} {Stats.commas(profile.coins or 0)}`
+		local keyCount = 0
+		for _, n in profile.keys or {} do
+			keyCount += n
+		end
+		self.walletKeys.Text = if keyCount > 0 then `{ItemArt.KEY} {keyCount}` else ""
+		local challenges = self.dockButtons.Challenges
+		if challenges then
+			local old = challenges:FindFirstChild("Badge")
+			if old then
+				old:Destroy()
+			end
+			ChallengesPanel.badge(challenges, Progress.claimable(profile :: any).total)
+		end
 	end
 	for name, frame in self.panels do
 		if name == self.open then
@@ -911,6 +1092,8 @@ function LobbyHud.render(self: LobbyHud)
 				renderGames(self)
 			elseif name == "Pieces" then
 				renderPieces(self)
+			elseif name == "Challenges" then
+				ChallengesPanel.render(self, frame)
 			else
 				renderChests(self)
 			end
@@ -921,6 +1104,112 @@ function LobbyHud.render(self: LobbyHud)
 	end
 end
 
+-- The prize on the dimmed screen: a glow in its colour, its art, what it is, and the buttons.
+-- `itemId` (optional) is shown turning or as its glyph; otherwise `glyph`.
+local function presentPrize(
+	self: LobbyHud,
+	options: {
+		color: Color3,
+		itemId: string?,
+		glyph: string?,
+		kicker: string,
+		title: string,
+		blurb: string,
+		extra: string?,
+		equip: string?,
+	}
+)
+	local reveal = self.reveal
+	local glow = Instance.new("Frame")
+	glow.Name = "Glow"
+	glow.Size = UDim2.fromOffset(320, 320)
+	glow.AnchorPoint = Vector2.new(0.5, 0.5)
+	glow.Position = UDim2.fromScale(0.5, 0.36)
+	glow.BackgroundColor3 = options.color
+	glow.BackgroundTransparency = 0.55
+	glow.ZIndex = 41
+	glow.Parent = reveal
+	Ui.corner(glow, 200)
+	local fade = Instance.new("UIGradient")
+	fade.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
+	fade.Parent = glow
+	TweenService:Create(glow, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+		Size = UDim2.fromOffset(370, 370),
+	}):Play()
+	local item = if options.itemId then Catalog.byId[options.itemId] else nil
+	if item and (item.kind == "Piece" or item.kind == "Dice") then
+		ItemArt.setModel(self.revealItem, item.id)
+		self.revealItem.frame.Visible = true
+		self.revealItem.speed = 1.2
+	else
+		local isTitle = item ~= nil and item.kind == "Title"
+		local glyph = Ui.label("Glyph", reveal, UDim2.fromOffset(if isTitle then 560 else 240, 200), if isTitle then 64 else 120, Theme.font.display)
+		glyph.AnchorPoint = Vector2.new(0.5, 0.5)
+		glyph.Position = UDim2.fromScale(0.5, 0.36)
+		glyph.ZIndex = 42
+		if item and isTitle then
+			glyph.Text = `« {item.name} »`
+			glyph.TextColor3 = options.color
+			glyph.TextStrokeTransparency = 0.4
+		else
+			glyph.Text = options.glyph or (if item then EFFECT_GLYPHS[item.id] else nil) or "★"
+		end
+	end
+	local kicker = Ui.label("Kicker", reveal, UDim2.fromOffset(600, 30), 22, Theme.font.display)
+	kicker.AnchorPoint = Vector2.new(0.5, 0)
+	kicker.Position = UDim2.fromScale(0.5, 0.58)
+	kicker.TextColor3 = options.color
+	kicker.ZIndex = 43
+	kicker.Text = options.kicker
+	local title = Ui.label("Title", reveal, UDim2.fromOffset(700, 50), 42, Theme.font.display)
+	title.AnchorPoint = Vector2.new(0.5, 0)
+	title.Position = UDim2.new(0.5, 0, 0.58, 30)
+	title.ZIndex = 43
+	title.Text = options.title
+	local blurb = Ui.label("Blurb", reveal, UDim2.fromOffset(640, 26), 18, Theme.font.body)
+	blurb.AnchorPoint = Vector2.new(0.5, 0)
+	blurb.Position = UDim2.new(0.5, 0, 0.58, 82)
+	blurb.TextColor3 = Theme.color.textDim
+	blurb.ZIndex = 43
+	blurb.Text = options.blurb
+	local offset = 116
+	if options.extra then
+		local extra = Ui.label("Extra", reveal, UDim2.fromOffset(640, 28), 22, Theme.font.display)
+		extra.AnchorPoint = Vector2.new(0.5, 0)
+		extra.Position = UDim2.new(0.5, 0, 0.58, offset)
+		extra.TextColor3 = GOLD
+		extra.ZIndex = 43
+		extra.Text = options.extra
+		offset += 36
+	end
+	local buttons = Ui.frame("Buttons", UDim2.fromOffset(340, 56), reveal)
+	buttons.AnchorPoint = Vector2.new(0.5, 0)
+	buttons.Position = UDim2.new(0.5, 0, 0.58, offset)
+	buttons.ZIndex = 43
+	Ui.list(buttons, Enum.FillDirection.Horizontal, 12, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Center)
+	if options.equip then
+		local equipId = options.equip
+		local equip = Ui.button("Equip", buttons, function()
+			self.callbacks.onStore({ type = "Equip", item = equipId })
+			reveal.Visible = false
+		end, "accent")
+		equip.LayoutOrder = 1
+	end
+	local done = Ui.button("Awesome!", buttons, function()
+		reveal.Visible = false
+	end, if options.equip then "secondary" else "accent")
+	done.LayoutOrder = 2
+end
+
+local function clearReveal(self: LobbyHud)
+	Ui.clear(self.reveal, function(child)
+		return child == self.revealChest.frame or child == self.revealItem.frame
+	end)
+	self.revealChest.frame.Visible = false
+	self.revealItem.frame.Visible = false
+	self.reveal.Visible = true
+end
+
 -- Plays the chest opening: the chest shakes harder and harder, bursts, and the prize appears.
 function LobbyHud.showChest(self: LobbyHud, result: Protocol.ChestResult)
 	local item = Catalog.byId[result.item]
@@ -928,15 +1217,11 @@ function LobbyHud.showChest(self: LobbyHud, result: Protocol.ChestResult)
 		return
 	end
 	local reveal = self.reveal
-	Ui.clear(reveal, function(child)
-		return child == self.revealChest.frame or child == self.revealItem.frame
-	end)
-	reveal.Visible = true
+	clearReveal(self)
 	self.open = nil
 	self:render()
-	self.revealChest:set("Emblems", "Chest", finishChest(result.chest), "?")
+	self.revealChest:set("Emblems", "Chest", finishChest(result.chest), "?", result.chest)
 	self.revealChest.frame.Visible = true
-	self.revealItem.frame.Visible = false
 	self.revealChest.speed = 0.4
 	local flash = Instance.new("Frame")
 	flash.Name = "Flash"
@@ -954,63 +1239,45 @@ function LobbyHud.showChest(self: LobbyHud, result: Protocol.ChestResult)
 		flash.BackgroundTransparency = 0
 		TweenService:Create(flash, TweenInfo.new(0.6), { BackgroundTransparency = 1 }):Play()
 		self.revealChest.frame.Visible = false
-		local color = Catalog.RARITY_COLORS[item.rarity]
-		local glow = Instance.new("Frame")
-		glow.Name = "Glow"
-		glow.Size = UDim2.fromOffset(320, 320)
-		glow.AnchorPoint = Vector2.new(0.5, 0.5)
-		glow.Position = UDim2.fromScale(0.5, 0.38)
-		glow.BackgroundColor3 = color
-		glow.BackgroundTransparency = 0.55
-		glow.ZIndex = 41
-		glow.Parent = reveal
-		Ui.corner(glow, 160)
-		local fade = Instance.new("UIGradient")
-		fade.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
-		fade.Parent = glow
-		if item.kind == "Piece" then
-			self.revealItem:set("Pieces", item.id, finishPiece(item.id), "★")
-			self.revealItem.frame.Visible = true
-			self.revealItem.speed = 1.2
-		else
-			local glyph = Ui.label("Glyph", reveal, UDim2.fromOffset(240, 200), 120, Theme.font.display)
-			glyph.AnchorPoint = Vector2.new(0.5, 0.5)
-			glyph.Position = UDim2.fromScale(0.5, 0.38)
-			glyph.ZIndex = 42
-			glyph.Text = EFFECT_GLYPHS[item.id] or "★"
-		end
-		local rarity = Ui.label("Rarity", reveal, UDim2.fromOffset(400, 30), 22, Theme.font.display)
-		rarity.AnchorPoint = Vector2.new(0.5, 0)
-		rarity.Position = UDim2.fromScale(0.5, 0.58)
-		rarity.TextColor3 = color
-		rarity.ZIndex = 43
-		rarity.Text = `{string.upper(item.rarity)} {if item.kind == "Piece" then "PIECE" else "RENT EFFECT"}`
-		local title = Ui.label("Title", reveal, UDim2.fromOffset(500, 50), 42, Theme.font.display)
-		title.AnchorPoint = Vector2.new(0.5, 0)
-		title.Position = UDim2.new(0.5, 0, 0.58, 30)
-		title.ZIndex = 43
-		title.Text = item.name .. (if result.count > 1 then ` ×{result.count}` else "")
-		local blurb = Ui.label("Blurb", reveal, UDim2.fromOffset(500, 26), 18, Theme.font.body)
-		blurb.AnchorPoint = Vector2.new(0.5, 0)
-		blurb.Position = UDim2.new(0.5, 0, 0.58, 84)
-		blurb.TextColor3 = Theme.color.textDim
-		blurb.ZIndex = 43
-		blurb.Text = item.blurb
-		local buttons = Ui.frame("Buttons", UDim2.fromOffset(340, 56), reveal)
-		buttons.AnchorPoint = Vector2.new(0.5, 0)
-		buttons.Position = UDim2.new(0.5, 0, 0.58, 124)
-		buttons.ZIndex = 43
-		Ui.list(buttons, Enum.FillDirection.Horizontal, 12, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Center)
-		local equip = Ui.button("Equip", buttons, function()
-			self.callbacks.onStore({ type = "Equip", item = item.id })
-			reveal.Visible = false
-		end, "accent")
-		equip.LayoutOrder = 1
-		local done = Ui.button("Nice!", buttons, function()
-			reveal.Visible = false
-		end, "secondary")
-		done.LayoutOrder = 2
+		presentPrize(self, {
+			color = Catalog.RARITY_COLORS[item.rarity],
+			itemId = item.id,
+			kicker = `{string.upper(item.rarity)} {string.upper(Catalog.KIND_NAMES[item.kind])}`,
+			title = item.name,
+			blurb = item.blurb,
+			extra = if result.refund then `Already yours, so it's {ItemArt.COIN} {Stats.commas(result.refund)} coins instead!` else nil,
+			equip = if result.refund then nil else item.id,
+		})
 	end)
+end
+
+-- Celebrates a claimed challenge: what it was for and everything it paid.
+function LobbyHud.showReward(self: LobbyHud, view: Protocol.RewardView)
+	if view.notice then
+		self:notice(view.notice)
+		return
+	end
+	clearReveal(self)
+	local item = if view.item then Catalog.byId[view.item] else nil
+	local paid = {}
+	if view.coins then
+		table.insert(paid, `{ItemArt.COIN} {Stats.commas(view.coins)} coins`)
+	end
+	if view.key then
+		table.insert(paid, `{ItemArt.KEY} {view.key} Chest key`)
+	end
+	if item then
+		table.insert(paid, `{item.name} ({item.rarity} {string.lower(Catalog.KIND_NAMES[item.kind])})`)
+	end
+	presentPrize(self, {
+		color = if item then Catalog.RARITY_COLORS[item.rarity] else GOLD,
+		itemId = if item then item.id else nil,
+		glyph = if view.key then ItemArt.KEY else ItemArt.COIN,
+		kicker = string.upper(`{view.source} complete!`),
+		title = view.title,
+		blurb = table.concat(paid, "  +  "),
+		equip = if item then item.id else nil,
+	})
 end
 
 return LobbyHud

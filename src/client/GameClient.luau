@@ -197,7 +197,13 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 						if diceView:ready() then
 							local players = if snapshot then snapshot.players else {}
 							local position = DiceThrow.rollerPosition(update.events, index, players)
-							diceView:roll(event.dice, DiceThrow.side(position))
+							local skin = nil
+							for _, player in players do
+								if player.id == event.player then
+									skin = player.dice
+								end
+							end
+							diceView:roll(event.dice, DiceThrow.side(position), skin)
 							hud:showRoll(event.dice)
 						else
 							hud:rollDice(event.dice) -- no model yet: the 2D dice take the stage

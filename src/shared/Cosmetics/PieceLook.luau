@@ -49,6 +49,53 @@ PieceLook.FINISHES = table.freeze({
 		Body = { color = Color3.fromRGB(232, 226, 210), material = Enum.Material.SmoothPlastic },
 		Trim = { color = Color3.fromRGB(170, 70, 255), material = Enum.Material.Neon },
 	},
+
+	-- Challenge pieces (some on other pieces' models, some on the buildings and emblems).
+	GoldenTopHat = { Body = GOLD, Trim = { color = Color3.fromRGB(150, 20, 40), material = Enum.Material.Fabric } },
+	TreasureChest = {
+		Body = { color = Color3.fromRGB(96, 56, 28), material = Enum.Material.Wood },
+		Trim = GOLD,
+	},
+	LittleHouse = {
+		Body = { color = Color3.fromRGB(40, 150, 76), material = Enum.Material.SmoothPlastic },
+		Roof = { color = Color3.fromRGB(24, 96, 48), material = Enum.Material.SmoothPlastic },
+		Trim = WHITE,
+	},
+	GrandHotel = {
+		Body = { color = Color3.fromRGB(190, 20, 30), material = Enum.Material.SmoothPlastic },
+		Roof = GOLD,
+		Trim = GOLD,
+	},
+	MysteryBox = { Body = { color = Color3.fromRGB(255, 120, 220), material = Enum.Material.Neon } },
+	GhostShip = {
+		Body = { color = Color3.fromRGB(190, 230, 255), material = Enum.Material.Glass, transparency = 0.35 },
+		Trim = { color = Color3.fromRGB(120, 255, 210), material = Enum.Material.Neon, transparency = 0.2 },
+	},
+	ShadowRacer = {
+		Body = { color = Color3.fromRGB(20, 20, 26), material = Enum.Material.Glass },
+		Trim = { color = Color3.fromRGB(255, 40, 40), material = Enum.Material.Neon },
+	},
+	WaterWorks = {
+		Body = { color = Color3.fromRGB(220, 226, 236), material = Enum.Material.Metal },
+		Trim = { color = Color3.fromRGB(70, 140, 255), material = Enum.Material.Metal },
+		Drop = { color = Color3.fromRGB(90, 200, 255), material = Enum.Material.Neon, transparency = 0.1 },
+	},
+	ExpressTrain = {
+		Body = { color = Color3.fromRGB(30, 60, 40), material = Enum.Material.Metal },
+		Trim = GOLD,
+	},
+	Flagship = {
+		Body = { color = Color3.fromRGB(28, 44, 96), material = Enum.Material.Metal },
+		Trim = GOLD,
+	},
+	PlatinumTrophy = {
+		Body = { color = Color3.fromRGB(228, 236, 248), material = Enum.Material.Metal },
+		Trim = { color = Color3.fromRGB(60, 200, 255), material = Enum.Material.Neon },
+	},
+	BrightIdea = {
+		Body = { color = Color3.fromRGB(255, 236, 150), material = Enum.Material.Neon, transparency = 0.1 },
+		Trim = GOLD,
+	},
 }) :: { [string]: { [string]: PartFinish } }
 
 -- Finishes a clone of a piece model, each part by its name.

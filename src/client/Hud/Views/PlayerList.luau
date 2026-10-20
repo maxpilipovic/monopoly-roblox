@@ -4,6 +4,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local Catalog = require(ReplicatedStorage.Shared.Cosmetics.Catalog)
 local TokenLayout = require(ReplicatedStorage.Shared.Board.TokenLayout)
 local CardStyle = require(script.Parent.Parent.CardStyle)
 local HudModel = require(script.Parent.Parent.HudModel)
@@ -54,12 +55,16 @@ function PlayerList.new(parent: Instance): PlayerList
 end
 
 local function subline(row: HudModel.PlayerRow): string
-	if row.bankrupt then
-		return "Out of the game"
-	elseif row.deeds == 0 then
-		return "No properties"
+	local text = if row.bankrupt
+		then "Out of the game"
+		elseif row.deeds == 0 then "No properties"
+		else `{row.deeds} propert{if row.deeds == 1 then "y" else "ies"}`
+	-- Their earned title leads, in its rarity's colour.
+	local title = if row.title then Catalog.byId[row.title] else nil
+	if title and not row.bankrupt then
+		return `<font color="#{Catalog.RARITY_COLORS[title.rarity]:ToHex()}">{title.name}</font> · {text}`
 	end
-	return `{row.deeds} propert{if row.deeds == 1 then "y" else "ies"}`
+	return text
 end
 
 local function float(self: PlayerList, index: number, delta: number)
@@ -147,6 +152,8 @@ function PlayerList.render(self: PlayerList, rows: { HudModel.PlayerRow }, delta
 		sub.TextXAlignment = Enum.TextXAlignment.Left
 		sub.TextColor3 = Theme.color.textDim
 		sub.TextWrapped = false
+		sub.RichText = true
+		sub.TextTruncate = Enum.TextTruncate.AtEnd
 		sub.Text = subline(row)
 
 		local money = Ui.label("Money", frame, UDim2.new(0, 100, 1, 0), 19, Theme.font.display)

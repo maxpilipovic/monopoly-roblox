@@ -18,7 +18,7 @@ export type Session = {
 	eventCursor: number,
 	settings: MatchSettings.Settings,
 	endsAt: number?, -- server time the minutes limit runs out, if there is one
-	looks: { [string]: { piece: string?, rentEffect: string? } }, -- cosmetics shown for each seat
+	looks: { [string]: { piece: string?, rentEffect: string?, aura: string?, dice: string?, title: string? } }, -- cosmetics shown for each seat
 	scene: string, -- Scenes id: what surrounds the board
 }
 

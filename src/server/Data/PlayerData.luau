@@ -79,7 +79,20 @@ function PlayerData.view(profile: Profile.Profile): Protocol.ProfileView
 	return {
 		stats = table.clone(profile.stats),
 		inventory = table.clone(profile.inventory),
-		equipped = { piece = profile.equipped.piece, rentEffect = profile.equipped.rentEffect },
+		equipped = table.clone(profile.equipped),
+		coins = profile.coins,
+		counters = table.clone(profile.counters),
+		keys = table.clone(profile.keys),
+		daily = {
+			day = profile.daily.day,
+			ids = table.clone(profile.daily.ids),
+			starts = table.clone(profile.daily.starts),
+			claimed = table.clone(profile.daily.claimed),
+			swaps = profile.daily.swaps,
+			bonus = profile.daily.bonus,
+		},
+		achievements = table.clone(profile.achievements),
+		tree = { claimed = table.clone(profile.tree.claimed), starts = table.clone(profile.tree.starts) },
 	}
 end
 
