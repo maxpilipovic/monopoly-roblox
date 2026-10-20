@@ -25,6 +25,7 @@ local Ranks = require(ReplicatedStorage.Shared.Rules.Ranks)
 local Scenes = require(ReplicatedStorage.Shared.Board.Scenes)
 local RoomSettings = require(ReplicatedStorage.Shared.Rules.RoomSettings)
 local ChallengesPanel = require(script.Parent.Lobby.ChallengesPanel)
+local Icons = require(script.Parent.Icons)
 local ItemArt = require(script.Parent.Lobby.ItemArt)
 local ModelView = require(script.Parent.ModelView)
 local Theme = require(script.Parent.Theme)
@@ -42,7 +43,6 @@ local function clockText(seconds: number): string
 	seconds = math.max(0, math.floor(seconds))
 	return string.format("%d:%02d", seconds // 60, seconds % 60)
 end
-local EFFECT_GLYPHS = ItemArt.GLYPHS
 local COLLECTION_TABS = {
 	{ kind = "Piece", label = "Pieces" },
 	{ kind = "Aura", label = "Auras" },
@@ -300,18 +300,25 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 	-- The wallet, top right: coins and chest keys; tapping it opens the chests.
 	local wallet = Ui.panel("Wallet", UDim2.fromOffset(250, 56), UDim2.new(1, -16, 0, 16), Vector2.new(1, 0), root)
 	self.wallet = wallet
-	local coins = Ui.label("Coins", wallet, UDim2.new(1, -110, 1, 0), 26, Theme.font.display)
-	coins.Position = UDim2.fromOffset(14, 0)
+	local coinIcon = Icons.image(wallet, "Coin", UDim2.fromOffset(46, 46))
+	coinIcon.AnchorPoint = Vector2.new(0, 0.5)
+	coinIcon.Position = UDim2.new(0, 6, 0.5, 0)
+	local coins = Ui.label("Coins", wallet, UDim2.new(1, -164, 1, 0), 26, Theme.font.display)
+	coins.Position = UDim2.fromOffset(54, 0)
 	coins.TextXAlignment = Enum.TextXAlignment.Left
 	coins.TextColor3 = Color3.fromRGB(255, 210, 80)
-	coins.Text = `{ItemArt.COIN} 0`
+	coins.Text = "0"
 	self.walletCoins = coins
-	local keys = Ui.label("Keys", wallet, UDim2.fromOffset(60, 22), 15, Theme.font.bodyBold)
+	local keys = Ui.label("Keys", wallet, UDim2.fromOffset(40, 22), 16, Theme.font.display)
 	keys.AnchorPoint = Vector2.new(1, 0.5)
-	keys.Position = UDim2.new(1, -56, 0.5, 0)
-	keys.TextXAlignment = Enum.TextXAlignment.Right
-	keys.TextColor3 = Theme.color.textDim
+	keys.Position = UDim2.new(1, -54, 0.5, 0)
+	keys.TextXAlignment = Enum.TextXAlignment.Left
+	keys.TextColor3 = Theme.color.text
 	self.walletKeys = keys
+	local keyIcon = Icons.image(wallet, "Key", UDim2.fromOffset(34, 34))
+	keyIcon.Name = "KeyIcon"
+	keyIcon.AnchorPoint = Vector2.new(1, 0.5)
+	keyIcon.Position = UDim2.new(1, -94, 0.5, 0)
 	local more = Ui.button("+", wallet, function()
 		self:toggle("Chests")
 	end, "primary")
@@ -532,7 +539,7 @@ local function renderBrowse(self: LobbyHud, content: Frame)
 	local note = Ui.label("CasualNote", content, UDim2.new(1, 0, 0, 20), 14, Theme.font.body)
 	note.TextXAlignment = Enum.TextXAlignment.Left
 	note.TextColor3 = Theme.color.textDim
-	note.Text = `Casual games never change your rating, but still earn {ItemArt.COIN} coins.`
+	note.Text = "Casual games never change your rating, but still earn coins."
 	local list = Instance.new("ScrollingFrame")
 	list.Name = "Rooms"
 	list.Position = UDim2.fromOffset(0, 28)
@@ -608,7 +615,7 @@ local function renderRoom(self: LobbyHud, content: Frame, room: any)
 	local members = Ui.frame("Members", UDim2.new(1, 0, 0, 30), content)
 	Ui.list(members, Enum.FillDirection.Horizontal, 6, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center)
 	for index, member in room.members do
-		local pill = Ui.pill(if index == 1 then `★ {member.name}` else member.name, members, Theme.color.surfaceHigh)
+		local pill = Ui.pill(if index == 1 then `{member.name} (host)` else member.name, members, Theme.color.surfaceHigh)
 		pill.LayoutOrder = index
 	end
 	local seats = room.maxPlayers - #room.members
@@ -777,11 +784,16 @@ local function itemTile(self: LobbyHud, parent: Instance, order: number, item: C
 			art.ImageColor3 = Color3.fromRGB(185, 185, 200)
 		elseif art:IsA("TextLabel") then
 			art.TextTransparency = 0.55
+		else
+			for _, image in art:GetChildren() do
+				if image:IsA("ImageLabel") then
+					image.ImageTransparency = 0.45
+				end
+			end
 		end
-		local lock = Ui.label("Lock", tile, UDim2.fromOffset(26, 26), 18, Theme.font.display)
+		local lock = Icons.image(tile, "Lock", UDim2.fromOffset(28, 28))
 		lock.AnchorPoint = Vector2.new(1, 0)
-		lock.Position = UDim2.new(1, -4, 0, 12)
-		lock.Text = "🔒"
+		lock.Position = UDim2.new(1, -2, 0, 10)
 	end
 	local name = Ui.label("Name", tile, UDim2.new(1, -8, 0, 20), 14, Theme.font.bodyBold)
 	name.Position = UDim2.fromOffset(4, 92)
@@ -1029,16 +1041,17 @@ local function renderChests(self: LobbyHud)
 		Ui.list(buttons, Enum.FillDirection.Vertical, 8, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Bottom)
 		local keys = if profile then profile.keys[chest.id] or 0 else 0
 		if keys > 0 then
-			local useKey = Ui.button(`{ItemArt.KEY} Open with key ×{keys}`, buttons, function()
+			local useKey = Ui.button(`Open with key ({keys})`, buttons, function()
 				self.callbacks.onStore({ type = "UseKey", chest = chest.id })
 			end, "primary")
 			useKey.Size = UDim2.new(1, 0, 0, 44)
 			useKey.LayoutOrder = 1
 			Ui.setTextSize(useKey, 16)
+			Icons.onButton(useKey, "Key", 30)
 		end
 		local price = Rewards.CHEST_COINS[chest.id]
 		local affordable = coins >= price
-		local withCoins = Ui.button(`{ItemArt.COIN} {Stats.commas(price)}`, buttons, function()
+		local withCoins = Ui.button(Stats.commas(price), buttons, function()
 			if affordable then
 				self.callbacks.onStore({ type = "BuyWithCoins", chest = chest.id })
 			else
@@ -1047,6 +1060,7 @@ local function renderChests(self: LobbyHud)
 		end, if affordable then "accent" else "disabled")
 		withCoins.Size = UDim2.new(1, 0, 0, 48)
 		withCoins.LayoutOrder = 2
+		Icons.onButton(withCoins, "Coin", 34)
 		local live = chest.productId ~= 0
 		local robux = Ui.button(if live then `R$ {chest.price}` elseif RunService:IsStudio() then "Test open (Studio)" else "Robux: coming soon", buttons, function()
 			self.callbacks.onStore({ type = if live then "Buy" else "TestOpen", chest = chest.id })
@@ -1068,15 +1082,19 @@ function LobbyHud.render(self: LobbyHud)
 		self.titleLabel.Text = rank.name .. (if Ranks.isProvisional(profile.stats.rankedGames) then " ?" else "")
 		self.titleLabel.TextColor3 = rank.color
 		local title = if profile.equipped.title then Catalog.byId[profile.equipped.title] else nil
-		self.titleTag.Text = if title then `« {title.name} »` else "No title yet · earn one in Challenges"
+		self.titleTag.Text = if title then title.name else "No title yet · earn one in Challenges"
 		self.titleTag.TextColor3 = if title then Catalog.RARITY_COLORS[title.rarity] else Theme.color.textDim
 		self.titleTag.TextSize = if title then 15 else 12
-		self.walletCoins.Text = `{ItemArt.COIN} {Stats.commas(profile.coins or 0)}`
+		self.walletCoins.Text = Stats.commas(profile.coins or 0)
 		local keyCount = 0
 		for _, n in profile.keys or {} do
 			keyCount += n
 		end
-		self.walletKeys.Text = if keyCount > 0 then `{ItemArt.KEY} {keyCount}` else ""
+		self.walletKeys.Text = if keyCount > 0 then `{keyCount}` else ""
+		local keyIcon = self.wallet:FindFirstChild("KeyIcon")
+		if keyIcon then
+			(keyIcon :: ImageLabel).Visible = keyCount > 0
+		end
 		local challenges = self.dockButtons.Challenges
 		if challenges then
 			local old = challenges:FindFirstChild("Badge")
@@ -1142,17 +1160,20 @@ local function presentPrize(
 		self.revealItem.frame.Visible = true
 		self.revealItem.speed = 1.2
 	else
-		local isTitle = item ~= nil and item.kind == "Title"
-		local glyph = Ui.label("Glyph", reveal, UDim2.fromOffset(if isTitle then 560 else 240, 200), if isTitle then 64 else 120, Theme.font.display)
-		glyph.AnchorPoint = Vector2.new(0.5, 0.5)
-		glyph.Position = UDim2.fromScale(0.5, 0.36)
-		glyph.ZIndex = 42
-		if item and isTitle then
-			glyph.Text = `« {item.name} »`
+		if item and item.kind == "Title" then
+			local glyph = Ui.label("Glyph", reveal, UDim2.fromOffset(560, 200), 64, Theme.font.display)
+			glyph.AnchorPoint = Vector2.new(0.5, 0.5)
+			glyph.Position = UDim2.fromScale(0.5, 0.36)
+			glyph.ZIndex = 42
+			glyph.Text = item.name
 			glyph.TextColor3 = options.color
 			glyph.TextStrokeTransparency = 0.4
 		else
-			glyph.Text = options.glyph or (if item then EFFECT_GLYPHS[item.id] else nil) or "★"
+			local icon = Icons.image(reveal, options.glyph or (if item then ItemArt.ICONS[item.id] else nil) or "Star", UDim2.fromOffset(230, 230))
+			icon.Name = "Glyph"
+			icon.AnchorPoint = Vector2.new(0.5, 0.5)
+			icon.Position = UDim2.fromScale(0.5, 0.36)
+			icon.ZIndex = 42
 		end
 	end
 	local kicker = Ui.label("Kicker", reveal, UDim2.fromOffset(600, 30), 22, Theme.font.display)
@@ -1245,7 +1266,7 @@ function LobbyHud.showChest(self: LobbyHud, result: Protocol.ChestResult)
 			kicker = `{string.upper(item.rarity)} {string.upper(Catalog.KIND_NAMES[item.kind])}`,
 			title = item.name,
 			blurb = item.blurb,
-			extra = if result.refund then `Already yours, so it's {ItemArt.COIN} {Stats.commas(result.refund)} coins instead!` else nil,
+			extra = if result.refund then `Already yours, so it's {Stats.commas(result.refund)} coins instead!` else nil,
 			equip = if result.refund then nil else item.id,
 		})
 	end)
@@ -1261,10 +1282,10 @@ function LobbyHud.showReward(self: LobbyHud, view: Protocol.RewardView)
 	local item = if view.item then Catalog.byId[view.item] else nil
 	local paid = {}
 	if view.coins then
-		table.insert(paid, `{ItemArt.COIN} {Stats.commas(view.coins)} coins`)
+		table.insert(paid, `{Stats.commas(view.coins)} coins`)
 	end
 	if view.key then
-		table.insert(paid, `{ItemArt.KEY} {view.key} Chest key`)
+		table.insert(paid, `{view.key} Chest key`)
 	end
 	if item then
 		table.insert(paid, `{item.name} ({item.rarity} {string.lower(Catalog.KIND_NAMES[item.kind])})`)
@@ -1272,7 +1293,7 @@ function LobbyHud.showReward(self: LobbyHud, view: Protocol.RewardView)
 	presentPrize(self, {
 		color = if item then Catalog.RARITY_COLORS[item.rarity] else GOLD,
 		itemId = if item then item.id else nil,
-		glyph = if view.key then ItemArt.KEY else ItemArt.COIN,
+		glyph = if view.key then "Key" else "Coins",
 		kicker = string.upper(`{view.source} complete!`),
 		title = view.title,
 		blurb = table.concat(paid, "  +  "),

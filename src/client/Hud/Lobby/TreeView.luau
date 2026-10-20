@@ -11,6 +11,7 @@ local UserInputService = game:GetService("UserInputService")
 local Progress = require(ReplicatedStorage.Shared.Progress.Progress)
 local Stats = require(ReplicatedStorage.Shared.Progress.Stats)
 local Tree = require(ReplicatedStorage.Shared.Progress.Tree)
+local Icons = require(script.Parent.Parent.Icons)
 local Theme = require(script.Parent.Parent.Theme)
 local Ui = require(script.Parent.Parent.Ui)
 
@@ -184,20 +185,21 @@ function TreeView.build(parent: GuiObject, data: Progress.Data, state: ViewState
 			ring.Color = Color3.new(1, 1, 1)
 		end
 
-		local icon = Ui.label("Icon", button, UDim2.fromScale(1, 1), size * 0.5, Theme.font.display)
+		local icon = Icons.image(button,
+			if node.id == Tree.ROOT then "Flag"
+				elseif nodeState == "Claimed" then "Check"
+				elseif nodeState == "Locked" then "Lock"
+				else Stats.byId[node.stat].icon,
+			UDim2.fromScale(0.78, 0.78))
+		icon.AnchorPoint = Vector2.new(0.5, 0.5)
+		icon.Position = UDim2.fromScale(0.5, 0.5)
 		icon.ZIndex = 5
-		icon.Text = if node.id == Tree.ROOT then "🏁"
-			elseif nodeState == "Claimed" then "✓"
-			elseif nodeState == "Locked" then "🔒"
-			else Stats.byId[node.stat].icon
-		icon.TextColor3 = if nodeState == "Claimed" then Theme.color.ink else Theme.color.text
-		icon.TextTransparency = if nodeState == "Locked" then 0.55 else 0
+		icon.ImageTransparency = if nodeState == "Locked" then 0.45 else 0
 		if node.tip then
-			local star = Ui.label("Star", button, UDim2.fromOffset(28, 28), 22, Theme.font.display)
+			local star = Icons.image(button, "Star", UDim2.fromOffset(30, 30))
 			star.AnchorPoint = Vector2.new(0.5, 0.5)
 			star.Position = UDim2.new(1, -6, 0, 6)
 			star.ZIndex = 6
-			star.Text = "⭐"
 		end
 		if nodeState == "Active" then
 			local track = Instance.new("Frame")

@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PropertyRules = require(ReplicatedStorage.Shared.Rules.PropertyRules)
 local HudModel = require(script.Parent.Parent.HudModel)
 local Theme = require(script.Parent.Parent.Theme)
+local Icons = require(script.Parent.Parent.Icons)
 local Ui = require(script.Parent.Parent.Ui)
 
 local PropertiesPanel = {}
@@ -188,6 +189,9 @@ function PropertiesPanel.render(self: PropertiesPanel, open: boolean, groups: { 
 				button.Size = UDim2.fromOffset(ROW_BUTTON_WIDTH, 30)
 				button.LayoutOrder = 2 + i
 				Ui.setTextSize(button, 13)
+				if entryButton.icon then
+					Icons.onButton(button, entryButton.icon, 22)
+				end
 			end
 		end
 	end

@@ -8,6 +8,7 @@ local TweenService = game:GetService("TweenService")
 
 local Pacing = require(ReplicatedStorage.Shared.Rules.Pacing)
 local Theme = require(script.Parent.Parent.Theme)
+local Icons = require(script.Parent.Parent.Icons)
 local Ui = require(script.Parent.Parent.Ui)
 
 local TurnOrderSpin = {}
@@ -19,7 +20,7 @@ export type TurnOrderSpin = typeof(setmetatable(
 	{} :: {
 		frame: Frame,
 		face: ImageLabel,
-		botFace: TextLabel,
+		botFace: ImageLabel,
 		reelName: TextLabel,
 		list: Frame,
 		generation: number,
@@ -60,8 +61,11 @@ function TurnOrderSpin.new(parent: Instance): TurnOrderSpin
 	face.BackgroundTransparency = 1
 	face.Parent = ring
 	Ui.corner(face, 75)
-	local botFace = Ui.label("BotFace", ring, UDim2.fromScale(1, 1), 80, Theme.font.display)
-	botFace.Text = "🤖"
+	-- Bots show the rendered Robot piece.
+	local botFace = Icons.image(ring, "Robot", UDim2.fromScale(0.82, 0.82))
+	botFace.Name = "BotFace"
+	botFace.AnchorPoint = Vector2.new(0.5, 0.5)
+	botFace.Position = UDim2.fromScale(0.5, 0.5)
 	local reelName = Ui.label("ReelName", reel, UDim2.new(1, -12, 0, 34), 20, Theme.font.display)
 	reelName.Position = UDim2.new(0, 6, 1, -44)
 	reelName.TextTruncate = Enum.TextTruncate.AtEnd

@@ -15,6 +15,7 @@ local Progress = require(ReplicatedStorage.Shared.Progress.Progress)
 local Rewards = require(ReplicatedStorage.Shared.Progress.Rewards)
 local Stats = require(ReplicatedStorage.Shared.Progress.Stats)
 local Tree = require(ReplicatedStorage.Shared.Progress.Tree)
+local Icons = require(script.Parent.Parent.Icons)
 local ItemArt = require(script.Parent.ItemArt)
 local TreeView = require(script.Parent.TreeView)
 local Theme = require(script.Parent.Parent.Theme)
@@ -69,17 +70,27 @@ end
 local function rewardChips(parent: Instance, reward: Rewards.Reward, size: number?): Frame
 	local row = Ui.frame("Reward", UDim2.new(1, 0, 0, 26), parent)
 	Ui.list(row, Enum.FillDirection.Horizontal, 6, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Center)
-	local function chip(text: string, color: Color3, textColor: Color3?, order: number)
+	local function chip(text: string, color: Color3, textColor: Color3?, order: number, icon: string?)
 		local pill = Ui.pill(text, row, color, textColor)
 		pill.TextSize = size or 14
 		pill.Size = UDim2.fromOffset(0, 24)
 		pill.LayoutOrder = order
+		if icon then
+			-- The icon sits in the pill's left padding.
+			local padding = pill:FindFirstChildOfClass("UIPadding")
+			if padding then
+				padding.PaddingLeft = UDim.new(0, 24)
+			end
+			local image = Icons.image(pill, icon, UDim2.fromOffset(22, 22))
+			image.AnchorPoint = Vector2.new(1, 0.5)
+			image.Position = UDim2.new(0, -1, 0.5, 0)
+		end
 	end
 	if reward.coins then
-		chip(`{ItemArt.COIN} {Stats.commas(reward.coins)}`, Color3.fromRGB(70, 56, 20), GOLD, 1)
+		chip(Stats.commas(reward.coins), Color3.fromRGB(70, 56, 20), GOLD, 1, "Coin")
 	end
 	if reward.key then
-		chip(`{ItemArt.KEY} {reward.key} key`, Color3.fromRGB(40, 50, 80), Theme.color.text, 2)
+		chip(`{reward.key} key`, Color3.fromRGB(40, 50, 80), Theme.color.text, 2, "Key")
 	end
 	if reward.item then
 		local item = Catalog.byId[reward.item]
@@ -123,13 +134,15 @@ local function renderDaily(hud: any, content: Frame, data: Progress.Data)
 	local clock = Ui.label("Clock", top, UDim2.new(0.6, 0, 1, 0), 16, Theme.font.bodyBold)
 	clock.TextXAlignment = Enum.TextXAlignment.Left
 	clock.TextColor3 = Theme.color.textDim
+	Icons.labelled(top, "Clock", 24, clock)
 	hud.dailyClock = clock
 	local swaps = Ui.label("Swaps", top, UDim2.new(0.4, 0, 1, 0), 15, Theme.font.bodyBold)
 	swaps.Position = UDim2.fromScale(0.6, 0)
 	swaps.TextXAlignment = Enum.TextXAlignment.Right
 	swaps.TextColor3 = Theme.color.textDim
 	local swapsLeft = math.max(Dailies.SWAPS_PER_DAY - (data.daily.swaps or 0), 0)
-	swaps.Text = `🔄 Swaps left today: {swapsLeft}`
+	swaps.Text = `Swaps left today: {swapsLeft}`
+	Icons.labelled(top, "Swap", 22, swaps)
 
 	if #lines == 0 then
 		local wait = Ui.label("Waiting", content, UDim2.new(1, 0, 0, 200), 20, Theme.font.body)
@@ -162,9 +175,9 @@ local function renderDaily(hud: any, content: Frame, data: Progress.Data)
 		local tier = Ui.label("Tier", band, UDim2.fromScale(1, 1), 20, Theme.font.display)
 		tier.TextColor3 = Theme.color.ink
 		tier.Text = string.upper(daily.tier)
-		local icon = Ui.label("Icon", card, UDim2.new(1, 0, 0, 70), 54, Theme.font.display)
-		icon.Position = UDim2.fromOffset(0, 50)
-		icon.Text = if line.claimed then "✅" else Stats.byId[daily.stat].icon
+		local icon = Icons.image(card, if line.claimed then "Check" else Stats.byId[daily.stat].icon, UDim2.fromOffset(96, 96))
+		icon.AnchorPoint = Vector2.new(0.5, 0)
+		icon.Position = UDim2.new(0.5, 0, 0, 38)
 		local goal = Ui.label("Goal", card, UDim2.new(1, -24, 0, 56), 21, Theme.font.display)
 		goal.Position = UDim2.fromOffset(12, 126)
 		goal.Text = Stats.goal(daily.stat, daily.target)
@@ -189,7 +202,7 @@ local function renderDaily(hud: any, content: Frame, data: Progress.Data)
 			swap.FontFace = Theme.font.bodyBold
 			swap.TextSize = 14
 			swap.TextColor3 = GOLD
-			swap.Text = "🔄 Swap for another"
+			swap.Text = "Swap for another"
 			swap.Parent = card
 			swap.Activated:Connect(function()
 				hud.callbacks.onProgress({ type = "SwapDaily", slot = line.slot })
@@ -210,19 +223,22 @@ local function renderDaily(hud: any, content: Frame, data: Progress.Data)
 	caption.Position = UDim2.fromOffset(20, 0)
 	caption.TextXAlignment = Enum.TextXAlignment.Left
 	caption.Text = if data.daily.bonus
-		then `🎉 Daily bonus collected! Come back tomorrow.`
-		else `Finish all three for a bonus {ItemArt.COIN} {Rewards.DAILY_SWEEP}`
+		then "Daily bonus collected! Come back tomorrow."
+		else `Finish all three for a bonus of {Rewards.DAILY_SWEEP} coins`
 	caption.TextColor3 = if data.daily.bonus then Theme.color.moneyUp else Theme.color.text
 	local pips = Ui.frame("Pips", UDim2.new(0.45, -20, 1, 0), bonus)
 	pips.Position = UDim2.fromScale(0.55, 0)
 	Ui.list(pips, Enum.FillDirection.Horizontal, 10, Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Center)
 	for index = 1, #lines do
-		local pip = Ui.label(`Pip{index}`, pips, UDim2.fromOffset(40, 40), 22, Theme.font.display)
+		local pip = Ui.label(`Pip{index}`, pips, UDim2.fromOffset(44, 44), 22, Theme.font.display)
 		pip.LayoutOrder = index
 		pip.BackgroundTransparency = 0
-		pip.BackgroundColor3 = if index <= done then Theme.color.primary else TRACK
-		pip.Text = if index <= done then "✓" else ""
-		Ui.corner(pip, 20)
+		pip.BackgroundColor3 = TRACK
+		Ui.corner(pip, 22)
+		local image = Icons.image(pip, if index <= done then "Check" else "Coin", UDim2.fromScale(0.85, 0.85))
+		image.AnchorPoint = Vector2.new(0.5, 0.5)
+		image.Position = UDim2.fromScale(0.5, 0.5)
+		image.ImageTransparency = if index <= done then 0 else 0.7
 	end
 end
 
@@ -237,7 +253,8 @@ local function renderAchievements(hud: any, content: Frame, data: Progress.Data)
 	local summary = Ui.label("Summary", content, UDim2.new(1, 0, 0, 24), 16, Theme.font.bodyBold)
 	summary.TextXAlignment = Enum.TextXAlignment.Left
 	summary.TextColor3 = Theme.color.textDim
-	summary.Text = `🏅 {medals} of {total} medals · lifetime totals count, from your very first game`
+	summary.Text = `{medals} of {total} medals · lifetime totals count, from your very first game`
+	Icons.labelled(content, "Medal", 24, summary)
 
 	local list = Instance.new("ScrollingFrame")
 	list.Name = "Tracks"
@@ -274,13 +291,17 @@ local function renderAchievements(hud: any, content: Frame, data: Progress.Data)
 			Ui.stroke(card, GOLD, 2.5, 0)
 		end
 		local medalColor = if line.claimed > 0 then Achievements.TIER_COLORS[line.claimed] else Theme.color.surfaceHigh
-		local icon = Ui.label("Icon", card, UDim2.fromOffset(62, 62), 30, Theme.font.display)
+		local icon = Instance.new("Frame")
+		icon.Name = "Icon"
+		icon.Size = UDim2.fromOffset(62, 62)
 		icon.Position = UDim2.fromOffset(12, 12)
-		icon.BackgroundTransparency = 0
 		icon.BackgroundColor3 = TRACK
-		icon.Text = Stats.byId[track.stat].icon
+		icon.Parent = card
 		Ui.corner(icon, 31)
 		Ui.stroke(icon, medalColor, 3, 0)
+		local image = Icons.image(icon, Stats.byId[track.stat].icon, UDim2.fromScale(0.9, 0.9))
+		image.AnchorPoint = Vector2.new(0.5, 0.5)
+		image.Position = UDim2.fromScale(0.5, 0.5)
 		local name = Ui.label("Name", card, UDim2.new(1, -200, 0, 24), 19, Theme.font.display)
 		name.Position = UDim2.fromOffset(86, 8)
 		name.TextXAlignment = Enum.TextXAlignment.Left
@@ -327,7 +348,7 @@ local function renderAchievements(hud: any, content: Frame, data: Progress.Data)
 			claim.Position = UDim2.new(1, -12, 1, -10)
 			Ui.setTextSize(claim, 16)
 		else
-			goal.Text = "Every medal won! 💎"
+			goal.Text = "Every medal won!"
 			goal.TextColor3 = Achievements.TIER_COLORS[5]
 		end
 	end
@@ -343,7 +364,8 @@ local function renderTree(hud: any, content: Frame, data: Progress.Data)
 	local summary = Ui.label("Summary", top, UDim2.new(1, -330, 1, 0), 16, Theme.font.bodyBold)
 	summary.TextXAlignment = Enum.TextXAlignment.Left
 	summary.TextColor3 = Theme.color.textDim
-	summary.Text = `🌳 {claimedCount} of {#Tree.NODES} claimed · drag to look around`
+	summary.Text = `{claimedCount} of {#Tree.NODES} claimed · drag to look around`
+	Icons.labelled(top, "Tree", 26, summary)
 	local tools = Ui.frame("Tools", UDim2.fromOffset(320, 34), top)
 	tools.AnchorPoint = Vector2.new(1, 0)
 	tools.Position = UDim2.fromScale(1, 0)
@@ -422,7 +444,9 @@ local function renderTree(hud: any, content: Frame, data: Progress.Data)
 		ItemArt.build(art, selected.reward.item, UDim2.fromScale(1, 1))
 	else
 		local glyph = Ui.label("Glyph", art, UDim2.fromScale(1, 1), 70, Theme.font.display)
-		glyph.Text = if selected.reward.key then ItemArt.KEY else ItemArt.COIN
+		glyph.Text = ""
+		local image = Icons.image(art, if selected.reward.key then "Key" else "Coins", UDim2.fromScale(1, 1))
+		image.Name = "RewardIcon"
 	end
 	local rewardRow = rewardChips(card, selected.reward, 15)
 	rewardRow.Position = UDim2.fromOffset(0, 206)
@@ -441,9 +465,9 @@ local function renderTree(hud: any, content: Frame, data: Progress.Data)
 	status.TextColor3 = Theme.color.textDim
 	if nodeState == "Locked" then
 		local parentNode = if selected.parent then Tree.byId[selected.parent] else nil
-		status.Text = if parentNode then `🔒 Opens when you claim "{Stats.goal(parentNode.stat, parentNode.target)}".` else ""
+		status.Text = if parentNode then `Opens when you claim "{Stats.goal(parentNode.stat, parentNode.target)}".` else ""
 	elseif nodeState == "Claimed" then
-		status.Text = "✓ Claimed."
+		status.Text = "Claimed."
 		status.TextColor3 = Theme.color.moneyUp
 	else
 		status.Text = "Counts from when this opened."
@@ -507,7 +531,7 @@ end
 function ChallengesPanel.tick(hud: any)
 	local clock = hud.dailyClock
 	if clock and clock.Parent then
-		clock.Text = `⏰ New challenges in {clockText(Dailies.secondsLeft(workspace:GetServerTimeNow()))}`
+		clock.Text = `New challenges in {clockText(Dailies.secondsLeft(workspace:GetServerTimeNow()))}`
 	end
 end
 

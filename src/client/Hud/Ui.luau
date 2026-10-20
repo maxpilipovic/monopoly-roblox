@@ -139,18 +139,18 @@ function Ui.setStyle(button: TextButton, style: Style)
 	local face = Ui.face(button)
 	face.BackgroundColor3 = colors.face
 	face:SetAttribute("Rest", colors.face);
-	(face:FindFirstChild("Text") :: TextLabel).TextColor3 = colors.text
+	(face:FindFirstChild("Text", true) :: TextLabel).TextColor3 = colors.text
 	button:SetAttribute("Style", style)
 end
 
 -- Changes what a button says (its Text property mirrors it, for anything that reads buttons by text).
 function Ui.setText(button: TextButton, text: string)
 	button.Text = text;
-	(Ui.face(button):FindFirstChild("Text") :: TextLabel).Text = text
+	(Ui.face(button):FindFirstChild("Text", true) :: TextLabel).Text = text
 end
 
 function Ui.setTextSize(button: TextButton, size: number)
-	(Ui.face(button):FindFirstChild("Text") :: TextLabel).TextSize = size
+	(Ui.face(button):FindFirstChild("Text", true) :: TextLabel).TextSize = size
 end
 
 -- A chunky button: a coloured face sitting on a darker lip; it lightens under the pointer and

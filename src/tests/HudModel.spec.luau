@@ -103,15 +103,15 @@ tests["property rows offer the legal actions with prices on your turn"] = functi
 	GameFixtures.own(state, "p1", 5)
 	state.properties[5].mortgaged = true
 	local rows = HudModel.propertyRows(Snapshot.fromState(state), "p1")
-	Expect.equal(rowLabels(rows[1]), "−🏠 +$25", "ahead: sell only")
-	Expect.equal(rowLabels(rows[2]), "+🏠 $50", "behind: build only")
+	Expect.equal(rowLabels(rows[1]), "Sell +$25", "ahead: sell only")
+	Expect.equal(rowLabels(rows[2]), "Build $50", "behind: build only")
 	Expect.equal(rowLabels(rows[3]), "Unmortgage $110", "mortgaged railroad")
 	Expect.equal(rows[2].buttons[1].action.type, "Build", "action type")
 	Expect.equal(rows[2].buttons[1].action.position, 3, "action position")
 
 	state.properties[1].houses = 0
 	rows = HudModel.propertyRows(Snapshot.fromState(state), "p1")
-	Expect.equal(rowLabels(rows[1]), "+🏠 $50|Mortgage +$30", "bare full set")
+	Expect.equal(rowLabels(rows[1]), "Build $50|Mortgage +$30", "bare full set")
 end
 
 tests["property rows label hotels"] = function()
@@ -119,13 +119,13 @@ tests["property rows label hotels"] = function()
 	GameFixtures.own(state, "p1", 1, 4)
 	GameFixtures.own(state, "p1", 3, 5)
 	local rows = HudModel.propertyRows(Snapshot.fromState(state), "p1")
-	Expect.equal(rowLabels(rows[1]), "+🏨 $50", "build the hotel")
-	Expect.equal(rowLabels(rows[2]), "−🏨 +$25", "sell the hotel")
-	Expect.equal(HudModel.buildingText(rows[2]), "🏨", "hotel text")
-	Expect.equal(HudModel.buildingText(rows[1]), "🏠🏠🏠🏠", "houses text")
+	Expect.equal(rowLabels(rows[1]), "Build $50", "build the hotel")
+	Expect.equal(rowLabels(rows[2]), "Sell +$25", "sell the hotel")
+	Expect.equal(HudModel.buildingText(rows[2]), "Hotel", "hotel text")
+	Expect.equal(HudModel.buildingText(rows[1]), "4 houses", "houses text")
 	state.bankHouses = 3
 	rows = HudModel.propertyRows(Snapshot.fromState(state), "p1")
-	Expect.equal(rowLabels(rows[2]), "−🏨 +$50", "short bank: the refund covers the extra house sold")
+	Expect.equal(rowLabels(rows[2]), "Sell +$50", "short bank: the refund covers the extra house sold")
 end
 
 tests["property rows have no buttons off your turn or mid-decision"] = function()
@@ -195,7 +195,7 @@ tests["in debt, property rows offer only selling and mortgaging, and only to the
 	state.currentIndex = 2 -- a debt on someone else's turn
 	GameFixtures.inDebt(state, "p1", 500, "p2")
 	local rows = HudModel.propertyRows(Snapshot.fromState(state), "p1")
-	Expect.equal(rowLabels(rows[1]), "−🏠 +$25", "sell, no build")
+	Expect.equal(rowLabels(rows[1]), "Sell +$25", "sell, no build")
 	Expect.equal(rowLabels(rows[2]), "", "Baltic: set has a house, can't mortgage or build")
 	Expect.equal(rowLabels(rows[3]), "", "no unmortgage in debt")
 	for _, row in HudModel.propertyRows(Snapshot.fromState(state), "p2") do
@@ -373,7 +373,7 @@ tests["build buttons disappear when the bank is out of houses"] = function()
 	GameFixtures.own(state, "p1", 3)
 	state.bankHouses = 0
 	local rows = HudModel.propertyRows(Snapshot.fromState(state), "p1")
-	Expect.equal(rowLabels(rows[1]), "Mortgage +$30", "no +🏠")
+	Expect.equal(rowLabels(rows[1]), "Mortgage +$30", "no build button")
 end
 
 tests["someone watching a bot-held seat is told what a spectator is told"] = function()

@@ -60,7 +60,7 @@ local function plate(player: Player)
 	name.Text = player.DisplayName
 	tag.Visible = title ~= nil
 	if title then
-		tag.Text = `« {title.name} »`
+		tag.Text = title.name
 		tag.TextColor3 = Catalog.RARITY_COLORS[title.rarity]
 	end
 end

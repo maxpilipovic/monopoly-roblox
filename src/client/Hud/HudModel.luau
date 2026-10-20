@@ -13,6 +13,7 @@ export type Button = {
 	label: string,
 	action: { [string]: any },
 	confirm: string?, -- shown after the first click; the second click sends the action
+	icon: string?, -- an Icons name shown before the label (House, Hotel)
 }
 
 local HudModel = {}
@@ -405,13 +406,14 @@ function HudModel.propertyRows(snapshot: Protocol.Snapshot, localId: string): { 
 			if tile.kind == "Property" then
 				local price = PropertyRules.housePrice(position)
 				if canImprove and PropertyRules.canBuild(view, localId, me.money, position) then
-					local icon = if property.houses == PropertyRules.HOUSES_PER_HOTEL then "🏨" else "🏠"
-					table.insert(buttons, { label = `+{icon} ${price}`, action = { type = "Build", position = position } })
+					local icon = if property.houses == PropertyRules.HOUSES_PER_HOTEL then "Hotel" else "House"
+					table.insert(buttons, { label = `Build ${price}`, icon = icon, action = { type = "Build", position = position } })
 				end
 				if PropertyRules.canSell(view, localId, position) then
-					local icon = if property.houses == PropertyRules.HOTEL then "🏨" else "🏠"
+					local icon = if property.houses == PropertyRules.HOTEL then "Hotel" else "House"
 					table.insert(buttons, {
-						label = `−{icon} +${select(2, PropertyRules.sale(view, position))}`,
+						label = `Sell +${select(2, PropertyRules.sale(view, position))}`,
+						icon = icon,
 						action = { type = "SellBuilding", position = position },
 					})
 				end
@@ -532,9 +534,9 @@ function HudModel.buildingText(row: PropertyRow): string
 	if row.mortgaged then
 		return "MORTGAGED"
 	elseif row.houses == PropertyRules.HOTEL then
-		return "🏨"
+		return "Hotel"
 	end
-	return string.rep("🏠", row.houses)
+	return if row.houses == 1 then "1 house" else `{row.houses} houses`
 end
 
 return HudModel
