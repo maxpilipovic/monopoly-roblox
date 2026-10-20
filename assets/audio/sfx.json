@@ -1,0 +1,138 @@
+{
+	"Click": {
+		"start": 0.1,
+		"length": 0.707
+	},
+	"Hover": {
+		"start": 1.157,
+		"length": 0.06
+	},
+	"Open": {
+		"start": 1.567,
+		"length": 0.8745
+	},
+	"Close": {
+		"start": 2.7915,
+		"length": 0.668
+	},
+	"Tab": {
+		"start": 3.8095,
+		"length": 0.15
+	},
+	"Error": {
+		"start": 4.3095,
+		"length": 0.42
+	},
+	"Notify": {
+		"start": 5.0795,
+		"length": 1.258
+	},
+	"Hop": {
+		"start": 6.6875,
+		"length": 0.12
+	},
+	"YourTurn": {
+		"start": 7.1575,
+		"length": 2.1554
+	},
+	"Doubles": {
+		"start": 9.6629,
+		"length": 1.7285
+	},
+	"PassGo": {
+		"start": 11.7414,
+		"length": 2.0041
+	},
+	"Buy": {
+		"start": 14.0955,
+		"length": 1.7632
+	},
+	"Coin": {
+		"start": 16.2086,
+		"length": 1.2138
+	},
+	"Coins": {
+		"start": 17.7725,
+		"length": 1.3023
+	},
+	"Pay": {
+		"start": 19.4248,
+		"length": 1.2911
+	},
+	"Card": {
+		"start": 21.0659,
+		"length": 0.56
+	},
+	"Build": {
+		"start": 21.9759,
+		"length": 0.9607
+	},
+	"Hotel": {
+		"start": 23.2867,
+		"length": 2.0744
+	},
+	"Mortgage": {
+		"start": 25.7111,
+		"length": 0.8029
+	},
+	"TradeDone": {
+		"start": 26.864,
+		"length": 1.8856
+	},
+	"Bankrupt": {
+		"start": 29.0997,
+		"length": 3.2249
+	},
+	"Win": {
+		"start": 32.6745,
+		"length": 2.6985
+	},
+	"Lose": {
+		"start": 35.7231,
+		"length": 2.2033
+	},
+	"Tick": {
+		"start": 38.2764,
+		"length": 0.08
+	},
+	"SpinTick": {
+		"start": 38.7064,
+		"length": 0.06
+	},
+	"SpinDing": {
+		"start": 39.1164,
+		"length": 1.8286
+	},
+	"ChestShake": {
+		"start": 41.295,
+		"length": 0.4889
+	},
+	"ChestOpen": {
+		"start": 42.1339,
+		"length": 2.1426
+	},
+	"RevealCommon": {
+		"start": 44.6265,
+		"length": 1.7272
+	},
+	"RevealRare": {
+		"start": 46.7037,
+		"length": 2.0391
+	},
+	"RevealEpic": {
+		"start": 49.0928,
+		"length": 2.4278
+	},
+	"RevealLegendary": {
+		"start": 51.8706,
+		"length": 3.4734
+	},
+	"Claim": {
+		"start": 55.694,
+		"length": 1.9083
+	},
+	"Equip": {
+		"start": 57.9523,
+		"length": 0.9029
+	}
+}

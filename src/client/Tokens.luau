@@ -12,6 +12,7 @@ local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 local Catalog = require(ReplicatedStorage.Shared.Cosmetics.Catalog)
 local PieceLook = require(ReplicatedStorage.Shared.Cosmetics.PieceLook)
 local PieceEffects = require(script.Parent.PieceEffects)
+local Sounds = require(script.Parent.Sounds)
 
 local HOP_HEIGHT = 1.5
 local JAIL_HOP_HEIGHT = 6 -- the jump to jail is a high flip
@@ -240,6 +241,8 @@ local function runQueue(self: TokensView, token: Token)
 					hooks.onHop(token.part, previous, position)
 				end
 				hop(token, standingCFrame(position, token.seat, move.style == "ToJail"), move.style == "ToJail")
+				-- A tap on each tile, pitched a little differently each time so a walk doesn't drone.
+				Sounds.play("Hop", { pitch = 0.92 + math.random() * 0.16, volume = 0.8 })
 				previous = position
 			end
 			land(token)

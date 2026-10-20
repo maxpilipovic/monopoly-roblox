@@ -16,6 +16,7 @@ local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 local Buildings = require(script.Parent.Buildings)
 local DiceView = require(script.Parent.DiceView)
 local EventText = require(script.Parent.Hud.EventText)
+local GameSounds = require(script.Parent.GameSounds)
 local HudModel = require(script.Parent.Hud.HudModel)
 local BoardView = require(script.Parent.BoardView)
 local CameraDirector = require(script.Parent.CameraDirector)
@@ -23,6 +24,7 @@ local HudView = require(script.Parent.Hud.HudView)
 local MoneyPops = require(script.Parent.MoneyPops)
 local OwnerMarkers = require(script.Parent.OwnerMarkers)
 local RentEffects = require(script.Parent.RentEffects)
+local Sounds = require(script.Parent.Sounds)
 local Tokens = require(script.Parent.Tokens)
 
 local GameClient = {}
@@ -72,7 +74,9 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 		end)
 	end
 
+	local shown: Protocol.Snapshot? = nil -- what the HUD is showing now (for the clock's last-seconds ticks)
 	local function show(snapshot: Protocol.Snapshot?)
+		shown = snapshot
 		if not snapshot or snapshot.phase == "GameOver" then
 			diceView:clear() -- nothing left to roll for
 		end
@@ -85,10 +89,28 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 		hud:render(snapshot, localId)
 	end
 
+	-- The last five seconds of your own decision tick, once a second.
+	local lastTick = -1
+	RunService.Heartbeat:Connect(function()
+		local snapshot = shown
+		local deadline = if snapshot and snapshot.acting == localId then snapshot.match.turnDeadline else nil
+		if not deadline then
+			lastTick = -1
+			return
+		end
+		local left = math.ceil(deadline - workspace:GetServerTimeNow())
+		if left >= 1 and left <= 5 and left ~= lastTick then
+			lastTick = left
+			Sounds.play("Tick", { pitch = 1 + (5 - left) * 0.05 })
+		end
+	end)
+
 	updateRemote.OnClientEvent:Connect(function(update: Protocol.Update)
 		hud:unlock()
 		if update.notice then
 			hud:notice(update.notice)
+			-- The end-of-game result pays coins; anything else here is a refusal.
+			Sounds.play(if update.notice:find("coins", 1, true) then "Claim" else "Error")
 		end
 		local snapshot = update.snapshot
 		if not snapshot then
@@ -140,6 +162,11 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 			local event = item.event
 			local line = EventText.describe(event, names)
 			local time = start + item.at
+			for _, cue in GameSounds.forEvent(event, localId) do
+				at(time + (cue.delay or 0), function()
+					Sounds.play(cue.name, { volume = cue.volume })
+				end)
+			end
 			if event.type == "CardDrawn" and Cards.byId[event.card] then
 				-- The queue holds the card until its time (and until the card before it is done).
 				hud:showCard(event.card, names[event.player] or event.player, time)

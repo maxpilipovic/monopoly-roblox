@@ -7,6 +7,7 @@ local GameClient = require(script.GameClient)
 local LobbyFx = require(script.LobbyFx)
 local LobbyHud = require(script.Hud.LobbyHud)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
+local Sounds = require(script.Sounds)
 
 local remotes = ReplicatedStorage:WaitForChild(Protocol.REMOTES_FOLDER)
 local lobbyRemote = remotes:WaitForChild(Protocol.LOBBY) :: RemoteEvent
@@ -22,6 +23,9 @@ local lobby = LobbyHud.new(Players.LocalPlayer:WaitForChild("PlayerGui"), {
 		lobbyRemote:FireServer(request)
 	end,
 	onStore = function(request)
+		if request.type == "Equip" then
+			Sounds.play("Equip")
+		end
 		storeRemote:FireServer(request)
 	end,
 	onProgress = function(request)
@@ -41,6 +45,7 @@ rewardRemote.OnClientEvent:Connect(function(view)
 	lobby:showReward(view)
 end)
 profileRemote:FireServer() -- in case the first push came before we were listening
+Sounds.preload()
 
 LobbyFx.start(function()
 	lobby:openPanel("Games")

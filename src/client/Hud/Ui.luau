@@ -2,6 +2,7 @@
 -- The HUD's widget kit: every panel, label and button is built here so the whole game shares one look.
 
 local TweenService = game:GetService("TweenService")
+local Sounds = require(script.Parent.Parent.Sounds)
 local Theme = require(script.Parent.Theme)
 
 local Ui = {}
@@ -190,6 +191,7 @@ function Ui.button(text: string, parent: Instance, onClick: () -> (), style: Sty
 	end
 	button.MouseEnter:Connect(function()
 		settle(0, 0.1)
+		Sounds.play("Hover")
 	end)
 	button.MouseLeave:Connect(function()
 		settle(0, 0)
@@ -205,7 +207,10 @@ function Ui.button(text: string, parent: Instance, onClick: () -> (), style: Sty
 	button.Destroying:Connect(function()
 		handlers[button] = nil
 	end)
-	button.Activated:Connect(onClick)
+	button.Activated:Connect(function()
+		Sounds.play(if button:GetAttribute("Style") == "disabled" then "Tab" else "Click")
+		onClick()
+	end)
 	return button
 end
 

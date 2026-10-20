@@ -9,6 +9,7 @@ local TweenService = game:GetService("TweenService")
 local Pacing = require(ReplicatedStorage.Shared.Rules.Pacing)
 local Theme = require(script.Parent.Parent.Theme)
 local Icons = require(script.Parent.Parent.Icons)
+local Sounds = require(script.Parent.Parent.Parent.Sounds)
 local Ui = require(script.Parent.Parent.Ui)
 
 local TurnOrderSpin = {}
@@ -143,6 +144,7 @@ function TurnOrderSpin.play(self: TurnOrderSpin, order: { Entry })
 				end
 				index = index % #order + 1
 				showOnReel(self, order[index])
+				Sounds.play("SpinTick", { pitch = 0.95 + math.random() * 0.1 })
 				task.wait(step)
 			end
 			waitUntil(seatStart + spinTime)
@@ -150,6 +152,7 @@ function TurnOrderSpin.play(self: TurnOrderSpin, order: { Entry })
 				return
 			end
 			showOnReel(self, winner)
+			Sounds.play("SpinDing", { pitch = 1 + (seat - 1) * 0.06 }) -- each seat rings a little higher
 			addRow(self, seat, winner)
 			waitUntil(seatStart + Pacing.SPIN_SECONDS)
 		end

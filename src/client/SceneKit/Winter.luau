@@ -5,6 +5,7 @@
 -- mountains on the horizon, the northern lights rippling overhead, and snow falling.
 
 local Kit = require(script.Parent.Kit)
+local Sounds = require(script.Parent.Parent.Sounds)
 local Table = require(script.Parent.Table)
 
 local G = Kit.GROUND
@@ -216,7 +217,8 @@ local function campfire(ctx: Kit.Context, at: Vector3)
 		Kit.rod("FireLog", at + Vector3.new(math.cos(a) * 2.6, 0.4, math.sin(a) * 2.6), at + Vector3.new(0, 2.2, 0), 0.45, Color3.fromRGB(90, 60, 40), Enum.Material.Wood, model)
 	end
 	Kit.glow("Embers", Vector3.new(3, 0.4, 3), CFrame.new(at + Vector3.new(0, 0.3, 0)), Color3.fromRGB(255, 110, 40), model)
-	Kit.flame(ctx, at + Vector3.new(0, 1, 0), 3.2, model)
+	local fire = Kit.flame(ctx, at + Vector3.new(0, 1, 0), 3.2, model)
+	Sounds.attach(fire, Sounds.FIRE, 0.7, 170) -- it crackles, louder as the camera passes it
 	-- Log benches round it.
 	for index = 0, 2 do
 		local a = index / 3 * 2 * math.pi + 0.4

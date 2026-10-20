@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Scenes = require(ReplicatedStorage.Shared.Board.Scenes)
+local Sounds = require(script.Parent.Sounds)
 local Kit = require(script.Parent.SceneKit.Kit)
 
 local BUILDERS: { [string]: (Kit.Context) -> () } = {
@@ -146,6 +147,7 @@ function SceneBuilder.build(sceneId: string?, parent: Instance): Model
 	model.Parent = parent
 	applyLighting(scene)
 	hideBaseplate()
+	Sounds.ambience(scene.id)
 
 	if animation then
 		animation:Disconnect()
@@ -170,6 +172,7 @@ function SceneBuilder.clear(model: Model?)
 	end
 	workspace.Terrain:Clear() -- the scene's land and water; the lobby is built of parts
 	restore()
+	Sounds.ambience(nil)
 end
 
 return SceneBuilder

@@ -28,6 +28,7 @@ local ChallengesPanel = require(script.Parent.Lobby.ChallengesPanel)
 local Icons = require(script.Parent.Icons)
 local ItemArt = require(script.Parent.Lobby.ItemArt)
 local ModelView = require(script.Parent.ModelView)
+local Sounds = require(script.Parent.Parent.Sounds)
 local Theme = require(script.Parent.Theme)
 local Ui = require(script.Parent.Ui)
 
@@ -409,6 +410,9 @@ function LobbyHud.notice(self: LobbyHud, text: string)
 end
 
 function LobbyHud.close(self: LobbyHud)
+	if self.open then
+		Sounds.play("Close")
+	end
 	self.open = nil
 	self.creating = false
 	self:render()
@@ -418,6 +422,7 @@ function LobbyHud.toggle(self: LobbyHud, name: string)
 	if self.open == name then
 		self:close()
 	else
+		Sounds.play("Open")
 		self.open = name
 		self.creating = false
 		self:render()
@@ -1254,8 +1259,15 @@ function LobbyHud.showChest(self: LobbyHud, result: Protocol.ChestResult)
 	task.spawn(function()
 		for step = 1, 12 do
 			self.revealChest.wobble = step * 0.012
+			if step % 3 == 1 then
+				Sounds.play("ChestShake", { volume = 0.6 + step * 0.04 })
+			end
 			task.wait(0.11)
 		end
+		Sounds.play("ChestOpen")
+		task.delay(0.25, function()
+			Sounds.play(if result.refund then "Coins" else `Reveal{item.rarity}`)
+		end)
 		self.revealChest.wobble = 0
 		flash.BackgroundTransparency = 0
 		TweenService:Create(flash, TweenInfo.new(0.6), { BackgroundTransparency = 1 }):Play()
@@ -1280,6 +1292,12 @@ function LobbyHud.showReward(self: LobbyHud, view: Protocol.RewardView)
 	end
 	clearReveal(self)
 	local item = if view.item then Catalog.byId[view.item] else nil
+	Sounds.play("Claim")
+	if item and (item.rarity == "Legendary" or item.rarity == "Epic") then
+		task.delay(0.4, function()
+			Sounds.play(`Reveal{item.rarity}`)
+		end)
+	end
 	local paid = {}
 	if view.coins then
 		table.insert(paid, `{Stats.commas(view.coins)} coins`)
