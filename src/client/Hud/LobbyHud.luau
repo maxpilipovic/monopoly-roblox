@@ -215,7 +215,7 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 		collectionPage = 1,
 		playTab = "Ranked",
 		challengesTab = "Daily",
-		treeState = { zoom = 0.6, canvas = nil, selected = nil },
+		treeState = { zoom = 0.5, canvas = nil, selected = nil },
 		dailyClock = nil,
 		wallet = nil :: any,
 		walletCoins = nil :: any,
@@ -773,8 +773,8 @@ local function itemTile(self: LobbyHud, parent: Instance, order: number, item: C
 	art.Position = UDim2.fromOffset(0, 12)
 	if not owned then
 		if art:IsA("ViewportFrame") then
-			art.ImageTransparency = 0.55
-			art.ImageColor3 = Color3.fromRGB(120, 120, 140)
+			art.ImageTransparency = 0.25
+			art.ImageColor3 = Color3.fromRGB(185, 185, 200)
 		elseif art:IsA("TextLabel") then
 			art.TextTransparency = 0.55
 		end

@@ -27,7 +27,6 @@ local ROOT = 88
 local LINE = 7
 local GOLD = Color3.fromRGB(255, 204, 72)
 local LOCKED = Color3.fromRGB(34, 40, 60)
-local LINE_DIM = Color3.fromRGB(52, 60, 86)
 local DRAG_SLOP = 6
 
 local HALF = Tree.EXTENT + TreeView.MARGIN
@@ -124,7 +123,8 @@ function TreeView.build(parent: GuiObject, data: Progress.Data, state: ViewState
 			local branch = Tree.branchById[node.branch :: string]
 			local claimed = data.tree.claimed[node.id] == true
 			local open = (Progress.node(data, node.id)) ~= "Locked"
-			line(map, at(parentNode.position), at(node.position), if claimed or open then branch.color else LINE_DIM, if claimed then 0 elseif open then 0.45 else 0)
+			-- Locked stretches stay faintly in their branch's colour, so the whole tree reads at a glance.
+			line(map, at(parentNode.position), at(node.position), branch.color, if claimed then 0 elseif open then 0.35 else 0.78)
 		end
 	end
 
@@ -179,7 +179,7 @@ function TreeView.build(parent: GuiObject, data: Progress.Data, state: ViewState
 			else LOCKED
 		button.Parent = map
 		Ui.corner(button, size)
-		local ring = Ui.stroke(button, if nodeState == "Locked" then LINE_DIM else color, if state.selected == node.id then 5 else 3, 0)
+		local ring = Ui.stroke(button, color, if state.selected == node.id then 5 else 3, if nodeState == "Locked" then 0.55 else 0)
 		if state.selected == node.id then
 			ring.Color = Color3.new(1, 1, 1)
 		end

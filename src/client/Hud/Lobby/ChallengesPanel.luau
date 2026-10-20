@@ -308,7 +308,7 @@ local function renderAchievements(hud: any, content: Frame, data: Progress.Data)
 		if line.tier then
 			local tierIndex = line.claimed + 1
 			goal.Text = `{Achievements.TIER_NAMES[tierIndex]}: {Stats.goal(track.stat, line.tier.target)}`
-			local progressBar = bar(card, UDim2.new(1, -200, 0, 16), line.progress / line.tier.target, Achievements.TIER_COLORS[tierIndex],
+			local progressBar = bar(card, UDim2.new(1, -212, 0, 16), line.progress / line.tier.target, Achievements.TIER_COLORS[tierIndex],
 				`{Stats.amount(track.stat, math.min(line.progress, line.tier.target))} / {Stats.amount(track.stat, line.tier.target)}`)
 			progressBar.Position = UDim2.fromOffset(86, 82)
 			local reward = Ui.label("Reward", card, UDim2.fromOffset(100, 40), 13, Theme.font.bodyBold)
@@ -317,7 +317,7 @@ local function renderAchievements(hud: any, content: Frame, data: Progress.Data)
 			reward.TextXAlignment = Enum.TextXAlignment.Right
 			reward.TextColor3 = GOLD
 			reward.Text = (rewardText(line.tier.reward):gsub(" %+ ", "\n+ "))
-			local claim = Ui.button(if line.ready then "Claim" else "Locked", card, function()
+			local claim = Ui.button(if line.ready then "Claim" else "Not yet", card, function()
 				if line.ready then
 					hud.callbacks.onProgress({ type = "ClaimAchievement", track = track.id })
 				end

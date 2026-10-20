@@ -116,18 +116,15 @@ function ProgressService.start()
 	rewardRemote.Parent = remotes
 	requestRemote.OnServerEvent:Connect(onRequest)
 
-	local function joined(player: Player)
-		if PlayerData.get(player) then
-			PlayerData.update(player, function(p)
-				Progress.ensureTree(p)
-			end)
-			refresh(player)
+	-- A profile is dealt its dailies as soon as it's loaded (and whenever it changes on a new day).
+	-- Hooked to profile changes rather than PlayerAdded: handlers there run in no set order, so the
+	-- profile may not even be loading yet.
+	PlayerData.onChanged(function(player, profile)
+		if profile.tree.starts[Tree.ROOT] == nil then
+			Progress.ensureTree(profile)
 		end
-	end
-	Players.PlayerAdded:Connect(joined)
-	for _, player in Players:GetPlayers() do
-		task.spawn(joined, player)
-	end
+		refresh(player)
+	end)
 	Players.PlayerRemoving:Connect(function(player)
 		Throttle.forget(requests, tostring(player.UserId))
 	end)

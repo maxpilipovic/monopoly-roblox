@@ -14,7 +14,7 @@ local Ui = require(script.Parent.Parent.Ui)
 local ItemArt = {}
 
 ItemArt.GLYPHS = table.freeze({
-	CoinBurst = "🪙",
+	CoinBurst = "💰",
 	ConfettiPop = "🎉",
 	MoneyRain = "💸",
 	GoldenAura = "✨",
@@ -22,7 +22,7 @@ ItemArt.GLYPHS = table.freeze({
 	Fireworks = "🎆",
 	BlackHole = "🕳️",
 	AuraStardust = "✨",
-	AuraBubbles = "🫧",
+	AuraBubbles = "💧",
 	AuraEmbers = "🔥",
 	AuraSnowfall = "❄️",
 	AuraStorm = "🌩️",
@@ -35,7 +35,7 @@ ItemArt.GLYPHS = table.freeze({
 	AuraStarburst = "💫",
 })
 
-ItemArt.COIN = "🪙"
+ItemArt.COIN = "💰"
 ItemArt.KEY = "🗝️"
 
 function ItemArt.finishPiece(id: string): (Model) -> ()

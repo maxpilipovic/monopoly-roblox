@@ -40,7 +40,7 @@ Stats.LIST = {
 	stat("bankruptcies", "💀", "Bankrupt an opponent", "Bankrupt {n} opponents"),
 	stat("chestsOpened", "🎁", "Open a chest", "Open {n} chests"),
 	stat("dailyCompleted", "📅", "Complete a daily challenge", "Complete {n} daily challenges"),
-	stat("coinsEarned", "🪙", "Earn coins", "Earn {n} coins"),
+	stat("coinsEarned", "💰", "Earn coins", "Earn {n} coins"),
 	stat("treeNodes", "🌳", "Claim an Empire Tree node", "Claim {n} Empire Tree nodes"),
 } :: { Stat }
 
