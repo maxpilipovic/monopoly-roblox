@@ -20,7 +20,8 @@ local RIPPLE_SECONDS = 0.6
 local TOKEN_HEIGHT = 0.8
 
 -- pause: seconds the token waits before setting off (the dice, or a card being read).
-type Move = { from: number, to: number, style: string?, pause: number? }
+-- flight: a card sends it there; it flies over the board in one arc instead of walking.
+type Move = { from: number, to: number, style: string?, pause: number?, flight: boolean? }
 
 type Token = {
 	part: BasePart,
@@ -157,6 +158,26 @@ local function hop(token: Token, goal: CFrame, toJail: boolean)
 	end
 end
 
+-- A card sending the token somewhere: it lifts off, flies across the board in one high arc while
+-- turning once, and comes down on its spot, all in Pacing.FLIGHT_SECONDS.
+local function fly(token: Token, goal: CFrame)
+	local part = token.part
+	local start = part.CFrame
+	local distance = (goal.Position - start.Position).Magnitude
+	local height = 7 + distance * 0.18
+	local began = os.clock()
+	while part.Parent do
+		local t = math.min((os.clock() - began) / Pacing.FLIGHT_SECONDS, 1)
+		local eased = t * t * (3 - 2 * t) -- slow off the ground, fast across, slow onto the tile
+		local position = start.Position:Lerp(goal.Position, eased) + Vector3.new(0, 4 * height * t * (1 - t), 0)
+		part.CFrame = CFrame.new(position) * CFrame.Angles(0, eased * 2 * math.pi, 0) * goal.Rotation
+		if t >= 1 then
+			break
+		end
+		RunService.RenderStepped:Wait()
+	end
+end
+
 -- The end of a move: the token squashes as it settles and a ring in its colour ripples out.
 local function land(token: Token)
 	local part = token.part
@@ -213,6 +234,9 @@ end
 
 -- How long a Moved event takes to animate.
 function Tokens.moveSeconds(move: Move): number
+	if move.flight then
+		return Pacing.FLIGHT_SECONDS
+	end
 	return #Tokens.path(move) * HOP_TIME
 end
 
@@ -243,6 +267,17 @@ local function runQueue(self: TokensView, token: Token)
 				if not token.part.Parent then
 					break
 				end
+			end
+			if move.flight then
+				if hooks then
+					hooks.onMoveStarted(token.part, "Fly")
+				end
+				local last = #token.queue == 0
+				fly(token, standingCFrame(move.to, if last then token.index else 1, if last then token.count else 1, false))
+				settle(self)
+				land(token)
+				settle(self)
+				continue
 			end
 			if hooks then
 				hooks.onMoveStarted(token.part, move.style)
@@ -360,7 +395,7 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 	for _, event in update.events do
 		local token = event.type == "Moved" and self.tokens[event.player]
 		if token then
-			table.insert(token.queue, { from = event.from, to = event.to, style = event.style, pause = event.pause })
+			table.insert(token.queue, { from = event.from, to = event.to, style = event.style, pause = event.pause, flight = event.flight })
 			runQueue(self, token)
 		end
 	end

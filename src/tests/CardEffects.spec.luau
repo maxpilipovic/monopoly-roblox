@@ -199,4 +199,14 @@ tests["new games shuffle each deck with the given shuffler"] = function()
 	Expect.equal(unshuffled.decks.Chance[1], Cards.idsFor("Chance")[1], "no shuffler: listed order")
 end
 
+tests["a card that sends the token somewhere flies it there; a roll or going back walks"] = function()
+	local state = drawAt(4, { { 1, 2 } }, "Chance", "chance.boardwalk")
+	local moves = GameFixtures.eventsOfType(state, "Moved")
+	Expect.equal(moves[1].flight, nil, "the roll walks")
+	Expect.equal(moves[2].flight, true, "the card flies")
+	Expect.equal(moves[2].to, 39)
+	local back = drawAt(4, { { 1, 2 } }, "Chance", "chance.back3")
+	Expect.equal(GameFixtures.eventsOfType(back, "Moved")[2].flight, nil, "going back three hops")
+end
+
 return tests

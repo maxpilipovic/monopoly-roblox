@@ -44,8 +44,8 @@ end
 
 function CameraDirector.next(state: State, event: Event, now: number): State
 	if event.kind == "MoveStarted" then
-		if event.style == "ToJail" then
-			-- A jump, not a walk: nothing to follow. If it's the token being watched (it walked onto
+		if event.style == "ToJail" or event.style == "Fly" then
+			-- A jump or a flight, not a walk: nothing to follow; the overhead view shows it best. If it's the token being watched (it walked onto
 			-- Go To Jail, or drew the card), let go of it rather than be dragged across the board.
 			if (state.mode == "Following" or state.mode == "Holding") and state.part == event.part then
 				return returning(state, event.camera or BoardCamera.chaseCFrame(event.part.Position, state.heading), now)

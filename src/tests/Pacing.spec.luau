@@ -132,4 +132,12 @@ tests["the turn-order spin plays before anything else"] = function()
 	Expect.equal(Pacing.turnOrderSeconds(4) > Pacing.turnOrderSeconds(2), true, "more players, longer spin")
 end
 
+tests["a card's flight takes the same short time however far it goes"] = function()
+	local near = Pacing.moveSeconds({ from = 7, to = 11, style = "Walk", flight = true })
+	local far = Pacing.moveSeconds({ from = 7, to = 39, style = "Walk", flight = true })
+	Expect.near(near, Pacing.FLIGHT_SECONDS)
+	Expect.near(far, Pacing.FLIGHT_SECONDS)
+	assert(far < 32 * HOP, "quicker than walking 32 tiles")
+end
+
 return tests

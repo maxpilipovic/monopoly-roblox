@@ -6,6 +6,7 @@
 local Pacing = {}
 
 Pacing.HOP_SECONDS = 0.26 -- one tile of a token's walk
+Pacing.FLIGHT_SECONDS = 1.1 -- a card flying a token across the board: lift, fly, set down
 Pacing.DICE_SECONDS = 2 -- the 3D dice tumble (at most 1.6 s, see DiceThrow) and are read before the token sets off
 Pacing.DICE_READ_SECONDS = 0.4 -- the end of DICE_SECONDS, when the dice lie still to be read
 Pacing.LAND_SECONDS = 0.6 -- a beat on the landing tile before what happens there is shown
@@ -17,7 +18,7 @@ Pacing.SPIN_READ_SECONDS = 1.4 -- the finished order on show before the first tu
 
 local BOARD_TILES = 40
 
-export type Move = { from: number, to: number, style: string? }
+export type Move = { from: number, to: number, style: string?, flight: boolean? }
 
 export type Item = {
 	at: number, -- seconds after the update starts playing
@@ -51,6 +52,9 @@ function Pacing.steps(move: Move): number
 end
 
 function Pacing.moveSeconds(move: Move): number
+	if move.flight then
+		return Pacing.FLIGHT_SECONDS
+	end
 	return Pacing.steps(move) * Pacing.HOP_SECONDS
 end
 

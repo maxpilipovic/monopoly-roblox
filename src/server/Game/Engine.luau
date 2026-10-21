@@ -102,12 +102,13 @@ local function finishMove(state: GameState)
 end
 
 -- style: "Walk" hops forward and collects Go when passing it, "Back" hops backward,
--- "ToJail" jumps straight into the jail cell.
-local function moveTo(state: GameState, player: Player, to: number, style: string)
+-- "ToJail" jumps straight into the jail cell. `flight`: shown as one quick flight over the board
+-- rather than a walk (a card sending the token somewhere); the rules are the same.
+local function moveTo(state: GameState, player: Player, to: number, style: string, flight: boolean?)
 	local from = player.position
 	local passedGo = style == "Walk" and to < from
 	player.position = to
-	emit(state, { type = "Moved", player = player.id, from = from, to = to, passedGo = passedGo, style = style })
+	emit(state, { type = "Moved", player = player.id, from = from, to = to, passedGo = passedGo, style = style, flight = flight })
 	if passedGo then
 		transfer(state, nil, player.id, Engine.GO_SALARY, "Go")
 	end
@@ -177,12 +178,12 @@ local function applyCard(state: GameState, player: Player, effect: Cards.Effect)
 		sendToJail(state, player, "Card")
 		return
 	elseif kind == "AdvanceTo" then
-		moveTo(state, player, effect.position :: number, "Walk")
+		moveTo(state, player, effect.position :: number, "Walk", true)
 		resolveLanding(state, player)
 		return
 	elseif kind == "AdvanceToNearest" then
 		local tileKind = effect.tileKind :: string
-		moveTo(state, player, nearestAhead(player.position, tileKind), "Walk")
+		moveTo(state, player, nearestAhead(player.position, tileKind), "Walk", true)
 		resolveLanding(state, player, if tileKind == "Railroad" then "DoubleRailroad" else "UtilityTenTimes")
 		return
 	elseif kind == "GoBack" then

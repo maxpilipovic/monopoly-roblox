@@ -28,8 +28,9 @@ Sounds.LIBRARY = table.freeze({
 	Gavel = { id = 9125573584, volume = 0.6 }, -- one gavel knock: a bid
 	Sold = { id = 9125574353, volume = 0.7 }, -- three knocks: sold
 	Jail = { id = 9117907161, volume = 0.6 }, -- prison bars rattling
-	-- A real cash register. The recording rings twice after a quiet second; only the first ring plays.
-	Register = { id = 119490509522422, volume = 0.7, region = { 1.15, 1.6 } },
+	-- A real cash register. The recording rings twice after a quiet second; only the second ring
+	-- plays, the louder one, which nothing follows, so it rings out fully.
+	Register = { id = 119490509522422, volume = 0.7, region = { 1.58, 2.52 } },
 })
 
 -- Each scene's ambience: one or two loops under the game.
