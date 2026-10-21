@@ -28,10 +28,10 @@ Sounds.LIBRARY = table.freeze({
 	Gavel = { id = 9125573584, volume = 0.6 }, -- one gavel knock: a bid
 	Sold = { id = 9125574353, volume = 0.7 }, -- three knocks: sold
 	Jail = { id = 9117907161, volume = 0.6 }, -- prison bars rattling
-	-- A real cash register "ka-ching" (Pixabay sound 376867, free to use): drawer thunk, bell, clean
-	-- ring-out, about a second, starting at once. Alternatives tried and measured: 119490509522422
-	-- (two rings after a quiet second), 101396758527961 (slow start, 4 s), 72764897006138 (short).
-	Register = { id = 134208887292061, volume = 0.7 },
+	-- The classic "Cash Register (Kaching)" sound effect: the most uploaded cha-ching in the store (the
+	-- store has no audio ratings). Played from where it starts, past its third of a second of silence,
+	-- through its full ring-out.
+	Register = { id = 102190680849132, volume = 0.7, region = { 0.35, 1.7 } },
 })
 
 -- Each scene's ambience: one or two loops under the game.
