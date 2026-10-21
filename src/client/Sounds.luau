@@ -28,7 +28,8 @@ Sounds.LIBRARY = table.freeze({
 	Gavel = { id = 9125573584, volume = 0.6 }, -- one gavel knock: a bid
 	Sold = { id = 9125574353, volume = 0.7 }, -- three knocks: sold
 	Jail = { id = 9117907161, volume = 0.6 }, -- prison bars rattling
-	Register = { id = 119490509522422, volume = 0.7 }, -- a real cash register: cha-ching (buying a property)
+	-- A real cash register. The recording rings twice after a quiet second; only the first ring plays.
+	Register = { id = 119490509522422, volume = 0.7, region = { 1.15, 1.6 } },
 })
 
 -- Each scene's ambience: one or two loops under the game.
@@ -140,6 +141,11 @@ function Sounds.play(name: string, options: Options?)
 			local s = Instance.new("Sound")
 			s.Name = name
 			s.SoundId = `rbxassetid://{library.id}`
+			local cut = (library :: any).region
+			if cut then
+				s.PlaybackRegionsEnabled = true
+				s.PlaybackRegion = NumberRange.new(cut[1], cut[2])
+			end
 			s.SoundGroup = group("Effects")
 			return s
 		end)
@@ -152,7 +158,8 @@ function Sounds.play(name: string, options: Options?)
 	sound.Volume = base * (if options and options.volume then options.volume else 1)
 	sound.PlaybackSpeed = if options and options.pitch then options.pitch else 1
 	-- A sheet slice plays from its region's start; TimePosition is relative to the whole file.
-	sound.TimePosition = if region then region[1] else 0
+	local cut = if library then (library :: any).region else nil
+	sound.TimePosition = if region then region[1] elseif cut then cut[1] else 0
 	sound:Play()
 end
 
