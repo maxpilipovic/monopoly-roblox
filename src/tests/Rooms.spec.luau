@@ -104,7 +104,21 @@ tests["the list shows each room's summary in creation order"] = function()
 	Expect.equal(list[2].hostName, "Ben")
 end
 
-tests["a ranked room holds its matched players, isn't listed and can't be joined"] = function()
+tests["a hosted ranked room is listed, joined and set up like any other, and needs two people to start"] = function()
+	local reg = Rooms.new()
+	local room = assert(Rooms.create(reg, "a", "Ana", { maxPlayers = 4, startingMoney = 3000, bots = true }, true))
+	Expect.equal(room.ranked, true)
+	Expect.equal(room.name, "Ana's ranked game")
+	Expect.equal(room.settings.startingMoney, 3000, "any settings")
+	Expect.equal(Rooms.list(reg)[1].ranked, true, "listed, marked ranked")
+	Expect.equal((Rooms.canStart(reg, "a")), false, "not alone, even with bots")
+	Expect.equal((Rooms.join(reg, room.id, "b", "Ben")), true)
+	Expect.equal((Rooms.updateSettings(reg, "a", { maxPlayers = 6, freeParking = true })), true, "the host changes the settings")
+	Expect.equal((Rooms.canStart(reg, "a")), true)
+	Expect.equal(Rooms.list(reg)[1].ranked, true)
+end
+
+tests["a queue-matched ranked room holds its matched players, isn't listed and can't be joined"] = function()
 	local reg = Rooms.new()
 	local room = Rooms.createRanked(reg, { { id = "a", name = "Ana" }, { id = "b", name = "Ben" } }, { maxPlayers = 2 })
 	Expect.equal(room.ranked, true)

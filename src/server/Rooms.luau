@@ -1,6 +1,7 @@
 --!strict
--- The casual games open on this server: who hosts each, who's in it, its settings and whether it's
--- playing. Pure bookkeeping; RoomService runs the games and talks to clients.
+-- The games open on this server, casual and ranked: who hosts each, who's in it, its settings and
+-- whether it's playing. A ranked room is hosted and joined like a casual one (any settings) but rated,
+-- and needs at least two people to start. Pure bookkeeping; RoomService runs the games.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RoomSettings = require(ReplicatedStorage.Shared.Rules.RoomSettings)
@@ -14,7 +15,8 @@ export type Room = {
 	members: { Member },
 	settings: RoomSettings.Settings,
 	status: string, -- "Waiting" | "Playing"
-	ranked: boolean, -- matched by the ranked queue: fixed rules, rated, never listed or joinable
+	ranked: boolean, -- rated: results move everyone's Elo
+	matched: boolean, -- made by the ranked queue for the players it matched: never listed or joinable
 	session: any?, -- the GameSession while playing (owned by RoomService)
 }
 
@@ -27,6 +29,7 @@ export type RoomView = {
 	status: string,
 	settings: RoomSettings.Settings,
 	members: { Member },
+	ranked: boolean,
 }
 
 export type Registry = { rooms: { Room }, nextId: number }
@@ -67,10 +70,11 @@ local function hostName(room: Room): string
 end
 
 local function rename(room: Room)
-	room.name = `{hostName(room)}'s game`
+	room.name = if room.ranked then `{hostName(room)}'s ranked game` else `{hostName(room)}'s game`
 end
 
-function Rooms.create(reg: Registry, hostId: string, name: string, raw: any): (Room?, string?)
+-- A room hosted by `hostId`; `ranked` rooms are rated.
+function Rooms.create(reg: Registry, hostId: string, name: string, raw: any, ranked: boolean?): (Room?, string?)
 	if Rooms.roomOf(reg, hostId) then
 		return nil, "you're already in a game"
 	end
@@ -81,7 +85,8 @@ function Rooms.create(reg: Registry, hostId: string, name: string, raw: any): (R
 		members = { { id = hostId, name = name } },
 		settings = RoomSettings.validate(raw),
 		status = "Waiting",
-		ranked = false,
+		ranked = ranked == true,
+		matched = false,
 		session = nil,
 	}
 	reg.nextId += 1
@@ -100,6 +105,7 @@ function Rooms.createRanked(reg: Registry, members: { Member }, raw: any): Room
 		settings = RoomSettings.validate(raw),
 		status = "Waiting",
 		ranked = true,
+		matched = true,
 		session = nil,
 	}
 	reg.nextId += 1
@@ -115,8 +121,8 @@ function Rooms.join(reg: Registry, roomId: any, playerId: string, name: string):
 		return false, "you're already in a game"
 	elseif room.status ~= "Waiting" then
 		return false, "that game has already started"
-	elseif room.ranked then
-		return false, "ranked games are matched by the queue"
+	elseif room.matched then
+		return false, "that game was made for the players it matched"
 	elseif #room.members >= room.settings.maxPlayers then
 		return false, "that game is full"
 	end
@@ -141,7 +147,7 @@ function Rooms.leave(reg: Registry, playerId: string): Room?
 		table.remove(reg.rooms, table.find(reg.rooms, room) :: number)
 	elseif room.hostId == playerId then
 		room.hostId = room.members[1].id
-		if not room.ranked then
+		if not room.matched then
 			rename(room)
 		end
 	end
@@ -152,8 +158,8 @@ function Rooms.updateSettings(reg: Registry, playerId: string, raw: any): (boole
 	local room = Rooms.roomOf(reg, playerId)
 	if not room or room.hostId ~= playerId then
 		return false, "only the host can change the settings"
-	elseif room.ranked then
-		return false, "ranked games use fixed rules"
+	elseif room.matched then
+		return false, "matched games use fixed rules"
 	elseif room.status ~= "Waiting" then
 		return false, "the game has already started"
 	end
@@ -170,8 +176,9 @@ function Rooms.canStart(reg: Registry, playerId: string): (boolean, string?)
 		return false, "only the host can start the game"
 	elseif room.status ~= "Waiting" then
 		return false, "the game has already started"
-	elseif not room.settings.bots and #room.members < 2 then
-		return false, "waiting for another player"
+	elseif (room.ranked or not room.settings.bots) and #room.members < 2 then
+		-- A ranked game needs a real opponent: no farming rating off bots alone.
+		return false, if room.ranked then "a ranked game needs at least two players" else "waiting for another player"
 	end
 	return true, nil
 end
@@ -179,7 +186,7 @@ end
 function Rooms.list(reg: Registry): { RoomView }
 	local views = {}
 	for _, room in reg.rooms do
-		if room.ranked then
+		if room.matched then
 			continue
 		end
 		table.insert(views, {
@@ -191,6 +198,7 @@ function Rooms.list(reg: Registry): { RoomView }
 			status = room.status,
 			settings = room.settings,
 			members = table.clone(room.members),
+			ranked = room.ranked,
 		})
 	end
 	return views

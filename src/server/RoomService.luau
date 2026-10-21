@@ -1,5 +1,5 @@
 --!strict
--- Runs the games: casual rooms (listed, hosted, house rules, never rated), the ranked queue (matched
+-- Runs the games: hosted rooms, casual or ranked (listed, any house rules; ranked ones are rated), the ranked queue (matched
 -- by rating, fixed rules, Elo like chess), each game's turn clock, bots and broadcasts to its own
 -- players only, results and rating changes at the end, and moving players between the lobby (with
 -- their character) and the board (without one).
@@ -119,8 +119,8 @@ local function sendRooms(notifyOnly: Player?, notice: string?)
 		local entry = RankedQueue.entryOf(queue, id)
 		roomsRemote:FireClient(player, {
 			rooms = list,
-			mine = if room and not room.ranked then room.id else nil,
-			hostOf = if room and room.hostId == id and not room.ranked then room.id else nil,
+			mine = if room and not room.matched then room.id else nil,
+			hostOf = if room and room.hostId == id and not room.matched then room.id else nil,
 			notice = if player == notifyOnly then notice else nil,
 			queue = if entry then { mode = entry.mode, since = entry.since } else nil,
 		} :: Protocol.RoomsUpdate)
@@ -281,7 +281,7 @@ local function closeGame(l: Live)
 			toLobby(player)
 		end
 	end
-	if l.room.ranked then
+	if l.room.matched then
 		for _, member in table.clone(l.room.members) do
 			Rooms.leave(registry, member.id)
 		end
@@ -375,7 +375,7 @@ local function startGame(room: Rooms.Room)
 		shuffleSeats = true,
 		announceOrder = true,
 	})
-	session.scene = if room.ranked then Scenes.random(random) else settings.scene
+	session.scene = if room.matched then Scenes.random(random) else settings.scene
 	-- Cosmetics are fixed for the game when it starts.
 	for _, seat in session.state.players do
 		if seat.isBot then
@@ -469,7 +469,7 @@ local function returnToLobby(player: Player, l: Live)
 	l.returned[id] = true
 	updateRemote:FireClient(player, LOBBY_UPDATE)
 	toLobby(player)
-	if l.room.ranked then
+	if l.room.matched then
 		Rooms.leave(registry, id)
 	end
 	if #watchers(l) == 0 then
@@ -539,9 +539,11 @@ local function onLobbyRequest(player: Player, request: any)
 	if kind == "Create" or kind == "Join" then
 		if RankedQueue.entryOf(queue, id) then
 			ok, err = false, "leave the ranked queue first"
+		elseif (request.ranked == true or (kind == "Join" and (Rooms.byId(registry, request.room) or {} :: any).ranked)) and PlayerData.isUnreadable(player) then
+			ok, err = false, "your rating couldn't be loaded, so ranked is off for now"
 		elseif kind == "Create" then
 			local room
-			room, err = Rooms.create(registry, id, player.DisplayName, request.settings)
+			room, err = Rooms.create(registry, id, player.DisplayName, request.settings, request.ranked == true)
 			ok = room ~= nil
 		else
 			ok, err = Rooms.join(registry, request.room, id, player.DisplayName)

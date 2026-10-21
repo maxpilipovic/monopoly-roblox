@@ -80,6 +80,7 @@ export type LobbyHud = typeof(setmetatable(
 		open: string?,
 		draft: RoomSettings.Settings, -- the create form's settings
 		creating: boolean,
+		creatingRanked: boolean, -- the create form is for a ranked game
 		piecesTab: string, -- the collection's tab: a Catalog kind
 		collectionPage: number,
 		playTab: string, -- "Ranked" | "Casual"
@@ -213,6 +214,7 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 		open = nil,
 		draft = RoomSettings.validate(nil),
 		creating = false,
+		creatingRanked = false,
 		piecesTab = "Piece",
 		collectionPage = 1,
 		playTab = "Ranked",
@@ -261,7 +263,8 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 	name.Text = if player then player.DisplayName else "Player"
 	-- The equipped title, in its rarity's colour.
 	local titleTag = Ui.label("TitleTag", card, UDim2.new(1, -110, 0, 18), 15, Theme.font.display)
-	titleTag.Position = UDim2.fromOffset(100, 44)
+	titleTag.Position = UDim2.fromOffset(100, 46)
+	titleTag.Visible = false
 	titleTag.TextXAlignment = Enum.TextXAlignment.Left
 	titleTag.TextTruncate = Enum.TextTruncate.AtEnd
 	titleTag.TextWrapped = false
@@ -555,16 +558,20 @@ local function footer(parent: Instance): Frame
 	return bar
 end
 
-local function renderBrowse(self: LobbyHud, content: Frame)
+-- The open games of one kind (ranked or casual), from `top` down, and a button to host one.
+local function renderBrowse(self: LobbyHud, content: Frame, ranked: boolean, top: number)
 	-- Its own line under the tabs, never over them.
 	local note = Ui.label("CasualNote", content, UDim2.new(1, 0, 0, 20), 14, Theme.font.body)
+	note.Position = UDim2.fromOffset(0, top)
 	note.TextXAlignment = Enum.TextXAlignment.Left
 	note.TextColor3 = Theme.color.textDim
-	note.Text = "Casual games never change your rating, but still earn coins."
+	note.Text = if ranked
+		then "Ranked games are rated: any settings, at least two players. Leaving counts as a loss."
+		else "Casual games never change your rating, but still earn coins."
 	local list = Instance.new("ScrollingFrame")
 	list.Name = "Rooms"
-	list.Position = UDim2.fromOffset(0, 28)
-	list.Size = UDim2.new(1, 0, 1, -92)
+	list.Position = UDim2.fromOffset(0, top + 28)
+	list.Size = UDim2.new(1, 0, 1, -92 - top)
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
 	list.ScrollBarThickness = 6
@@ -572,11 +579,16 @@ local function renderBrowse(self: LobbyHud, content: Frame)
 	list.CanvasSize = UDim2.new()
 	list.Parent = content
 	Ui.list(list, Enum.FillDirection.Vertical, 8, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top)
-	local rooms = if self.rooms then self.rooms.rooms else {}
+	local rooms = {}
+	for _, room in (if self.rooms then self.rooms.rooms else {}) do
+		if (room.ranked == true) == ranked then
+			table.insert(rooms, room)
+		end
+	end
 	if #rooms == 0 then
 		local empty = Ui.label("Empty", list, UDim2.new(1, 0, 0, 120), 18, Theme.font.body)
 		empty.TextColor3 = Theme.color.textDim
-		empty.Text = "No games yet.\nCreate one and others can join!"
+		empty.Text = if ranked then "No ranked games yet.\nCreate one and others can join!" else "No games yet.\nCreate one and others can join!"
 	end
 	for index, room in rooms do
 		local card = Ui.surface(`Room{room.id}`, UDim2.new(1, -12, 0, 84), list)
@@ -608,11 +620,12 @@ local function renderBrowse(self: LobbyHud, content: Frame)
 		join.Position = UDim2.new(1, -14, 0.5, 0)
 	end
 	local bar = footer(content)
-	Ui.button("Create game", bar, function()
+	Ui.button(if ranked then "Create ranked game" else "Create game", bar, function()
 		self.creating = true
+		self.creatingRanked = ranked
 		self.draft = RoomSettings.validate(nil)
 		self:render()
-	end, "primary").Size = UDim2.fromOffset(190, 50)
+	end, "primary").Size = UDim2.fromOffset(if ranked then 240 else 190, 50)
 end
 
 local function renderCreate(self: LobbyHud, content: Frame)
@@ -626,7 +639,7 @@ local function renderCreate(self: LobbyHud, content: Frame)
 		self:render()
 	end, "secondary").LayoutOrder = 1
 	local create = Ui.button("Create", bar, function()
-		self.callbacks.onLobby({ type = "Create", settings = self.draft })
+		self.callbacks.onLobby({ type = "Create", settings = self.draft, ranked = self.creatingRanked })
 	end, "primary")
 	create.LayoutOrder = 2
 end
@@ -635,6 +648,10 @@ local function renderRoom(self: LobbyHud, content: Frame, room: any)
 	local isHost = self.rooms ~= nil and self.rooms.hostOf == room.id
 	local members = Ui.frame("Members", UDim2.new(1, 0, 0, 30), content)
 	Ui.list(members, Enum.FillDirection.Horizontal, 6, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center)
+	if room.ranked then
+		local badge = Ui.pill("RANKED", members, GOLD, Theme.color.ink)
+		badge.LayoutOrder = 0
+	end
 	for index, member in room.members do
 		local pill = Ui.pill(if index == 1 then `{member.name} (host)` else member.name, members, Theme.color.surfaceHigh)
 		pill.LayoutOrder = index
@@ -655,85 +672,40 @@ local function renderRoom(self: LobbyHud, content: Frame, room: any)
 		self.callbacks.onLobby({ type = "Leave" })
 	end, "danger")
 	leave.LayoutOrder = 1
-	local start = Ui.button(if isHost then "Start game" else "Host starts", bar, function()
-		if isHost then
+	local needsPlayer = room.ranked and #room.members < 2
+	local start = Ui.button(if needsPlayer then "Need 2 players" elseif isHost then "Start game" else "Host starts", bar, function()
+		if isHost and not needsPlayer then
 			self.callbacks.onLobby({ type = "Start" })
 		end
-	end, if isHost then "primary" else "disabled")
+	end, if isHost and not needsPlayer then "primary" else "disabled")
 	start.LayoutOrder = 2
 	start.Size = UDim2.fromOffset(180, 50)
 end
 
-local MODES = {
-	{ id = "Duel", title = "Duel", blurb = "1 v 1 · 30 minutes", players = 2 },
-	{ id = "Table", title = "Table", blurb = "4 players · 60 minutes", players = 4 },
-}
-
--- Ranked: your rating like a chess site shows it, and the queue for a Duel or a Table.
+-- Ranked: your rating like a chess site shows it, then the ranked games open to join.
 local function renderRanked(self: LobbyHud, content: Frame)
 	local profile = self.profile
 	local stats = if profile then profile.stats else nil
 	local elo = if stats then stats.elo else Ranks.START
 	local rank = Ranks.titleFor(elo)
-	local card = Ui.surface("Rating", UDim2.new(1, 0, 0, 120), content)
-	local number = Ui.label("Elo", card, UDim2.fromOffset(170, 64), 56, Theme.font.display)
-	number.Position = UDim2.fromOffset(16, 10)
+	local card = Ui.surface("Rating", UDim2.new(1, 0, 0, 72), content)
+	local number = Ui.label("Elo", card, UDim2.fromOffset(130, 56), 44, Theme.font.display)
+	number.Position = UDim2.fromOffset(16, 8)
 	number.TextXAlignment = Enum.TextXAlignment.Left
 	number.TextColor3 = GOLD
 	number.Text = tostring(math.floor(elo))
-	local title = Ui.label("Title", card, UDim2.fromOffset(280, 28), 22, Theme.font.display)
-	title.Position = UDim2.fromOffset(190, 14)
+	local games = if stats then stats.rankedGames else 0
+	local title = Ui.label("Title", card, UDim2.new(1, -170, 0, 26), 20, Theme.font.display)
+	title.Position = UDim2.fromOffset(150, 10)
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.TextColor3 = rank.color
-	title.Text = rank.name
-	local games = if stats then stats.rankedGames else 0
-	local record = Ui.label("Record", card, UDim2.fromOffset(300, 20), 15, Theme.font.bodyBold)
-	record.Position = UDim2.fromOffset(190, 44)
+	title.Text = rank.name .. (if Ranks.isProvisional(games) then ` · provisional ({Ranks.PROVISIONAL_GAMES - games} to go)` else "")
+	local record = Ui.label("Record", card, UDim2.new(1, -170, 0, 20), 14, Theme.font.bodyBold)
+	record.Position = UDim2.fromOffset(150, 40)
 	record.TextXAlignment = Enum.TextXAlignment.Left
 	record.TextColor3 = Theme.color.textDim
 	record.Text = if stats then `{stats.rankedWins} W · {games - stats.rankedWins} L · peak {math.floor(stats.peakElo)}` else ""
-	local note = Ui.label("Note", card, UDim2.new(1, -32, 0, 34), 14, Theme.font.body)
-	note.Position = UDim2.fromOffset(16, 78)
-	note.TextXAlignment = Enum.TextXAlignment.Left
-	note.TextColor3 = Theme.color.textDim
-	note.Text = if Ranks.isProvisional(games)
-		then `Provisional: {Ranks.PROVISIONAL_GAMES - games} more ranked games to settle your rating. Everyone starts at {Ranks.START}.`
-		else "Every place counts: finishing above a player gains you rating, more so the stronger they are."
-
-	local queued = if self.rooms then self.rooms.queue else nil
-	local modes = Ui.frame("Modes", UDim2.new(1, 0, 0, 170), content)
-	modes.Position = UDim2.fromOffset(0, 134)
-	Ui.list(modes, Enum.FillDirection.Horizontal, 14, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top)
-	for index, mode in MODES do
-		local box = Ui.surface(mode.id, UDim2.fromOffset(238, 160), modes)
-		box.LayoutOrder = index
-		local name = Ui.label("Name", box, UDim2.new(1, 0, 0, 34), 26, Theme.font.display)
-		name.Position = UDim2.fromOffset(0, 12)
-		name.Text = mode.title
-		local blurb = Ui.label("Blurb", box, UDim2.new(1, 0, 0, 20), 14, Theme.font.bodyBold)
-		blurb.Position = UDim2.fromOffset(0, 48)
-		blurb.TextColor3 = Theme.color.textDim
-		blurb.Text = mode.blurb
-		local searching = queued and queued.mode == mode.id
-		local button = Ui.button(if searching then "Cancel" elseif queued then "Find match" else "Find match", box, function()
-			if searching then
-				self.callbacks.onLobby({ type = "Unqueue" })
-			else
-				self.callbacks.onLobby({ type = "Queue", mode = mode.id })
-			end
-		end, if searching then "danger" elseif queued then "disabled" else "primary")
-		button.Size = UDim2.new(1, -28, 0, 50)
-		button.Position = UDim2.new(0, 14, 1, -64)
-	end
-	local status = Ui.label("Queue", content, UDim2.new(1, 0, 0, 26), 17, Theme.font.bodyBold)
-	status.Position = UDim2.fromOffset(0, 314)
-	status.TextColor3 = GOLD
-	status.Text = ""
-	self.queueLabel = if queued then status else nil
-	local rules = Ui.label("Rules", content, UDim2.new(1, 0, 0, 40), 13, Theme.font.body)
-	rules.Position = UDim2.fromOffset(0, 346)
-	rules.TextColor3 = Theme.color.textDim
-	rules.Text = "Ranked games use standard rules: $1500, auctions on, no Free Parking pot, no bots. Leaving a ranked game counts as a loss."
+	renderBrowse(self, content, true, 82)
 end
 
 local function renderGames(self: LobbyHud)
@@ -744,7 +716,7 @@ local function renderGames(self: LobbyHud)
 	self.queueLabel = nil
 	local mine = roomById(self, if self.rooms then self.rooms.mine else nil)
 	if mine or self.creating then
-		heading(if mine then mine.name else "Create a game", frame)
+		heading(if mine then mine.name elseif self.creatingRanked then "Create a ranked game" else "Create a game", frame)
 		local content = body(frame, 64)
 		if mine then
 			renderRoom(self, content, mine)
@@ -770,7 +742,7 @@ local function renderGames(self: LobbyHud)
 	if self.playTab == "Ranked" then
 		renderRanked(self, content)
 	else
-		renderBrowse(self, content)
+		renderBrowse(self, content, false, 0)
 	end
 end
 
@@ -1105,9 +1077,19 @@ function LobbyHud.render(self: LobbyHud)
 		self.titleLabel.Text = rank.name .. (if Ranks.isProvisional(profile.stats.rankedGames) then " ?" else "")
 		self.titleLabel.TextColor3 = rank.color
 		local title = if profile.equipped.title then Catalog.byId[profile.equipped.title] else nil
-		self.titleTag.Text = if title then title.name else "No title yet · earn one in Challenges"
-		self.titleTag.TextColor3 = if title then Catalog.RARITY_COLORS[title.rarity] else Theme.color.textDim
-		self.titleTag.TextSize = if title then 15 else 12
+		-- The title gets its own line under the name; without one, the card keeps its plain layout.
+		self.titleTag.Visible = title ~= nil
+		if title then
+			self.titleTag.Text = title.name
+			self.titleTag.TextColor3 = Catalog.RARITY_COLORS[title.rarity]
+		end
+		local shift = if title then 16 else 0
+		local card = self.statsCard
+		card.Size = UDim2.fromOffset(330, 168 + shift)
+		;(card:FindFirstChild("EloCaption") :: TextLabel).Position = UDim2.fromOffset(100, 50 + shift)
+		self.statLabels.elo.Position = UDim2.fromOffset(100, 64 + shift)
+		self.titleLabel.Position = UDim2.fromOffset(176, 74 + shift)
+		;(card:FindFirstChild("Stats") :: Frame).Position = UDim2.fromOffset(16, 104 + shift)
 		self.walletCoins.Text = Stats.commas(profile.coins or 0)
 		local keyCount = 0
 		for _, n in profile.keys or {} do
