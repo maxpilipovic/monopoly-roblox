@@ -74,6 +74,7 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 		end)
 	end
 
+	local registerTimes: { number } = {} -- when cash-register rings are scheduled (one per moment)
 	local shown: Protocol.Snapshot? = nil -- what the HUD is showing now (for the clock's last-seconds ticks)
 	local function show(snapshot: Protocol.Snapshot?)
 		shown = snapshot
@@ -135,6 +136,13 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 		end
 		Maps.use(snapshot.map) -- names and card text follow the game being shown
 
+		-- Forget rings long past.
+		local now = os.clock()
+		for i = #registerTimes, 1, -1 do
+			if registerTimes[i] < now - 1 then
+				table.remove(registerTimes, i)
+			end
+		end
 		local rentEffects = {}
 		for _, player in snapshot.players do
 			if player.rentEffect then
@@ -169,9 +177,12 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 			local line = EventText.describe(event, names)
 			local time = start + item.at
 			for _, cue in GameSounds.forEvent(event, localId, rentEffects) do
-				at(time + (cue.delay or 0), function()
-					Sounds.play(cue.name, { volume = cue.volume })
-				end)
+				local when = time + (cue.delay or 0)
+				if GameSounds.keep(cue, when, registerTimes) then
+					at(when, function()
+						Sounds.play(cue.name, { volume = cue.volume })
+					end)
+				end
 			end
 			if event.type == "CardDrawn" and Cards.byId[event.card] then
 				-- The queue holds the card until its time (and until the card before it is done).

@@ -1,6 +1,6 @@
 --!strict
 -- Which sounds a game event makes, from this player's point of view: their own events are louder
--- than other players'. Money changing hands (buying, paying, rent, collecting, passing GO, trading)
+-- than other players'. (No chime for your own turn.) Money changing hands (buying, paying, rent, collecting, passing GO, trading)
 -- rings the cash register, except rent to an owner with a rent effect: the effect (and its own
 -- sound) takes over. Pure, so it can be tested; GameClient plays the result at the event's moment.
 
@@ -26,8 +26,6 @@ function GameSounds.forEvent(event: { [string]: any }, localId: string, rentEffe
 			return {} -- the owner's rent effect takes over
 		end
 		return register(event.from == localId or event.to == localId)
-	elseif kind == "FreeParkingPaid" or kind == "Bought" or kind == "Mortgaged" or kind == "Unmortgaged" or kind == "BuildingSold" then
-		return register(mine)
 	elseif kind == "AuctionStarted" then
 		return { { name = "Gavel" } }
 	elseif kind == "BidPlaced" then
@@ -35,12 +33,7 @@ function GameSounds.forEvent(event: { [string]: any }, localId: string, rentEffe
 	elseif kind == "BidPassed" then
 		return if mine then { { name = "Tab" } } else {}
 	elseif kind == "AuctionEnded" and event.winner then
-		-- The gavel, then the winner pays up.
-		local cues: { Cue } = { { name = "Sold" } }
-		local paid = register(event.winner == localId)[1]
-		paid.delay = 0.5
-		table.insert(cues, paid)
-		return cues
+		return { { name = "Sold" } } -- the payment that follows rings the register
 	elseif kind == "Built" then
 		return { { name = if event.hotel then "Hotel" else "Build", volume = others } }
 	elseif kind == "CardDrawn" then
@@ -60,6 +53,8 @@ function GameSounds.forEvent(event: { [string]: any }, localId: string, rentEffe
 	elseif kind == "TradeProposed" then
 		return if event.to == localId or event.from == localId then { { name = "Notify" } } else {}
 	elseif kind == "TradeAccepted" then
+		-- A trade with cash rings through its payments; this covers a straight property swap
+		-- (GameSounds.dedupe keeps it to one ring).
 		return register(event.to == localId or event.from == localId)
 	elseif kind == "TradeDeclined" then
 		return if event.from == localId then { { name = "Error", volume = 0.6 } } else {}
@@ -67,10 +62,25 @@ function GameSounds.forEvent(event: { [string]: any }, localId: string, rentEffe
 		return { { name = "Bankrupt", volume = others } }
 	elseif kind == "GameOver" then
 		return { { name = if event.winner == localId then "Win" else "Lose" } }
-	elseif kind == "TurnStarted" and mine then
-		return { { name = "YourTurn" } }
 	end
 	return {}
+end
+
+-- Drops a cue that would ring the cash register within `window` seconds of one already scheduled
+-- (a purchase, a trade's two payments): one cha-ching per moment. `scheduled` is the times rung so
+-- far; the cue's time is recorded when it's kept.
+GameSounds.REGISTER_WINDOW = 0.4
+function GameSounds.keep(cue: Cue, at: number, scheduled: { number }): boolean
+	if cue.name ~= "Register" then
+		return true
+	end
+	for _, other in scheduled do
+		if math.abs(other - at) < GameSounds.REGISTER_WINDOW then
+			return false
+		end
+	end
+	table.insert(scheduled, at)
+	return true
 end
 
 return GameSounds
