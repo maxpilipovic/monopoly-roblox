@@ -1,29 +1,30 @@
 --!strict
 -- Which sounds a game event makes, from this player's point of view: their own events are louder
--- than other players'. Rent and paying out make no sound of their own (a rent effect is the show). Pure, so it can be tested; GameClient plays the result at the event's moment.
+-- than other players'. Rent makes no sound of its own (a rent effect is the show); paying tax, fines and
+-- the like rings the cash register, like buying. Pure, so it can be tested; GameClient plays the result at the event's moment.
 
 local GameSounds = {}
 
 export type Cue = { name: string, volume: number?, delay: number? }
 
-local DICE_SETTLE = 1.25 -- seconds from the throw until the dice come to rest
 
 function GameSounds.forEvent(event: { [string]: any }, localId: string): { Cue }
 	local kind = event.type
 	local mine = event.player == localId
 	local others = if mine then 1 else 0.55
 	if kind == "Rolled" and not event.forCard then
-		local cues: { Cue } = { { name = "Dice" } }
-		if event.dice[1] == event.dice[2] then
-			table.insert(cues, { name = "Doubles", delay = DICE_SETTLE })
-		end
-		return cues
+		return { { name = "Dice" } } -- doubles make no extra sound
 	elseif kind == "Paid" then
-		-- Rent is marked by the owner's rent effect (which has its own sound), and paying out is silent.
+		-- Rent is marked by the owner's rent effect (which has its own sound). Other money paid out (tax,
+		-- fines, cards) rings up on the cash register.
 		if event.reason == "Go" then
 			return { { name = "PassGo", volume = if event.to == localId then 1 else 0.5 } }
-		elseif event.reason ~= "Rent" and event.to == localId then
+		elseif event.reason == "Rent" then
+			return {}
+		elseif event.to == localId then
 			return { { name = "Coins" } }
+		elseif event.from then
+			return { { name = "Register", volume = if event.from == localId then 1 else 0.55 } }
 		end
 		return {}
 	elseif kind == "FreeParkingPaid" then

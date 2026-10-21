@@ -15,18 +15,17 @@ local function names(cues: { GameSounds.Cue }): string
 	return table.concat(list, ",")
 end
 
-tests["dice roll, and doubles ring once the dice settle"] = function()
+tests["dice roll; doubles make no extra sound"] = function()
 	Expect.equal(names(GameSounds.forEvent({ type = "Rolled", player = "me", dice = { 2, 5 } }, "me")), "Dice")
-	local cues = GameSounds.forEvent({ type = "Rolled", player = "me", dice = { 4, 4 } }, "me")
-	Expect.equal(names(cues), "Dice,Doubles")
-	Expect.equal((cues[2].delay or 0) > 0, true, "after they land")
+	Expect.equal(names(GameSounds.forEvent({ type = "Rolled", player = "me", dice = { 4, 4 } }, "me")), "Dice")
 	Expect.equal(names(GameSounds.forEvent({ type = "Rolled", player = "me", dice = { 4, 4 }, forCard = true }, "me")), "", "a card's roll is silent")
 end
 
-tests["rent and paying out are silent; money coming in and passing GO are not"] = function()
+tests["rent is silent; tax and other money paid out ring the register; money in and passing GO sound"] = function()
 	Expect.equal(names(GameSounds.forEvent({ type = "Paid", from = "you", to = "me", amount = 50, reason = "Rent" }, "me")), "", "rent in: the rent effect is the show")
 	Expect.equal(names(GameSounds.forEvent({ type = "Paid", from = "me", to = "you", amount = 50, reason = "Rent" }, "me")), "", "rent out")
-	Expect.equal(names(GameSounds.forEvent({ type = "Paid", from = "me", to = nil, amount = 100, reason = "Tax" }, "me")), "", "losing money")
+	Expect.equal(names(GameSounds.forEvent({ type = "Paid", from = "me", to = nil, amount = 100, reason = "Tax" }, "me")), "Register", "income tax")
+	Expect.equal(names(GameSounds.forEvent({ type = "Paid", from = "me", to = nil, amount = 50, reason = "JailFine" }, "me")), "Register", "a fine")
 	Expect.equal(names(GameSounds.forEvent({ type = "Paid", from = nil, to = "me", amount = 50, reason = "Card" }, "me")), "Coins")
 	Expect.equal(names(GameSounds.forEvent({ type = "Paid", from = nil, to = "me", amount = 200, reason = "Go" }, "me")), "PassGo")
 	Expect.equal(names(GameSounds.forEvent({ type = "Paid", from = "a", to = "b", amount = 50, reason = "Rent" }, "me")), "")
@@ -50,7 +49,7 @@ tests["the big moments each have a sound"] = function()
 end
 
 tests["every sound the game asks for exists in the sheet or the library"] = function()
-	local wanted = { "Dice", "Doubles", "Coins", "Pay", "PassGo", "Coin", "Buy", "Gavel", "Sold", "Build", "Hotel", "Mortgage", "Card", "Jail",
+	local wanted = { "Dice", "Coins", "Pay", "PassGo", "Coin", "Buy", "Gavel", "Sold", "Build", "Hotel", "Mortgage", "Card", "Jail",
 		"Notify", "TradeDone", "Error", "Bankrupt", "Win", "Lose", "YourTurn", "Click", "Hover", "Open", "Close", "Tab", "Equip", "Claim",
 		"ChestShake", "ChestOpen", "RevealCommon", "RevealRare", "RevealEpic", "RevealLegendary", "SpinTick", "SpinDing",
 		"Unlock", "Alert", "Pop", "Thunder", "Firework", "Warp", "Tick", "Register" }
