@@ -28,6 +28,7 @@ Sounds.LIBRARY = table.freeze({
 	Gavel = { id = 9125573584, volume = 0.6 }, -- one gavel knock: a bid
 	Sold = { id = 9125574353, volume = 0.7 }, -- three knocks: sold
 	Jail = { id = 9117907161, volume = 0.6 }, -- prison bars rattling
+	Register = { id = 119490509522422, volume = 0.7 }, -- a real cash register: cha-ching (buying a property)
 })
 
 -- Each scene's ambience: one or two loops under the game.

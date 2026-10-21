@@ -15,7 +15,7 @@ BoardCamera.CHASE_SIDE = 14
 BoardCamera.CHASE_BACK = 6
 BoardCamera.CHASE_UP = 16
 BoardCamera.CHASE_AHEAD = 3
-local FIT_MARGIN = 1.27 -- room around the board: a little closer than the old view, not edge to edge
+local FIT_MARGIN = 1.12 -- a little room around the board; close enough to read the squares
 
 -- The overhead camera `distance` from `focus`, slid `lift` studs down its own up axis (which raises
 -- the board on screen).

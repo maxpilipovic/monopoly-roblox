@@ -30,7 +30,7 @@ function GameSounds.forEvent(event: { [string]: any }, localId: string): { Cue }
 		return { { name = "Coins", volume = others } }
 	elseif kind == "Bought" then
 		-- A purchase rings up like a cash register: cha-ching.
-		return { { name = "PassGo", volume = others } }
+		return { { name = "Register", volume = others } }
 	elseif kind == "AuctionStarted" then
 		return { { name = "Gavel" } }
 	elseif kind == "BidPlaced" then
@@ -41,7 +41,7 @@ function GameSounds.forEvent(event: { [string]: any }, localId: string): { Cue }
 		-- The gavel, and a cha-ching for whoever won it.
 		local cues: { Cue } = { { name = "Sold" } }
 		if event.winner == localId then
-			table.insert(cues, { name = "PassGo", delay = 0.5 })
+			table.insert(cues, { name = "Register", delay = 0.5 })
 		end
 		return cues
 	elseif kind == "Built" then

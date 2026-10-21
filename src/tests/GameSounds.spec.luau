@@ -42,8 +42,8 @@ tests["the big moments each have a sound"] = function()
 	Expect.equal(names(GameSounds.forEvent({ type = "AuctionEnded", winner = nil, amount = 0 }, "me")), "")
 	Expect.equal(names(GameSounds.forEvent({ type = "Built", player = "me", hotel = true }, "me")), "Hotel")
 	Expect.equal(names(GameSounds.forEvent({ type = "AuctionStarted", position = 1, bidders = {} }, "me")), "Gavel")
-	Expect.equal(names(GameSounds.forEvent({ type = "Bought", player = "me", position = 1, price = 60 }, "me")), "PassGo", "buying is a cha-ching")
-	Expect.equal(names(GameSounds.forEvent({ type = "AuctionEnded", winner = "me", amount = 10 }, "me")), "Sold,PassGo", "winning an auction too")
+	Expect.equal(names(GameSounds.forEvent({ type = "Bought", player = "me", position = 1, price = 60 }, "me")), "Register", "buying is a cha-ching")
+	Expect.equal(names(GameSounds.forEvent({ type = "AuctionEnded", winner = "me", amount = 10 }, "me")), "Sold,Register", "winning an auction too")
 	Expect.equal(names(GameSounds.forEvent({ type = "LeftJail", player = "me", reason = "Doubles" }, "me")), "Unlock")
 	Expect.equal(names(GameSounds.forEvent({ type = "DebtOwed", debtor = "me", amount = 50 }, "me")), "Alert", "you owe more than you have")
 	Expect.equal(names(GameSounds.forEvent({ type = "OfferedPurchase", player = "me", position = 1 }, "me")), "Notify")
@@ -53,7 +53,7 @@ tests["every sound the game asks for exists in the sheet or the library"] = func
 	local wanted = { "Dice", "Doubles", "Coins", "Pay", "PassGo", "Coin", "Buy", "Gavel", "Sold", "Build", "Hotel", "Mortgage", "Card", "Jail",
 		"Notify", "TradeDone", "Error", "Bankrupt", "Win", "Lose", "YourTurn", "Click", "Hover", "Open", "Close", "Tab", "Equip", "Claim",
 		"ChestShake", "ChestOpen", "RevealCommon", "RevealRare", "RevealEpic", "RevealLegendary", "SpinTick", "SpinDing",
-		"Unlock", "Alert", "Pop", "Thunder", "Firework", "Warp", "Tick" }
+		"Unlock", "Alert", "Pop", "Thunder", "Firework", "Warp", "Tick", "Register" }
 	for _, name in wanted do
 		Expect.equal(SoundSheet[name] ~= nil or Sounds.LIBRARY[name] ~= nil, true, name)
 	end
