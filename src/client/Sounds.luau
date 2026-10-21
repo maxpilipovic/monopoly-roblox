@@ -39,7 +39,7 @@ Sounds.FIRE = 109494611784143
 -- The lobby's music: "Cool & Collected", a leisurely marimba loop with light shaker and bass
 -- (APM Music, licensed for Roblox). Soft, and only in the lobby.
 Sounds.LOBBY_MUSIC = 9039901266
-Sounds.LOBBY_VOLUME = 0.08 -- quiet: background, never over the game sounds
+Sounds.LOBBY_VOLUME = 0.04 -- very quiet: background, never over the game sounds
 
 -- The sound each rent effect makes as it plays over the payer.
 Sounds.RENT_EFFECTS = table.freeze({
