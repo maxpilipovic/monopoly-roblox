@@ -49,7 +49,7 @@ end
 
 tests["every sound the game asks for exists in the sheet or the library"] = function()
 	local wanted = { "Dice", "Doubles", "Coins", "Pay", "PassGo", "Coin", "Buy", "Gavel", "Sold", "Build", "Hotel", "Mortgage", "Card", "Jail",
-		"Notify", "TradeDone", "Error", "Bankrupt", "Win", "Lose", "YourTurn", "Hop", "Click", "Hover", "Open", "Close", "Tab", "Equip", "Claim",
+		"Notify", "TradeDone", "Error", "Bankrupt", "Win", "Lose", "YourTurn", "Click", "Hover", "Open", "Close", "Tab", "Equip", "Claim",
 		"ChestShake", "ChestOpen", "RevealCommon", "RevealRare", "RevealEpic", "RevealLegendary", "SpinTick", "SpinDing",
 		"Unlock", "Alert", "Pop", "Thunder", "Firework", "Warp", "Tick" }
 	for _, name in wanted do

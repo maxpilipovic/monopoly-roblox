@@ -218,7 +218,7 @@ local function campfire(ctx: Kit.Context, at: Vector3)
 	end
 	Kit.glow("Embers", Vector3.new(3, 0.4, 3), CFrame.new(at + Vector3.new(0, 0.3, 0)), Color3.fromRGB(255, 110, 40), model)
 	local fire = Kit.flame(ctx, at + Vector3.new(0, 1, 0), 3.2, model)
-	Sounds.attach(fire, Sounds.FIRE, 0.7, 170) -- it crackles, louder as the camera passes it
+	Sounds.attach(fire, Sounds.FIRE, 0.35, 170) -- it crackles, louder as the camera passes it
 	-- Log benches round it.
 	for index = 0, 2 do
 		local a = index / 3 * 2 * math.pi + 0.4
