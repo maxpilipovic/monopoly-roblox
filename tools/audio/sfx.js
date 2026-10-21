@@ -309,6 +309,49 @@ const SOUNDS = {
 		mixInto(b, phrase(1.1, [["G5", 0, (f) => mallet(0.8, f)], ["C6", 0.1, (f) => mallet(0.8, f)], ["E6", 0.2, (f) => bell(1, f, { decay: 0.6 }), 0.7]]), 0.28, 0.8);
 		return finish(reverb(b, 0.22), 0.7);
 	},
+	// Rent effects and the rest of the board
+	Pop: () => {
+		// A party popper: a sharp pop, then confetti pattering down.
+		const b = make(1.2);
+		mixInto(b, noise(0.08, { decay: 0.012, freq: 1800, q: 0.6 }), 0, 1);
+		mixInto(b, tone(0.1, (t) => 600 * Math.exp(-t * 30) + 120, { decay: 0.03 }), 0, 0.8);
+		for (let k = 0; k < 18; k++) mixInto(b, noise(0.03, { decay: 0.006, freq: 4000 + rand() * 4000, q: 2 }), 0.08 + rand() * 0.7, 0.25 * rand());
+		return finish(reverb(b, 0.15), 0.65);
+	},
+	Thunder: () => {
+		// A lightning crack and a rolling rumble.
+		const b = make(2.6);
+		mixInto(b, noise(0.25, { decay: 0.04, type: "high", freq: 1500 }), 0, 0.45);
+		mixInto(b, noise(2.5, { attack: 0.05, decay: 0.7, type: "low", freq: 180, q: 0.8 }), 0.03, 2.2);
+		mixInto(b, noise(1.5, { attack: 0.2, decay: 0.4, type: "low", freq: 90, q: 1 }), 0.4, 1.6);
+		return finish(reverb(b, 0.25), 0.8);
+	},
+	Firework: () => {
+		// A whistle going up, a bang, then crackle.
+		const b = make(2.6);
+		mixInto(b, tone(0.7, (t) => 900 + t * 1800, { wave: "sine", attack: 0.05, decay: 0.5, vibrato: 0.01, vibRate: 30 }), 0, 0.3);
+		mixInto(b, noise(0.6, { decay: 0.15, type: "low", freq: 400 }), 0.7, 1.4);
+		mixInto(b, tone(0.4, (t) => 80 * Math.exp(-t * 4), { decay: 0.15 }), 0.7, 1);
+		for (let k = 0; k < 40; k++) mixInto(b, noise(0.02, { decay: 0.004, freq: 3000 + rand() * 5000, q: 3 }), 0.85 + rand() * 1.4, 0.4 * rand());
+		return finish(reverb(b, 0.3), 0.75);
+	},
+	Warp: () => {
+		// The black hole: a deep falling sweep sucking everything in, then a thud.
+		const b = make(2.0);
+		mixInto(b, tone(1.6, (t) => 600 * Math.exp(-t * 2.2) + 40, { wave: "saw", attack: 0.3, decay: 0.9 }), 0, 0.5);
+		mixInto(b, noise(1.5, { attack: 0.4, decay: 0.5, sweep: (t) => 6000 * Math.exp(-t * 2.5) + 200, q: 3, gain: 0.8 }), 0, 1);
+		mixInto(b, tone(0.5, (t) => 55 * Math.exp(-t * 2), { decay: 0.25 }), 1.45, 1.2);
+		return finish(reverb(biquad(b, "low", 5000), 0.3), 0.75);
+	},
+	Unlock: () => {
+		// A lock clicking open and a bright little rise: out of jail.
+		const b = make(1.3);
+		mixInto(b, knock(0.08, 2600), 0, 0.8);
+		mixInto(b, knock(0.08, 1900), 0.07, 0.7);
+		mixInto(b, phrase(1.2, [["G5", 0, (f) => mallet(0.8, f)], ["C6", 0.09, (f) => mallet(0.8, f)], ["G6", 0.18, (f) => bell(1, f, { decay: 0.6 }), 0.6]]), 0.18, 0.8);
+		return finish(reverb(b, 0.2), 0.6);
+	},
+	Alert: () => finish(reverb(phrase(0.9, [["A4", 0, (f) => tone(0.25, f, { wave: "square", decay: 0.12 })], ["A4", 0.18, (f) => tone(0.25, f, { wave: "square", decay: 0.12 })], ["F4", 0.36, (f) => tone(0.4, f, { wave: "square", decay: 0.2 })]]), 0.12), 0.45),
 	Equip: () => {
 		const b = noise(0.3, { attack: 0.01, decay: 0.07, sweep: (t) => 2000 + t * 12000, q: 2.5, gain: 0.6 });
 		mixInto(b, bell(0.6, NOTE("A6"), { decay: 0.25, bright: 1.4 }), 0.05, 0.6);

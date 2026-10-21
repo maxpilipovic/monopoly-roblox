@@ -20,6 +20,7 @@ local ItemArt = require(script.Parent.ItemArt)
 local TreeView = require(script.Parent.TreeView)
 local Theme = require(script.Parent.Parent.Theme)
 local Ui = require(script.Parent.Parent.Ui)
+local Sounds = require(script.Parent.Parent.Parent.Sounds)
 
 local ChallengesPanel = {}
 
@@ -205,6 +206,7 @@ local function renderDaily(hud: any, content: Frame, data: Progress.Data)
 			swap.Text = "Swap for another"
 			swap.Parent = card
 			swap.Activated:Connect(function()
+				Sounds.play("Click")
 				hud.callbacks.onProgress({ type = "SwapDaily", slot = line.slot })
 			end)
 		end

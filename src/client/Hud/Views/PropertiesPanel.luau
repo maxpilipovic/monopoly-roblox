@@ -9,6 +9,7 @@ local HudModel = require(script.Parent.Parent.HudModel)
 local Theme = require(script.Parent.Parent.Theme)
 local Icons = require(script.Parent.Parent.Icons)
 local Ui = require(script.Parent.Parent.Ui)
+local Sounds = require(script.Parent.Parent.Parent.Sounds)
 
 local PropertiesPanel = {}
 PropertiesPanel.__index = PropertiesPanel
@@ -169,6 +170,7 @@ function PropertiesPanel.render(self: PropertiesPanel, open: boolean, groups: { 
 				open.Text = ""
 				open.Parent = label
 				open.Activated:Connect(function()
+					Sounds.play("Open")
 					inspect(entry.position)
 				end)
 			end

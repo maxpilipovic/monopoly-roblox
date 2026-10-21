@@ -6,6 +6,7 @@ local DeedModel = require(script.Parent.Parent.DeedModel)
 local EmblemView = require(script.Parent.Parent.EmblemView)
 local Theme = require(script.Parent.Parent.Theme)
 local Ui = require(script.Parent.Parent.Ui)
+local Sounds = require(script.Parent.Parent.Parent.Sounds)
 
 local DeedCard = {}
 DeedCard.__index = DeedCard
@@ -146,7 +147,10 @@ function DeedCard.render(self: DeedCard, deed: DeedModel.Deed?, note: string?, c
 		close.Text = "X"
 		close.Parent = band
 		Ui.corner(close, 13)
-		close.Activated:Connect(self.onClose)
+		close.Activated:Connect(function()
+			Sounds.play("Close")
+			self.onClose()
+		end)
 	end
 
 	if style.emblem then

@@ -14,6 +14,7 @@ local Tree = require(ReplicatedStorage.Shared.Progress.Tree)
 local Icons = require(script.Parent.Parent.Icons)
 local Theme = require(script.Parent.Parent.Theme)
 local Ui = require(script.Parent.Parent.Ui)
+local Sounds = require(script.Parent.Parent.Parent.Sounds)
 
 local TreeView = {}
 
@@ -231,6 +232,7 @@ function TreeView.build(parent: GuiObject, data: Progress.Data, state: ViewState
 		end
 		button.Activated:Connect(function()
 			if drag.moved <= DRAG_SLOP then
+				Sounds.play(if nodeState == "Locked" then "Tab" else "Click")
 				onSelect(node.id)
 			end
 		end)

@@ -53,4 +53,6 @@ end)
 
 GameClient.start(CameraDirector.start(), function(inGame)
 	lobby:setInGame(inGame)
+	Sounds.lobby(not inGame)
 end)
+Sounds.lobby(true) -- players start in the lobby

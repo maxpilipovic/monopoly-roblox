@@ -4,6 +4,8 @@
 
 local TweenService = game:GetService("TweenService")
 
+local Sounds = require(script.Parent.Sounds)
+
 local RentEffects = {}
 
 local SPARKLE = "rbxasset://textures/particles/sparkles_main.dds"
@@ -215,6 +217,10 @@ function RentEffects.play(effect: string?, at: Vector3)
 	local player = if effect then PLAYERS[effect] else nil
 	if player then
 		player(at)
+		local sound = Sounds.RENT_EFFECTS[effect :: string]
+		if sound then
+			Sounds.play(sound, { volume = 0.9 })
+		end
 	end
 end
 

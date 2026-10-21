@@ -131,8 +131,32 @@
 		"start": 55.694,
 		"length": 1.9083
 	},
-	"Equip": {
+	"Pop": {
 		"start": 57.9523,
+		"length": 1.0502
+	},
+	"Thunder": {
+		"start": 59.3526,
+		"length": 2.7119
+	},
+	"Firework": {
+		"start": 62.4145,
+		"length": 2.6202
+	},
+	"Warp": {
+		"start": 65.3848,
+		"length": 2.6918
+	},
+	"Unlock": {
+		"start": 68.4266,
+		"length": 1.94
+	},
+	"Alert": {
+		"start": 70.7166,
+		"length": 1.3335
+	},
+	"Equip": {
+		"start": 72.4,
 		"length": 0.9029
 	}
 }

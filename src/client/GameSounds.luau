@@ -32,8 +32,12 @@ function GameSounds.forEvent(event: { [string]: any }, localId: string): { Cue }
 		return { { name = "Coins", volume = others } }
 	elseif kind == "Bought" then
 		return { { name = "Buy", volume = others } }
+	elseif kind == "AuctionStarted" then
+		return { { name = "Gavel" } }
 	elseif kind == "BidPlaced" then
 		return { { name = "Gavel", volume = 0.6 } }
+	elseif kind == "BidPassed" then
+		return if mine then { { name = "Tab" } } else {}
 	elseif kind == "AuctionEnded" and event.winner then
 		return { { name = "Sold" } }
 	elseif kind == "Built" then
@@ -46,6 +50,16 @@ function GameSounds.forEvent(event: { [string]: any }, localId: string): { Cue }
 		return { { name = "Card" } }
 	elseif kind == "SentToJail" then
 		return { { name = "Jail" } }
+	elseif kind == "LeftJail" then
+		return { { name = "Unlock", volume = others } }
+	elseif kind == "OfferedPurchase" then
+		return if mine then { { name = "Notify", volume = 0.7 } } else {}
+	elseif kind == "PurchaseDeclined" then
+		return if mine then { { name = "Close" } } else {}
+	elseif kind == "DebtOwed" then
+		return if event.debtor == localId then { { name = "Alert" } } else {}
+	elseif kind == "PlayerReplaced" then
+		return { { name = "Close", volume = 0.6 } }
 	elseif kind == "TradeProposed" then
 		return if event.to == localId or event.from == localId then { { name = "Notify" } } else {}
 	elseif kind == "TradeAccepted" then

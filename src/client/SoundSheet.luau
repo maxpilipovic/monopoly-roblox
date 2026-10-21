@@ -36,5 +36,11 @@ return table.freeze({
 	RevealEpic = { 49.0928, 2.4278 },
 	RevealLegendary = { 51.8706, 3.4734 },
 	Claim = { 55.694, 1.9083 },
-	Equip = { 57.9523, 0.9029 },
+	Pop = { 57.9523, 1.0502 },
+	Thunder = { 59.3526, 2.7119 },
+	Firework = { 62.4145, 2.6202 },
+	Warp = { 65.3848, 2.6918 },
+	Unlock = { 68.4266, 1.94 },
+	Alert = { 70.7166, 1.3335 },
+	Equip = { 72.4, 0.9029 },
 }) :: { [string]: { number } }

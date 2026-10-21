@@ -4,7 +4,7 @@
 --   slice of it (Sound.PlaybackRegion), so the whole set is a single asset.
 --   Library sounds: recordings from the Roblox Creator Store (Pro Sound Effects' licensed library)
 --   for things a synth can't fake well: the dice, the gavel, the jail bars, and each scene's ambience.
--- Sounds play through three SoundGroups (Interface, Effects, Ambience) so each can be turned down.
+-- Sounds play through four SoundGroups (Interface, Effects, Ambience, Music) so each can be turned down.
 -- Nothing plays outside a client (the tests run these modules on the server).
 
 local ContentProvider = game:GetService("ContentProvider")
@@ -16,7 +16,7 @@ local SoundSheet = require(script.Parent.SoundSheet)
 
 local Sounds = {}
 
-Sounds.SHEET = "rbxassetid://81357682644774"
+Sounds.SHEET = "rbxassetid://107013060354857"
 
 -- Recorded sounds by name: id, volume, group.
 Sounds.LIBRARY = table.freeze({
@@ -36,6 +36,21 @@ Sounds.AMBIENCE = table.freeze({
 
 -- A crackling fire, for a scene's campfire (played from the fire itself).
 Sounds.FIRE = 109494611784143
+-- The lobby's music: "Cool & Collected", a leisurely marimba loop with light shaker and bass
+-- (APM Music, licensed for Roblox). Soft, and only in the lobby.
+Sounds.LOBBY_MUSIC = 9039901266
+Sounds.LOBBY_VOLUME = 0.08 -- quiet: background, never over the game sounds
+
+-- The sound each rent effect makes as it plays over the payer.
+Sounds.RENT_EFFECTS = table.freeze({
+	CoinBurst = "Coins",
+	ConfettiPop = "Pop",
+	MoneyRain = "Coins",
+	GoldenAura = "RevealRare",
+	Lightning = "Thunder",
+	Fireworks = "Firework",
+	BlackHole = "Warp",
+})
 
 -- How loud each sheet sound is played and which group it's in.
 local SHEET_MIX: { [string]: { volume: number, group: string } } = {
@@ -188,18 +203,59 @@ function Sounds.attach(parent: Instance, id: number, volume: number, range: numb
 	return s
 end
 
--- Loads everything up front so the first click isn't silent.
+-- The lobby music fades in while this player is in the lobby and out when they sit down at a board.
+local music: Sound? = nil
+function Sounds.lobby(on: boolean)
+	if not active then
+		return
+	end
+	if not music then
+		local s = Instance.new("Sound")
+		s.Name = "LobbyMusic"
+		s.SoundId = `rbxassetid://{Sounds.LOBBY_MUSIC}`
+		s.Looped = true
+		s.Volume = 0
+		s.SoundGroup = group("Music")
+		s.Parent = SoundService
+		music = s
+	end
+	local s = music :: Sound
+	if on then
+		if not s.IsPlaying then
+			s:Resume()
+		end
+		TweenService:Create(s, TweenInfo.new(2.5), { Volume = Sounds.LOBBY_VOLUME }):Play()
+	else
+		TweenService:Create(s, TweenInfo.new(1.2), { Volume = 0 }):Play()
+		task.delay(1.3, function()
+			if s.Volume < 0.01 then
+				s:Pause()
+			end
+		end)
+	end
+end
+
+-- Loads everything up front so the first click isn't silent. (Preloaded as Sounds: a bare id
+-- would be fetched as an image and fail.)
 function Sounds.preload()
 	if not active then
 		return
 	end
 	task.spawn(function()
-		local list = { Sounds.SHEET }
+		local ids = { Sounds.SHEET, `rbxassetid://{Sounds.LOBBY_MUSIC}` }
 		for _, entry in Sounds.LIBRARY do
-			table.insert(list, `rbxassetid://{entry.id}`)
+			table.insert(ids, `rbxassetid://{entry.id}`)
 		end
-		local ok = pcall(ContentProvider.PreloadAsync, ContentProvider, list)
-		local _ = ok
+		local list = {}
+		for _, id in ids do
+			local s = Instance.new("Sound")
+			s.SoundId = id
+			table.insert(list, s)
+		end
+		pcall(ContentProvider.PreloadAsync, ContentProvider, list)
+		for _, s in list do
+			s:Destroy()
+		end
 	end)
 end
 

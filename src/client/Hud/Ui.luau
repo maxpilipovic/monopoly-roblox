@@ -276,7 +276,10 @@ function Ui.chip(text: string, parent: Instance, color: Color3?, state: ChipStat
 		chip.Destroying:Connect(function()
 			handlers[chip] = nil
 		end)
-		chip.Activated:Connect(onClick)
+		chip.Activated:Connect(function()
+			Sounds.play(if state == "disabled" then "Tab" else "Click")
+			onClick()
+		end)
 	end
 	return chip
 end

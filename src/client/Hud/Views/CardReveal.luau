@@ -10,6 +10,7 @@ local CardStyle = require(script.Parent.Parent.CardStyle)
 local EmblemView = require(script.Parent.Parent.EmblemView)
 local Theme = require(script.Parent.Parent.Theme)
 local Ui = require(script.Parent.Parent.Ui)
+local Sounds = require(script.Parent.Parent.Parent.Sounds)
 
 local CardReveal = {}
 CardReveal.__index = CardReveal
@@ -119,7 +120,10 @@ function CardReveal.new(parent: Instance, onDismiss: () -> ()): CardReveal
 	-- ancestor.
 	card.ClipsDescendants = false
 	card.Parent = frame
-	card.Activated:Connect(onDismiss)
+	card.Activated:Connect(function()
+		Sounds.play("Close")
+		onDismiss()
+	end)
 
 	-- Face down: the deck's dark ground, a gold foil frame, the emblem, the deck's name.
 	local back = side("Back", card)

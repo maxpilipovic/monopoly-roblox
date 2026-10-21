@@ -33,6 +33,7 @@ local Theme = require(script.Parent.Theme)
 local Ui = require(script.Parent.Ui)
 
 local LobbyHud = {}
+local roomById: (any, number?) -> any
 LobbyHud.__index = LobbyHud
 
 LobbyHud.GUI_NAME = "LobbyHud"
@@ -399,6 +400,7 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 end
 
 function LobbyHud.notice(self: LobbyHud, text: string)
+	Sounds.play("Notify", { volume = 0.7 })
 	self.toast.Text = text
 	self.toast.Visible = true
 	local shown = text
@@ -430,6 +432,9 @@ function LobbyHud.toggle(self: LobbyHud, name: string)
 end
 
 function LobbyHud.openPanel(self: LobbyHud, name: string)
+	if self.open ~= name then
+		Sounds.play("Open")
+	end
 	self.open = name
 	self:render()
 end
@@ -449,6 +454,17 @@ function LobbyHud.setProfile(self: LobbyHud, profile: Protocol.ProfileView)
 end
 
 function LobbyHud.setRooms(self: LobbyHud, update: Protocol.RoomsUpdate)
+	-- Someone joining your room chimes.
+	local before = roomById(self, if self.rooms then self.rooms.mine else nil)
+	local after = nil
+	for _, room in update.rooms do
+		if room.id == update.mine then
+			after = room
+		end
+	end
+	if before and after and before.id == after.id and #after.members > #before.members then
+		Sounds.play("Notify")
+	end
 	self.rooms = update
 	if update.notice then
 		self:notice(update.notice)
@@ -463,7 +479,7 @@ function LobbyHud.setRooms(self: LobbyHud, update: Protocol.RoomsUpdate)
 	self:render()
 end
 
-local function roomById(self: LobbyHud, id: number?): any
+function roomById(self: LobbyHud, id: number?): any
 	if not id or not self.rooms then
 		return nil
 	end
@@ -816,6 +832,7 @@ local function itemTile(self: LobbyHud, parent: Instance, order: number, item: C
 		tile.BackgroundTransparency = 0.3
 	end
 	tile.Activated:Connect(function()
+		Sounds.play(if owned then "Click" else "Tab")
 		if not owned then
 			local source = Unlocks.sourceOf(item.id)
 			if source then
@@ -1036,6 +1053,7 @@ local function renderChests(self: LobbyHud)
 		items.Text = "See every item's odds ›"
 		items.Parent = card
 		items.Activated:Connect(function()
+			Sounds.play("Click")
 			self.chestDetail = chest.id
 			self:render()
 		end)
