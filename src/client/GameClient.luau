@@ -135,6 +135,12 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 		end
 		Maps.use(snapshot.map) -- names and card text follow the game being shown
 
+		local rentEffects = {}
+		for _, player in snapshot.players do
+			if player.rentEffect then
+				rentEffects[player.id] = player.rentEffect
+			end
+		end
 		local timeline = Pacing.timeline(update.events)
 		local start = math.max(os.clock(), busyUntil) -- after anything still playing
 		busyUntil = start + timeline.total
@@ -162,7 +168,7 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 			local event = item.event
 			local line = EventText.describe(event, names)
 			local time = start + item.at
-			for _, cue in GameSounds.forEvent(event, localId) do
+			for _, cue in GameSounds.forEvent(event, localId, rentEffects) do
 				at(time + (cue.delay or 0), function()
 					Sounds.play(cue.name, { volume = cue.volume })
 				end)
