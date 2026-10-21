@@ -16,6 +16,10 @@ local SoundSheet = require(script.Parent.SoundSheet)
 
 local Sounds = {}
 
+-- Everything is played at this share of its own volume (the groups' volume), so the whole game
+-- can be turned up or down in one place.
+Sounds.MASTER = 0.35
+
 Sounds.SHEET = "rbxassetid://107013060354857"
 
 -- Recorded sounds by name: id, volume, group.
@@ -81,7 +85,7 @@ local function group(name: string): SoundGroup
 	end
 	local new = Instance.new("SoundGroup")
 	new.Name = name
-	new.Volume = 1
+	new.Volume = Sounds.MASTER
 	new.Parent = SoundService
 	groups[name] = new
 	return new
