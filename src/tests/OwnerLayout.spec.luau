@@ -36,11 +36,13 @@ end
 tests["the strip stays clear of the token spots"] = function()
 	local size = OwnerLayout.SIZE
 	local radius = TokenLayout.TOKEN_DIAMETER / 2
-	for seat = 1, TokenLayout.MAX_SEATS do
-		local top = tileTop(1)
-		local token = top:PointToObjectSpace(TokenLayout.spot(1, seat))
-		local strip = top:PointToObjectSpace(OwnerLayout.cframe(1).Position)
-		assert(token.Z + radius <= strip.Z - size.Z / 2, `seat {seat} token overlaps the strip`)
+	for count = 1, TokenLayout.MAX_SEATS do
+		for index = 1, count do
+			local top = tileTop(1)
+			local token = top:PointToObjectSpace(TokenLayout.spot(1, index, count))
+			local strip = top:PointToObjectSpace(OwnerLayout.cframe(1).Position)
+			assert(token.Z + radius <= strip.Z - size.Z / 2, `{index}/{count} token overlaps the strip`)
+		end
 	end
 end
 

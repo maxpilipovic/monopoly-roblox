@@ -1,7 +1,6 @@
 --!strict
--- Which sounds a game event makes, from this player's point of view: their own money and moves are
--- loud and specific (rent coming in is a coin cascade, paying out a few coins dropping), other
--- players' quieter. Pure, so it can be tested; GameClient plays the result at the event's moment.
+-- Which sounds a game event makes, from this player's point of view: their own events are louder
+-- than other players'. Rent and paying out make no sound of their own (a rent effect is the show). Pure, so it can be tested; GameClient plays the result at the event's moment.
 
 local GameSounds = {}
 
@@ -20,18 +19,18 @@ function GameSounds.forEvent(event: { [string]: any }, localId: string): { Cue }
 		end
 		return cues
 	elseif kind == "Paid" then
+		-- Rent is marked by the owner's rent effect (which has its own sound), and paying out is silent.
 		if event.reason == "Go" then
 			return { { name = "PassGo", volume = if event.to == localId then 1 else 0.5 } }
-		elseif event.to == localId then
+		elseif event.reason ~= "Rent" and event.to == localId then
 			return { { name = "Coins" } }
-		elseif event.from == localId then
-			return { { name = "Pay" } }
 		end
-		return { { name = "Coin", volume = 0.45 } }
+		return {}
 	elseif kind == "FreeParkingPaid" then
 		return { { name = "Coins", volume = others } }
 	elseif kind == "Bought" then
-		return { { name = "Buy", volume = others } }
+		-- A purchase rings up like a cash register: cha-ching.
+		return { { name = "PassGo", volume = others } }
 	elseif kind == "AuctionStarted" then
 		return { { name = "Gavel" } }
 	elseif kind == "BidPlaced" then
@@ -39,7 +38,12 @@ function GameSounds.forEvent(event: { [string]: any }, localId: string): { Cue }
 	elseif kind == "BidPassed" then
 		return if mine then { { name = "Tab" } } else {}
 	elseif kind == "AuctionEnded" and event.winner then
-		return { { name = "Sold" } }
+		-- The gavel, and a cha-ching for whoever won it.
+		local cues: { Cue } = { { name = "Sold" } }
+		if event.winner == localId then
+			table.insert(cues, { name = "PassGo", delay = 0.5 })
+		end
+		return cues
 	elseif kind == "Built" then
 		return { { name = if event.hotel then "Hotel" else "Build", volume = others } }
 	elseif kind == "BuildingSold" or kind == "Unmortgaged" then

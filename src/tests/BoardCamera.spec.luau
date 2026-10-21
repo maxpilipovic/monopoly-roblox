@@ -7,17 +7,32 @@ local tests = {}
 
 local FOCUS = Vector3.new(0, 0.5, 0)
 
-tests["camera looks at the board centre"] = function()
+tests["camera looks down at the configured pitch from above the Go-row side, square to the board"] = function()
 	local cf = BoardCamera.getOverheadCFrame(FOCUS, 74, 70, 16 / 9)
-	Expect.vectorNear(cf.LookVector, (FOCUS - cf.Position).Unit, "look direction")
+	Expect.near(math.asin(-cf.LookVector.Y), BoardCamera.PITCH, "pitch")
+	Expect.near(cf.LookVector.X, 0, "square to the board")
+	Expect.near(cf.Position.X, FOCUS.X, "centred across")
+	assert(cf.Position.Z > FOCUS.Z, "camera should be on the +Z side")
 end
 
-tests["camera sits above the Go-row side at the configured pitch"] = function()
-	local cf = BoardCamera.getOverheadCFrame(FOCUS, 74, 70, 16 / 9)
-	local offset = cf.Position - FOCUS
-	Expect.near(offset.X, 0, "x offset")
-	assert(offset.Z > 0, "camera should be on the +Z side")
-	Expect.near(math.asin(offset.Unit.Y), BoardCamera.PITCH, "pitch")
+tests["the board sits between the top of the screen and the action bar, with room at both"] = function()
+	local inset = 0.16
+	local fov = 70
+	local cf = BoardCamera.getOverheadCFrame(FOCUS, 74, fov, 16 / 9, inset)
+	local tanV = math.tan(math.rad(fov) / 2)
+	local top, bottom = -math.huge, math.huge
+	for _, corner in { Vector3.new(37, 0, 37), Vector3.new(-37, 0, 37), Vector3.new(37, 0, -37), Vector3.new(-37, 0, -37) } do
+		local p = cf:PointToObjectSpace(FOCUS + corner)
+		local y = p.Y / (-p.Z * tanV)
+		top = math.max(top, y)
+		bottom = math.min(bottom, y)
+	end
+	-- Normalised screen height: +1 is the top edge, -1 + 2 * inset the top of the bar.
+	assert(top <= 1, `board above the screen ({top})`)
+	assert(bottom >= -1 + 2 * inset - 1e-6, `board under the bar ({bottom})`)
+	-- Room at both ends: neither crammed against the top nor left with all the space up there.
+	assert(1 - top > 0.03 and bottom - (-1 + 2 * inset) > 0.03, `room above {1 - top}, below {bottom - (-1 + 2 * inset)}`)
+	assert(math.abs((1 - top) - (bottom - (-1 + 2 * inset))) < 0.4, "the room is shared out, not all at one end")
 end
 
 tests["narrower viewport moves the camera further away"] = function()
@@ -52,11 +67,11 @@ local function sphereDistance(boardSize: number, fov: number, aspect: number): n
 	return radius / math.sin(math.min(halfV, halfH))
 end
 
-tests["the overhead view is at least 10% closer than the old sphere fit"] = function()
-	for _, aspect in { 16 / 9, 9 / 16 } do
+tests["on landscape screens the overhead view is never farther back than a fit of the board's bounding sphere"] = function()
+	for _, aspect in { 16 / 9, 4 / 3 } do
 		local cf = BoardCamera.getOverheadCFrame(FOCUS, 74, 70, aspect)
 		local distance = (cf.Position - FOCUS).Magnitude
-		assert(distance <= 0.9 * sphereDistance(74, 70, aspect), `aspect {aspect}: {distance} not closer`)
+		assert(distance <= sphereDistance(74, 70, aspect), `aspect {aspect}: {distance} farther than the sphere fit`)
 	end
 end
 

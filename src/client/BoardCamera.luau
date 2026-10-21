@@ -15,32 +15,41 @@ BoardCamera.CHASE_SIDE = 14
 BoardCamera.CHASE_BACK = 6
 BoardCamera.CHASE_UP = 16
 BoardCamera.CHASE_AHEAD = 3
-local FIT_MARGIN = 1.04 -- a sliver of space around the board's corners
+local FIT_MARGIN = 1.27 -- room around the board: a little closer than the old view, not edge to edge
 
--- The overhead camera `distance` away, lowered so the board sits in the part of the screen above
--- `bottomInset` (a fraction of the screen's height kept free for the action bar).
-local function overheadAt(focus: Vector3, tanV: number, distance: number, bottomInset: number): CFrame
+-- The overhead camera `distance` from `focus`, slid `lift` studs down its own up axis (which raises
+-- the board on screen).
+local function overheadAt(focus: Vector3, distance: number, lift: number): CFrame
 	local offset = Vector3.new(0, math.sin(BoardCamera.PITCH), math.cos(BoardCamera.PITCH)) * distance
 	local cf = CFrame.lookAt(focus + offset, focus)
-	return cf - cf.UpVector * (distance * tanV * bottomInset)
+	return cf - cf.UpVector * lift
 end
 
--- Whether every board corner is inside the view (and above the bottom inset) from `distance` away.
-local function cornersFit(focus: Vector3, boardSize: number, tanV: number, tanH: number, distance: number, bottomInset: number): boolean
-	local cf = overheadAt(focus, tanV, distance, bottomInset)
+-- From `distance` away, the slide that fits every board corner between the top of the screen and
+-- the bottom inset, centred in whatever room is left; nil when no slide fits (too close).
+-- Sliding along the camera's up axis keeps each corner's depth, so each corner bounds it linearly.
+local function fitAt(focus: Vector3, boardSize: number, tanV: number, tanH: number, distance: number, bottomInset: number): number?
+	local cf = overheadAt(focus, distance, 0)
 	local half = boardSize / 2
+	local low, high = -math.huge, math.huge
 	for _, corner in { Vector3.new(half, 0, half), Vector3.new(-half, 0, half), Vector3.new(half, 0, -half), Vector3.new(-half, 0, -half) } do
 		local p = cf:PointToObjectSpace(focus + corner)
 		local depth = -p.Z
-		if depth <= 0 or math.abs(p.X) > depth * tanH or p.Y > depth * tanV or p.Y < -depth * tanV * (1 - 2 * bottomInset) then
-			return false
+		if depth <= 0 or math.abs(p.X) > depth * tanH then
+			return nil
 		end
+		-- After sliding by `lift`, the corner sits at p.Y + lift: under the top, over the inset.
+		high = math.min(high, depth * tanV - p.Y)
+		low = math.max(low, -depth * tanV * (1 - 2 * bottomInset) - p.Y)
 	end
-	return true
+	if low > high then
+		return nil
+	end
+	return (low + high) / 2
 end
 
 -- The overhead view: as close as possible while every corner of the board stays on screen, above
--- the bottom `bottomInset` of it (default none).
+-- the bottom `bottomInset` of it (default none), using the room both above and below the board.
 function BoardCamera.getOverheadCFrame(
 	focus: Vector3,
 	boardSize: number,
@@ -52,17 +61,18 @@ function BoardCamera.getOverheadCFrame(
 	local tanV = math.tan(math.rad(fieldOfViewDegrees) / 2)
 	local tanH = tanV * aspect
 	-- Binary search the distance; the far end (a bounding sphere inside the usable view) always fits.
-	local narrowest = math.min(math.atan(tanV * (1 - 2 * inset)), math.atan(tanH))
-	local near, far = 0, boardSize / 2 * math.sqrt(2) / math.sin(narrowest)
-	for _ = 1, 30 do
+	local narrowest = math.min(math.atan(tanV * (1 - inset)), math.atan(tanH))
+	local near, far = 0, boardSize / 2 * math.sqrt(2) / math.sin(narrowest) * 2
+	for _ = 1, 40 do
 		local middle = (near + far) / 2
-		if cornersFit(focus, boardSize, tanV, tanH, middle, inset) then
+		if fitAt(focus, boardSize, tanV, tanH, middle, inset) then
 			far = middle
 		else
 			near = middle
 		end
 	end
-	return overheadAt(focus, tanV, far * FIT_MARGIN, inset)
+	local distance = far * FIT_MARGIN
+	return overheadAt(focus, distance, fitAt(focus, boardSize, tanV, tanH, distance, inset) or 0)
 end
 
 -- Top centre of a tile in world space.

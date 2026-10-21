@@ -23,13 +23,13 @@ tests["dice roll, and doubles ring once the dice settle"] = function()
 	Expect.equal(names(GameSounds.forEvent({ type = "Rolled", player = "me", dice = { 4, 4 }, forCard = true }, "me")), "", "a card's roll is silent")
 end
 
-tests["money sounds follow whose money it is"] = function()
-	Expect.equal(names(GameSounds.forEvent({ type = "Paid", from = "you", to = "me", amount = 50, reason = "Rent" }, "me")), "Coins")
-	Expect.equal(names(GameSounds.forEvent({ type = "Paid", from = "me", to = "you", amount = 50, reason = "Rent" }, "me")), "Pay")
+tests["rent and paying out are silent; money coming in and passing GO are not"] = function()
+	Expect.equal(names(GameSounds.forEvent({ type = "Paid", from = "you", to = "me", amount = 50, reason = "Rent" }, "me")), "", "rent in: the rent effect is the show")
+	Expect.equal(names(GameSounds.forEvent({ type = "Paid", from = "me", to = "you", amount = 50, reason = "Rent" }, "me")), "", "rent out")
+	Expect.equal(names(GameSounds.forEvent({ type = "Paid", from = "me", to = nil, amount = 100, reason = "Tax" }, "me")), "", "losing money")
+	Expect.equal(names(GameSounds.forEvent({ type = "Paid", from = nil, to = "me", amount = 50, reason = "Card" }, "me")), "Coins")
 	Expect.equal(names(GameSounds.forEvent({ type = "Paid", from = nil, to = "me", amount = 200, reason = "Go" }, "me")), "PassGo")
-	local others = GameSounds.forEvent({ type = "Paid", from = "a", to = "b", amount = 50, reason = "Rent" }, "me")
-	Expect.equal(names(others), "Coin")
-	Expect.equal((others[1].volume or 1) < 1, true, "other players' money is quieter")
+	Expect.equal(names(GameSounds.forEvent({ type = "Paid", from = "a", to = "b", amount = 50, reason = "Rent" }, "me")), "")
 end
 
 tests["the big moments each have a sound"] = function()
@@ -42,6 +42,8 @@ tests["the big moments each have a sound"] = function()
 	Expect.equal(names(GameSounds.forEvent({ type = "AuctionEnded", winner = nil, amount = 0 }, "me")), "")
 	Expect.equal(names(GameSounds.forEvent({ type = "Built", player = "me", hotel = true }, "me")), "Hotel")
 	Expect.equal(names(GameSounds.forEvent({ type = "AuctionStarted", position = 1, bidders = {} }, "me")), "Gavel")
+	Expect.equal(names(GameSounds.forEvent({ type = "Bought", player = "me", position = 1, price = 60 }, "me")), "PassGo", "buying is a cha-ching")
+	Expect.equal(names(GameSounds.forEvent({ type = "AuctionEnded", winner = "me", amount = 10 }, "me")), "Sold,PassGo", "winning an auction too")
 	Expect.equal(names(GameSounds.forEvent({ type = "LeftJail", player = "me", reason = "Doubles" }, "me")), "Unlock")
 	Expect.equal(names(GameSounds.forEvent({ type = "DebtOwed", debtor = "me", amount = 50 }, "me")), "Alert", "you owe more than you have")
 	Expect.equal(names(GameSounds.forEvent({ type = "OfferedPurchase", player = "me", position = 1 }, "me")), "Notify")
@@ -59,7 +61,7 @@ end
 
 tests["every engine event either makes a sound or is deliberately quiet"] = function()
 	-- Events that are only bookkeeping, or whose sound comes from another event at the same moment.
-	local quiet = { Moved = true, DebtPaid = true, TurnOrder = true, TurnStarted = true, BidPassed = true }
+	local quiet = { Moved = true, DebtPaid = true, TurnOrder = true, TurnStarted = true, BidPassed = true, Paid = true }
 	for _, kind in { "Paid", "DebtOwed", "Moved", "SentToJail", "LeftJail", "CardDrawn", "Rolled", "OfferedPurchase", "FreeParkingPaid",
 		"Built", "BuildingSold", "Mortgaged", "Unmortgaged", "Bought", "AuctionEnded", "AuctionStarted", "BidPlaced", "BidPassed",
 		"GameOver", "TurnStarted", "DebtPaid", "WentBankrupt", "TradeProposed", "TradeAccepted", "TradeDeclined", "PurchaseDeclined",

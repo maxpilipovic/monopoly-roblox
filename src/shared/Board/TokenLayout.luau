@@ -1,12 +1,12 @@
 --!strict
--- Where each seat's token stands on a tile, and each seat's color.
+-- Where tokens stand on a tile (arranged by how many share it, centred on the tile), and each seat's color.
 
 local Layout = require(script.Parent.Layout)
 
 local TokenLayout = {}
 
 TokenLayout.MAX_SEATS = 6
-TokenLayout.TOKEN_DIAMETER = 1.4
+TokenLayout.TOKEN_DIAMETER = 1.8
 TokenLayout.JAIL_POSITION = 10
 
 TokenLayout.SEAT_COLORS = table.freeze({
@@ -18,26 +18,25 @@ TokenLayout.SEAT_COLORS = table.freeze({
 	Color3.fromRGB(42, 161, 152), -- teal
 })
 
--- Tile-local offsets (X along the edge, +Z toward the outer edge), a 3x2 grid clear of the color band.
-local SPOTS = {
-	Vector3.new(-1.8, 0, 0.6),
-	Vector3.new(0, 0, 0.6),
-	Vector3.new(1.8, 0, 0.6),
-	Vector3.new(-1.8, 0, 2.8),
-	Vector3.new(0, 0, 2.8),
-	Vector3.new(1.8, 0, 2.8),
+-- How the pieces on one tile stand, by how many share it (tile-local X along the edge, Z toward
+-- the outer edge, around the middle of the tile's open area): one alone stands dead centre, two
+-- side by side, three in a row, four in a square, five or six in two rows of three.
+local ARRANGEMENTS: { { Vector3 } } = {
+	{ Vector3.new(0, 0, 0) },
+	{ Vector3.new(-1.25, 0, 0), Vector3.new(1.25, 0, 0) },
+	{ Vector3.new(-1.95, 0, 0), Vector3.new(0, 0, 0), Vector3.new(1.95, 0, 0) },
+	{ Vector3.new(-1.25, 0, -1.15), Vector3.new(1.25, 0, -1.15), Vector3.new(-1.25, 0, 1.15), Vector3.new(1.25, 0, 1.15) },
+	{ Vector3.new(-1.95, 0, -1.15), Vector3.new(0, 0, -1.15), Vector3.new(1.95, 0, -1.15), Vector3.new(-1.25, 0, 1.15), Vector3.new(1.25, 0, 1.15) },
+	{
+		Vector3.new(-1.95, 0, -1.15), Vector3.new(0, 0, -1.15), Vector3.new(1.95, 0, -1.15),
+		Vector3.new(-1.95, 0, 1.15), Vector3.new(0, 0, 1.15), Vector3.new(1.95, 0, 1.15),
+	},
 }
 
--- Inside the jail cell: the inner half of the Jail corner (-Z, toward the board centre),
--- clear of the just-visiting spots on the outer half.
-local JAIL_SPOTS = {
-	Vector3.new(-2.2, 0, -2.0),
-	Vector3.new(0, 0, -2.0),
-	Vector3.new(2.2, 0, -2.0),
-	Vector3.new(-2.2, 0, -3.9),
-	Vector3.new(0, 0, -3.9),
-	Vector3.new(2.2, 0, -3.9),
-}
+-- The middle of a tile's open area: its outer side, past the colour band (2.5 deep on a 10-deep tile).
+TokenLayout.CENTER = Vector3.new(0, 0, 1.25)
+-- Inside the jail cell: the inner half of the Jail corner, clear of visitors on the outer half.
+TokenLayout.JAIL_CENTER = Vector3.new(0, 0, -2.9)
 
 local function tileTop(position: number): CFrame
 	local placement = Layout.getTilePlacement(position)
@@ -48,14 +47,20 @@ local function checkSeat(seat: number)
 	assert(seat % 1 == 0 and seat >= 1 and seat <= TokenLayout.MAX_SEATS, `invalid seat {seat}`)
 end
 
-function TokenLayout.spot(position: number, seat: number): Vector3
-	checkSeat(seat)
-	return tileTop(position):PointToWorldSpace(SPOTS[seat])
+-- Where the `index`th of `count` pieces sharing a tile stands (one alone stands in the middle).
+function TokenLayout.spot(position: number, index: number?, count: number?): Vector3
+	local n = math.clamp(count or 1, 1, TokenLayout.MAX_SEATS)
+	local i = math.clamp(index or 1, 1, n)
+	checkSeat(i)
+	return tileTop(position):PointToWorldSpace(TokenLayout.CENTER + ARRANGEMENTS[n][i])
 end
 
-function TokenLayout.jailSpot(seat: number): Vector3
-	checkSeat(seat)
-	return tileTop(TokenLayout.JAIL_POSITION):PointToWorldSpace(JAIL_SPOTS[seat])
+-- The same, for pieces in the jail cell.
+function TokenLayout.jailSpot(index: number?, count: number?): Vector3
+	local n = math.clamp(count or 1, 1, TokenLayout.MAX_SEATS)
+	local i = math.clamp(index or 1, 1, n)
+	checkSeat(i)
+	return tileTop(TokenLayout.JAIL_POSITION):PointToWorldSpace(TokenLayout.JAIL_CENTER + ARRANGEMENTS[n][i])
 end
 
 return TokenLayout

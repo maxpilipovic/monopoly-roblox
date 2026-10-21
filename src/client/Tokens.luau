@@ -30,10 +30,14 @@ type Token = {
 	inJail: boolean,
 	queue: { Move },
 	moving: boolean,
+	index: number, -- its place among the pieces sharing its tile (TokenLayout arranges them)
+	count: number, -- how many share it
 }
 
 local Tokens = {}
 Tokens.__index = Tokens
+
+local settle: (any) -> ()
 
 Tokens.HOP_TIME = Pacing.HOP_SECONDS
 local HOP_TIME = Tokens.HOP_TIME
@@ -57,8 +61,8 @@ function Tokens.new(parent: Instance, hooks: TokenHooks?): TokensView
 	return setmetatable({ folder = folder, tokens = {}, hooks = hooks }, Tokens)
 end
 
-local function standingCFrame(position: number, seat: number, jailed: boolean?): CFrame
-	local spot = if jailed then TokenLayout.jailSpot(seat) else TokenLayout.spot(position, seat)
+local function standingCFrame(position: number, index: number, count: number, jailed: boolean?): CFrame
+	local spot = if jailed then TokenLayout.jailSpot(index, count) else TokenLayout.spot(position, index, count)
 	-- Cylinders lie along X; rotate so the token stands upright.
 	return CFrame.new(spot + Vector3.new(0, TOKEN_HEIGHT / 2, 0)) * CFrame.Angles(0, 0, math.pi / 2)
 end
@@ -77,8 +81,8 @@ local function makePart(seat: number, name: string, parent: Instance): BasePart
 	return part
 end
 
-local PIECE_HEIGHT = 2.1 -- studs; pieces are scaled to this (narrow enough for their spot)
-local PIECE_WIDTH = 1.35
+local PIECE_HEIGHT = 2.8 -- studs; pieces are scaled to this (narrow enough for their spot)
+local PIECE_WIDTH = 1.75
 
 -- The player's piece standing on the token's spot, with a ring in their seat colour round its foot.
 -- Welded to the (now invisible) token part, so moving that part moves the piece.
@@ -212,6 +216,18 @@ function Tokens.moveSeconds(move: Move): number
 	return #Tokens.path(move) * HOP_TIME
 end
 
+-- Slides every token that isn't mid-move to its place, as tiles fill and empty.
+function settle(self: TokensView)
+	for _, token in self.tokens do
+		if not token.moving and token.part.Parent then
+			local goal = standingCFrame(token.position, token.index, token.count, token.inJail)
+			if (token.part.Position - goal.Position).Magnitude > 0.05 then
+				TweenService:Create(token.part, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = goal }):Play()
+			end
+		end
+	end
+end
+
 -- Plays queued moves one after another, one hop per tile.
 local function runQueue(self: TokensView, token: Token)
 	if token.moving then
@@ -232,26 +248,32 @@ local function runQueue(self: TokensView, token: Token)
 				hooks.onMoveStarted(token.part, move.style)
 			end
 			local previous = move.from
-			for _, position in Tokens.path(move) do
+			local path = Tokens.path(move)
+			for step, position in path do
 				if not token.part.Parent then
 					break -- the token was removed (back to the lobby) mid-move
 				end
 				if hooks then
 					hooks.onHop(token.part, previous, position)
 				end
-				hop(token, standingCFrame(position, token.seat, move.style == "ToJail"), move.style == "ToJail")
+				-- Tiles passed through are hopped across in the middle; the last one, in its own place.
+				local last = step == #path and #token.queue == 0
+				local jailed = move.style == "ToJail"
+				hop(token, standingCFrame(position, if last then token.index else 1, if last then token.count else 1, jailed), jailed)
+				if step == 1 then
+					settle(self) -- whoever it left behind spreads back out
+				end
 				previous = position
 			end
 			land(token)
+			settle(self) -- and whoever it joined makes room
 		end
 		token.moving = false
 		if hooks then
 			hooks.onMoveFinished(token.part)
 		end
 		-- Settle on the server's position, in case a change arrived without a move to animate.
-		if token.part.Parent then
-			token.part.CFrame = standingCFrame(token.position, token.seat, token.inJail)
-		end
+		settle(self)
 	end)
 end
 
@@ -276,7 +298,7 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 			local token = self.tokens[player.id]
 			if not token then
 				local part = makePart(player.seat, player.name, self.folder)
-				part.CFrame = standingCFrame(Tokens.startPosition(player, update.events), player.seat)
+				part.CFrame = standingCFrame(Tokens.startPosition(player, update.events), 1, 1)
 				local piece = attachPiece(part, player.seat, player.piece, player.aura)
 				token = {
 					part = part,
@@ -286,6 +308,8 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 					inJail = player.inJail,
 					queue = {},
 					moving = false,
+					index = 1,
+					count = 1,
 				}
 				self.tokens[player.id] = token
 			end
@@ -316,6 +340,23 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 		end
 	end
 
+	-- Who shares each tile (the jail cell counts as its own), in seat order, decides where each stands.
+	local groups: { [string]: { Token } } = {}
+	for _, token in self.tokens do
+		local key = if token.inJail then "jail" else tostring(token.position)
+		groups[key] = groups[key] or {}
+		table.insert(groups[key], token)
+	end
+	for _, group in groups do
+		table.sort(group, function(a, b)
+			return a.seat < b.seat
+		end)
+		for index, token in group do
+			token.index = index
+			token.count = #group
+		end
+	end
+
 	for _, event in update.events do
 		local token = event.type == "Moved" and self.tokens[event.player]
 		if token then
@@ -324,12 +365,8 @@ function Tokens.apply(self: TokensView, update: Protocol.Update)
 		end
 	end
 
-	-- Tokens with nothing to animate snap to where the server says they are.
-	for _, token in self.tokens do
-		if not token.moving then
-			token.part.CFrame = standingCFrame(token.position, token.seat, token.inJail)
-		end
-	end
+	-- Tokens with nothing to animate go to where the server says they are.
+	settle(self)
 end
 
 return Tokens
