@@ -10,6 +10,7 @@ local PlayerData = require(script.Data.PlayerData)
 local ProgressService = require(script.Store.ProgressService)
 local RoomService = require(script.RoomService)
 local ShopService = require(script.Store.ShopService)
+local TableTalk = require(script.TableTalk)
 
 -- Players spawn into the lobby; each client builds the board itself while it's in a game.
 LobbyBuilder.build(workspace)
@@ -20,6 +21,7 @@ Leaderboards.start()
 ShopService.start()
 ProgressService.start()
 Nameplates.start()
+TableTalk.start()
 
 -- Studio only: tooling that can't require our modules runs the tests by setting the workspace
 -- attribute RunTests to a spec filter ("" for all); the report lands in TestResults.

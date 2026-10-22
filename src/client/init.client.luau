@@ -8,6 +8,7 @@ local LobbyFx = require(script.LobbyFx)
 local LobbyHud = require(script.Hud.LobbyHud)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local Sounds = require(script.Sounds)
+local Talk = require(script.Talk)
 
 local remotes = ReplicatedStorage:WaitForChild(Protocol.REMOTES_FOLDER)
 local lobbyRemote = remotes:WaitForChild(Protocol.LOBBY) :: RemoteEvent
@@ -46,6 +47,7 @@ rewardRemote.OnClientEvent:Connect(function(view)
 end)
 profileRemote:FireServer() -- in case the first push came before we were listening
 Sounds.preload()
+Talk.start()
 
 LobbyFx.start(function()
 	lobby:openPanel("Games")

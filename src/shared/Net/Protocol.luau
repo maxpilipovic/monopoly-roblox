@@ -141,5 +141,6 @@ Protocol.STORE = "StoreRequest"
 Protocol.CHEST = "ChestOpened"
 Protocol.PROGRESS = "ProgressRequest"
 Protocol.REWARD = "RewardEarned"
+Protocol.MUTE = "MuteRequest" -- client: { userId, muted }; server replies with the muted user ids
 
 return table.freeze(Protocol)

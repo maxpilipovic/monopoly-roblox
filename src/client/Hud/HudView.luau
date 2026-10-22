@@ -43,6 +43,7 @@ export type Callbacks = {
 	onAction: (action: { [string]: any }) -> (),
 	onReturnToLobby: () -> (),
 	onLeave: (() -> ())?, -- the player walks out of a running game
+	onMute: ((userId: number, muted: boolean) -> ())?, -- mute or unmute someone at the table for us
 }
 
 local HudView = {}
@@ -162,7 +163,7 @@ function HudView.new(playerGui: Instance, callbacks: Callbacks): HudView
 		root = root,
 		rootScale = rootScale,
 		callbacks = callbacks,
-		playerList = PlayerList.new(root),
+		playerList = PlayerList.new(root, callbacks.onMute),
 		actionBar = ActionBar.new(root),
 		logFeed = LogFeed.new(root),
 		toasts = Toasts.new(root, ABOVE_BAR),
@@ -331,6 +332,11 @@ function HudView.showJail(self: HudView, player: string, reason: string, notBefo
 end
 
 -- Sends the card on show away early.
+-- Who we've muted (user ids), for the speaker buttons in the player list.
+function HudView.setMuted(self: HudView, muted: { [number]: boolean })
+	self.playerList:setMuted(muted)
+end
+
 function HudView.dismissCard(self: HudView)
 	CardQueue.dismiss(self.cards, os.clock())
 	updateCentre(self)

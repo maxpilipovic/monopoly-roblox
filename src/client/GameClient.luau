@@ -25,6 +25,7 @@ local MoneyPops = require(script.Parent.MoneyPops)
 local OwnerMarkers = require(script.Parent.OwnerMarkers)
 local RentEffects = require(script.Parent.RentEffects)
 local Sounds = require(script.Parent.Sounds)
+local Talk = require(script.Parent.Talk)
 local Tokens = require(script.Parent.Tokens)
 
 local GameClient = {}
@@ -51,10 +52,14 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 		onReturnToLobby = function()
 			lobbyRemote:FireServer({ type = "ReturnToLobby" })
 		end,
+		onMute = Talk.setMuted,
 		onLeave = function()
 			lobbyRemote:FireServer({ type = "Leave" })
 		end,
 	})
+	Talk.onMutesChanged(function(muted)
+		hud:setMuted(muted)
+	end)
 
 	local busyUntil = 0 -- os.clock time the updates already received finish playing
 	local generation = 0 -- bumped when the game on screen is dropped, so its pending steps don't run

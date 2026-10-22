@@ -18,6 +18,7 @@ local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local Ranks = require(ReplicatedStorage.Shared.Rules.Ranks)
 local RoomSettings = require(ReplicatedStorage.Shared.Rules.RoomSettings)
 local Scenes = require(ReplicatedStorage.Shared.Board.Scenes)
+local TalkScope = require(ReplicatedStorage.Shared.Net.TalkScope)
 local Elo = require(script.Parent.Data.Elo)
 local GameSession = require(script.Parent.Game.GameSession)
 local PlayerData = require(script.Parent.Data.PlayerData)
@@ -147,6 +148,7 @@ local LOBBY_UPDATE: Protocol.Update = { snapshot = nil, events = {} }
 -- Characters live in the lobby only; a game's players watch the board instead.
 local function toLobby(player: Player)
 	player.ReplicationFocus = nil
+	player:SetAttribute(TalkScope.ATTRIBUTE, nil) -- talks with the lobby again (TableTalk, Talk)
 	if player.Parent and not player.Character then
 		task.spawn(function()
 			player:LoadCharacter()
@@ -154,7 +156,8 @@ local function toLobby(player: Player)
 	end
 end
 
-local function toBoard(player: Player)
+local function toBoard(player: Player, roomId: number)
+	player:SetAttribute(TalkScope.ATTRIBUTE, roomId) -- chat and voice with this table only
 	if player.Character then
 		player.Character:Destroy()
 	end
@@ -417,7 +420,7 @@ local function startGame(room: Rooms.Room)
 		end)
 	end
 	for _, player in members(room) do
-		toBoard(player)
+		toBoard(player, room.id)
 	end
 	sendRooms()
 	scheduleBots(l, broadcast(l, true, nil))

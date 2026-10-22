@@ -197,6 +197,7 @@ export type PlayerRow = {
 	bankrupt: boolean,
 	inJail: boolean,
 	isYou: boolean,
+	isBot: boolean,
 	isCurrent: boolean,
 	deeds: number, -- how many properties they own
 	title: string?, -- Catalog title id they show
@@ -218,6 +219,7 @@ function HudModel.playerRows(snapshot: Protocol.Snapshot, localId: string): { Pl
 			bankrupt = player.bankrupt,
 			inJail = player.inJail,
 			isYou = player.id == localId,
+			isBot = player.isBot,
 			isCurrent = player.id == snapshot.currentPlayer and snapshot.phase ~= "GameOver",
 			deeds = deeds[player.id] or 0,
 			title = player.title,

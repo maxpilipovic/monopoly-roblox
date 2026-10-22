@@ -945,7 +945,31 @@ def icon_black_hole(stage):
 	return [disk, h], {"yaw": -10, "pitch": 10}
 
 
+def speaker(stage):
+	"""A loudspeaker facing right: a box with a flared cone."""
+	body = Part("Speaker")
+	body.box((0.55, 0.5, 0.75), (-0.55, 0, 0), bevel=0.08)
+	body.cylinder(0.25, 0.7, (-0.05, 0, 0), segments=24, rot=ry(90), radius2=0.75)
+	return obj(body, stage, SILVER())
+
+
+def icon_speaker(stage):
+	waves = Part("Waves")
+	for radius in (0.55, 0.95):
+		waves.torus(radius, 0.08, (0.15, 0, 0), major_segs=32, minor_segs=8, rot=rx(90) @ rz(-50), arc=math.radians(100))
+	return [speaker(stage), obj(waves, stage, GOLD())], {"yaw": -14, "pitch": 6}
+
+
+def icon_speaker_muted(stage):
+	cross = Part("Cross")
+	cross.box((0.16, 0.2, 1.0), (0.75, 0, 0), bevel=0.05, rot=ry(45))
+	cross.box((0.16, 0.2, 1.0), (0.75, 0, 0), bevel=0.05, rot=ry(-45))
+	return [speaker(stage), obj(cross, stage, RED())], {"yaw": -14, "pitch": 6}
+
+
 BUILDERS = {
+	"Speaker": icon_speaker,
+	"SpeakerMuted": icon_speaker_muted,
 	# UI
 	"Coin": icon_coin,
 	"Coins": icon_coins,

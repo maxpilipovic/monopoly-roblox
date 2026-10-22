@@ -9,7 +9,9 @@ local TokenLayout = require(ReplicatedStorage.Shared.Board.TokenLayout)
 local CardStyle = require(script.Parent.Parent.CardStyle)
 local HudModel = require(script.Parent.Parent.HudModel)
 local Theme = require(script.Parent.Parent.Theme)
+local Icons = require(script.Parent.Parent.Icons)
 local Ui = require(script.Parent.Parent.Ui)
+local Sounds = require(script.Parent.Parent.Parent.Sounds)
 
 local PlayerList = {}
 PlayerList.__index = PlayerList
@@ -28,11 +30,22 @@ export type PlayerList = typeof(setmetatable(
 		floaters: Frame,
 		matchLabel: TextLabel,
 		shown: { [string]: number }, -- the cash each row last displayed
+		onMute: ((userId: number, muted: boolean) -> ())?,
+		muted: { [number]: boolean }, -- user ids we've muted (Talk)
+		muteButtons: { [number]: ImageButton },
 	},
 	PlayerList
 ))
 
-function PlayerList.new(parent: Instance): PlayerList
+local MUTE_SIZE = 22
+
+-- The speaker beside another person's name: lit while you hear them, crossed out once muted.
+local function paintMute(button: ImageButton, muted: boolean)
+	button.Image = Icons.uri(if muted then "SpeakerMuted" else "Speaker")
+	button.ImageTransparency = if muted then 0 else 0.35
+end
+
+function PlayerList.new(parent: Instance, onMute: ((userId: number, muted: boolean) -> ())?): PlayerList
 	local frame = Ui.panel("Players", UDim2.fromOffset(WIDTH, 0), UDim2.fromOffset(12, 12), Vector2.zero, parent)
 	frame.AutomaticSize = Enum.AutomaticSize.Y
 	local content = Ui.frame("Content", UDim2.new(1, 0, 0, 0), frame)
@@ -51,7 +64,16 @@ function PlayerList.new(parent: Instance): PlayerList
 	-- Floaters live outside the rows, which are rebuilt on every update.
 	local floaters = Ui.frame("Floaters", UDim2.fromScale(1, 0), frame)
 	floaters.ZIndex = 2
-	return setmetatable({ frame = frame, rows = rows, floaters = floaters, matchLabel = matchLabel, shown = {} }, PlayerList)
+	return setmetatable({
+		frame = frame,
+		rows = rows,
+		floaters = floaters,
+		matchLabel = matchLabel,
+		shown = {},
+		onMute = onMute,
+		muted = {},
+		muteButtons = {},
+	}, PlayerList)
 end
 
 local function subline(row: HudModel.PlayerRow): string
@@ -104,6 +126,7 @@ end
 -- `deltas` are the cash changes since the last update (player id -> amount); each one floats.
 function PlayerList.render(self: PlayerList, rows: { HudModel.PlayerRow }, deltas: { [string]: number }?)
 	Ui.clear(self.rows)
+	table.clear(self.muteButtons)
 	local present = {}
 	for index, row in rows do
 		present[row.id] = true
@@ -141,10 +164,34 @@ function PlayerList.render(self: PlayerList, rows: { HudModel.PlayerRow }, delta
 		name.Text = row.name
 		name.LayoutOrder = 1
 		local limit = Instance.new("UISizeConstraint")
-		limit.MaxSize = Vector2.new(if row.isYou then 96 else 140, 20)
+		-- Room for the YOU pill, or for the mute button on other people's rows.
+		limit.MaxSize = Vector2.new(if row.isYou then 96 elseif row.isBot then 140 else 112, 20)
 		limit.Parent = name
 		if row.isYou then
 			Ui.pill("YOU", nameRow, Theme.color.accent, Theme.color.ink).LayoutOrder = 2
+		end
+		-- Other people (not bots) can be muted, voice and chat, for you alone.
+		local userId = tonumber(row.id)
+		if userId and not row.isYou and not row.isBot and self.onMute then
+			local button = Instance.new("ImageButton")
+			button.Name = "Mute"
+			button.Size = UDim2.fromOffset(MUTE_SIZE, MUTE_SIZE)
+			button.BackgroundTransparency = 1
+			button.ScaleType = Enum.ScaleType.Fit
+			button.LayoutOrder = 3
+			button.Parent = nameRow
+			paintMute(button, self.muted[userId] == true)
+			button.Activated:Connect(function()
+				local mute = not self.muted[userId]
+				self.muted[userId] = if mute then true else nil
+				paintMute(button, mute)
+				Sounds.play("Click")
+				local onMute = self.onMute
+				if onMute then
+					onMute(userId, mute)
+				end
+			end)
+			self.muteButtons[userId] = button
 		end
 
 		local sub = Ui.label("Sub", frame, UDim2.new(1, -150, 0, 16), 12, Theme.font.body)
@@ -189,6 +236,18 @@ function PlayerList.render(self: PlayerList, rows: { HudModel.PlayerRow }, delta
 	for id in self.shown do
 		if not present[id] then
 			self.shown[id] = nil
+		end
+	end
+end
+
+-- Who we've muted (user ids), as Talk last heard from the server.
+function PlayerList.setMuted(self: PlayerList, muted: { [number]: boolean })
+	self.muted = table.clone(muted)
+	for userId, button in self.muteButtons do
+		if button.Parent then
+			paintMute(button, muted[userId] == true)
+		else
+			self.muteButtons[userId] = nil
 		end
 	end
 end
