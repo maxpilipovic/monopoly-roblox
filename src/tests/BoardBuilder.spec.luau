@@ -5,6 +5,7 @@ local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 local ColorGroups = require(ReplicatedStorage.Shared.Board.ColorGroups)
 local Layout = require(ReplicatedStorage.Shared.Board.Layout)
 local BoardBuilder = require(game:GetService("ReplicatedStorage").Shared.Board.BoardBuilder)
+local TileArt = require(ReplicatedStorage.Shared.Board.TileArt)
 local Expect = require(script.Parent.Expect)
 local MapTestHelper = require(script.Parent.MapTestHelper)
 
@@ -58,9 +59,23 @@ end
 tests["every tile has a label with its name"] = function()
 	withBoard(function(board)
 		for _, tile in Tiles.list do
-			local label = tilePart(board, tile.position):FindFirstChild("Label", true) :: TextLabel
+			local part = tilePart(board, tile.position)
+			local label = part:FindFirstChild("Label", true) :: TextLabel
 			assert(label, `{tile.name} has no Label`)
-			assert(label.Text:find(tile.name, 1, true), `{tile.name} label text is "{label.Text}"`)
+			-- Special tiles print their names in capitals, like the board, and corners split
+			-- theirs round the picture.
+			local text = label.Text
+			local art = part:FindFirstChild("Art")
+			if art then
+				local parts = {}
+				for _, item in art:GetDescendants() do
+					if item:IsA("TextLabel") and item.Name:match("^Label") then
+						table.insert(parts, item.Text)
+					end
+				end
+				text = table.concat(parts, " ")
+			end
+			assert(text:upper():find(tile.name:upper(), 1, true), `{tile.name} label text is "{text}"`)
 		end
 	end)
 end
@@ -79,20 +94,48 @@ tests["rebuilding replaces the existing board"] = function()
 	scratch:Destroy()
 end
 
-tests["tile labels share one maximum text size"] = function()
+tests["street labels share one maximum text size"] = function()
 	local holder = Instance.new("Folder")
 	local model = BoardBuilder.build(holder)
 	local labels = 0
+	local printed = 0
+	for _, tile in Tiles.list do
+		if TileArt.covers(tile) then
+			printed += 1
+		end
+	end
 	for _, label in model:GetDescendants() do
-		if label:IsA("TextLabel") and label.Name == "Label" then
+		if label:IsA("TextLabel") and label.Name == "Label" and not label:FindFirstAncestor("Art") then
 			labels += 1
 			local constraint = label:FindFirstChildOfClass("UITextSizeConstraint")
 			assert(constraint, `{label:GetFullName()} has no size constraint`)
 			Expect.equal(constraint.MaxTextSize, BoardBuilder.LABEL_MAX_TEXT_SIZE, "max size")
 		end
 	end
-	Expect.equal(labels, 40, "every tile has a label")
+	Expect.equal(labels, 40 - printed, "every other tile has a label")
 	holder:Destroy()
+end
+
+tests["special tiles are printed like the classic board"] = function()
+	withBoard(function(board)
+		for _, tile in Tiles.list do
+			local art = tilePart(board, tile.position):FindFirstChild("Art")
+			if not TileArt.covers(tile) then
+				assert(art == nil, `{tile.name} should not be printed`)
+				continue
+			end
+			assert(art, `{tile.name} has no Art`)
+			local pictures = 0
+			for _, item in art:GetDescendants() do
+				if item:IsA("ImageLabel") then
+					pictures += 1
+					assert(item.Image:match("^rbxassetid://%d+$"), `{tile.name} picture {item.Image}`)
+				end
+			end
+			-- The jail is drawn from frames; every other special tile has one picture.
+			Expect.equal(pictures, if tile.kind == "Jail" then 0 else 1, `{tile.name} pictures`)
+		end
+	end)
 end
 
 tests["relabel writes the active map's names onto the board"] = function()
@@ -110,9 +153,12 @@ tests["relabel writes the active map's names onto the board"] = function()
 		BoardBuilder.relabel(model)
 		Expect.equal(label(39), "Football Stadium\n$400", "college street")
 		Expect.equal(label(38), "Parking Ticket\nPay $100", "college tax")
+		Expect.equal(label(0), "ORIENTATION", "college Go")
+		Expect.equal(label(10), "DEAN'S OFFICE", "college jail")
 	end)
 	BoardBuilder.relabel(model)
 	Expect.equal(label(39), "Boardwalk\n$400", "back to Classic")
+	Expect.equal(label(0), "GO", "Classic Go")
 	holder:Destroy()
 end
 

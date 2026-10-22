@@ -35,8 +35,10 @@ local ARRANGEMENTS: { { Vector3 } } = {
 
 -- The middle of a tile's open area: its outer side, past the colour band (2.5 deep on a 10-deep tile).
 TokenLayout.CENTER = Vector3.new(0, 0, 1.25)
--- Inside the jail cell: the inner half of the Jail corner, clear of visitors on the outer half.
-TokenLayout.JAIL_CENTER = Vector3.new(0, 0, -2.9)
+-- Inside the jail cell, which fills the Jail corner's inner corner (TileArt), and along the strip
+-- in front of it for visitors.
+TokenLayout.JAIL_CENTER = Vector3.new(-1.9, 0, -1.9)
+TokenLayout.VISIT_CENTER = Vector3.new(0, 0, 2.9)
 
 local function tileTop(position: number): CFrame
 	local placement = Layout.getTilePlacement(position)
@@ -52,7 +54,8 @@ function TokenLayout.spot(position: number, index: number?, count: number?): Vec
 	local n = math.clamp(count or 1, 1, TokenLayout.MAX_SEATS)
 	local i = math.clamp(index or 1, 1, n)
 	checkSeat(i)
-	return tileTop(position):PointToWorldSpace(TokenLayout.CENTER + ARRANGEMENTS[n][i])
+	local center = if position == TokenLayout.JAIL_POSITION then TokenLayout.VISIT_CENTER else TokenLayout.CENTER
+	return tileTop(position):PointToWorldSpace(center + ARRANGEMENTS[n][i])
 end
 
 -- The same, for pieces in the jail cell.

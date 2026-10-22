@@ -1,6 +1,7 @@
 --!strict
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Layout = require(ReplicatedStorage.Shared.Board.Layout)
+local TileArt = require(ReplicatedStorage.Shared.Board.TileArt)
 local TokenLayout = require(ReplicatedStorage.Shared.Board.TokenLayout)
 local Expect = require(script.Parent.Expect)
 
@@ -73,6 +74,19 @@ tests["pieces in jail stay in the cell, apart from each other and from visitors"
 					assert(gap >= TokenLayout.TOKEN_DIAMETER, `jailed {index}/{count} touches visitor {v}/{visitors}`)
 				end
 			end
+		end
+	end
+end
+
+tests["pieces in jail stand inside the printed cell"] = function()
+	local placement = Layout.getTilePlacement(TokenLayout.JAIL_POSITION)
+	local radius = TokenLayout.TOKEN_DIAMETER / 2
+	-- The cell runs from the corner's inner corner (-X, -Z) across JAIL_CELL of its width.
+	local cellEnd = -placement.size.X / 2 + TileArt.JAIL_CELL * placement.size.X
+	for count = 1, TokenLayout.MAX_SEATS do
+		for index = 1, count do
+			local spot = tileTop(TokenLayout.JAIL_POSITION):PointToObjectSpace(TokenLayout.jailSpot(index, count))
+			assert(spot.X + radius <= cellEnd and spot.Z + radius <= cellEnd, `{index}/{count} outside the cell`)
 		end
 	end
 end

@@ -1,12 +1,13 @@
 --!strict
--- Stands each emblem on its tiles: the gold question mark on Chance, the chest on Community Chest,
--- the locomotive on the railroads, the bulb and the tap on the utilities. They sit in the tile's
+-- Stands each emblem on its tiles: the locomotive on the railroads, the bulb and the tap on the
+-- utilities. They sit in the tile's
 -- inner half (the label moves to the outer half) facing the players, and stay still so the board
 -- stays calm. Waits for Assets to load the models; tiles without them simply stay bare.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local EmblemLook = require(ReplicatedStorage.Shared.Board.EmblemLook)
+local TileArt = require(ReplicatedStorage.Shared.Board.TileArt)
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 
 local TileEmblems = {}
@@ -49,7 +50,9 @@ function TileEmblems.place(board: Model)
 			if typeof(position) ~= "number" or not part:IsA("BasePart") then
 				continue
 			end
-			local shape = EmblemLook.forTile(Tiles.at(position))
+			local tile = Tiles.at(position)
+			-- Chance and Community Chest have their pictures printed on (TileArt) instead.
+			local shape = if TileArt.covers(tile) then nil else EmblemLook.forTile(tile)
 			local source = shape and template(shape)
 			if not (shape and source) then
 				continue
