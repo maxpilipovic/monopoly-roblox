@@ -1,0 +1,94 @@
+--!strict
+-- The picture on each Chance and Community Chest card, like the drawings on the real cards: a money
+-- bag for a payout, the bank, a signpost for "advance to", a cake for your birthday... Renders from
+-- tools/blender/card_art.py (assets/cards); the officer, the question mark and the chest are the
+-- board's own (TileArt). College cards share their classic card's picture.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TileArt = require(ReplicatedStorage.Shared.Board.TileArt)
+
+local CardArt = {}
+
+CardArt.IMAGES = table.freeze({
+	MoneyBag = "rbxassetid://119140194691256",
+	Bank = "rbxassetid://131521240641341",
+	Signpost = "rbxassetid://131351062872560",
+	Locomotive = "rbxassetid://98231097503814",
+	Utilities = "rbxassetid://102452342633330",
+	Key = "rbxassetid://133898038040007",
+	UTurn = "rbxassetid://100651535035429",
+	Tools = "rbxassetid://81218189308084",
+	TopHat = "rbxassetid://122422895874992",
+	Cash = "rbxassetid://139263702417666",
+	DoctorBag = "rbxassetid://95058342650921",
+	Chart = "rbxassetid://115712049621272",
+	Gift = "rbxassetid://135597231681027",
+	Cake = "rbxassetid://126678883630873",
+	GradCap = "rbxassetid://125423462192684",
+	Briefcase = "rbxassetid://75459761582596",
+	Trophy = "rbxassetid://121060801437842",
+	Go = "rbxassetid://135849455482326",
+	Car = TileArt.IMAGES.Car,
+	Officer = TileArt.IMAGES.Officer,
+	Question = TileArt.IMAGES.Question,
+	Chest = TileArt.IMAGES.Chest,
+})
+
+-- Classic card id -> picture.
+CardArt.BY_CARD = table.freeze({
+	["chance.dividend"] = "MoneyBag",
+	["chance.loan"] = "Bank",
+	["chance.speeding"] = "Car",
+	["chance.boardwalk"] = "Signpost",
+	["chance.go"] = "Go",
+	["chance.illinois"] = "Signpost",
+	["chance.stCharles"] = "Signpost",
+	["chance.reading"] = "Locomotive",
+	["chance.railroad1"] = "Locomotive",
+	["chance.railroad2"] = "Locomotive",
+	["chance.utility"] = "Utilities",
+	["chance.jailFree"] = "Key",
+	["chance.back3"] = "UTurn",
+	["chance.jail"] = "Officer",
+	["chance.repairs"] = "Tools",
+	["chance.chairman"] = "TopHat",
+	["chest.taxRefund"] = "Cash",
+	["chest.bankError"] = "Bank",
+	["chest.doctor"] = "DoctorBag",
+	["chest.stock"] = "Chart",
+	["chest.go"] = "Go",
+	["chest.jailFree"] = "Key",
+	["chest.jail"] = "Officer",
+	["chest.holiday"] = "Gift",
+	["chest.birthday"] = "Cake",
+	["chest.lifeInsurance"] = "MoneyBag",
+	["chest.hospital"] = "DoctorBag",
+	["chest.school"] = "GradCap",
+	["chest.consultancy"] = "Briefcase",
+	["chest.streetRepairs"] = "Tools",
+	["chest.beautyContest"] = "Trophy",
+	["chest.inherit"] = "Cash",
+	jail = "Officer", -- the card everyone sees when someone is sent to jail
+})
+
+-- The big picture on each deck's back, as on the real decks.
+CardArt.BACKS = table.freeze({
+	Chance = "Question",
+	CommunityChest = "Chest",
+	Jail = "Officer",
+})
+
+local COLLEGE_PREFIX = "college."
+
+function CardArt.forCard(cardId: string): string?
+	local classic = if cardId:sub(1, #COLLEGE_PREFIX) == COLLEGE_PREFIX then cardId:sub(#COLLEGE_PREFIX + 1) else cardId
+	local name = CardArt.BY_CARD[classic]
+	return name and CardArt.IMAGES[name]
+end
+
+function CardArt.back(deck: string): string?
+	local name = CardArt.BACKS[deck]
+	return name and CardArt.IMAGES[name]
+end
+
+return CardArt

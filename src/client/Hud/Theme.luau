@@ -31,6 +31,7 @@ Theme.font = table.freeze({
 	display = Font.fromEnum(Enum.Font.FredokaOne),
 	body = Font.fromEnum(Enum.Font.BuilderSansMedium),
 	bodyBold = Font.fromEnum(Enum.Font.BuilderSansBold),
+	printed = Font.fromEnum(Enum.Font.GothamBlack), -- words printed on the board and its cards
 })
 
 Theme.radius = table.freeze({ panel = 14, surface = 10, pill = 8 })

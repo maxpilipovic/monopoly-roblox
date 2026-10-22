@@ -1,0 +1,36 @@
+--!strict
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterPlayer = game:GetService("StarterPlayer")
+local CardArt = require(StarterPlayer.StarterPlayerScripts.Client.Hud.CardArt)
+local Cards = require(ReplicatedStorage.Shared.Board.Cards)
+local Expect = require(script.Parent.Expect)
+
+local tests = {}
+
+local function isAsset(image: string?): boolean
+	return image ~= nil and image:match("^rbxassetid://%d+$") ~= nil
+end
+
+tests["every card on every map has a picture"] = function()
+	for id in Cards.byId do
+		assert(isAsset(CardArt.forCard(id)), `{id} has no picture`)
+	end
+	assert(isAsset(CardArt.forCard("jail")), "the jail card has no picture")
+end
+
+tests["college cards share their classic card's picture"] = function()
+	Expect.equal(CardArt.forCard("college.chest.birthday"), CardArt.forCard("chest.birthday"))
+	Expect.equal(CardArt.forCard("chest.birthday"), CardArt.IMAGES.Cake)
+end
+
+tests["each deck has its picture on the back"] = function()
+	Expect.equal(CardArt.back("Chance"), CardArt.IMAGES.Question)
+	Expect.equal(CardArt.back("CommunityChest"), CardArt.IMAGES.Chest)
+	assert(isAsset(CardArt.back("Jail")), "jail back")
+end
+
+tests["an unknown card has no picture"] = function()
+	Expect.equal(CardArt.forCard("nope"), nil)
+end
+
+return tests

@@ -1,7 +1,8 @@
 --!strict
--- How each kind of card looks. Colour is the properties' language on this board, so only a property
--- deed is coloured (by its group); every other card is ink, midnight, charcoal or steel on
--- parchment, told apart by its emblem and lit by a thin gold foil.
+-- How each kind of card looks. Chance and Community Chest cards are printed like the real decks
+-- (orange and yellow stock, black ink). Among the deeds colour is the properties' language, so only
+-- a property deed is coloured (by its group); railroads and utilities are midnight or charcoal on
+-- parchment, told apart by their emblem and lit by a thin gold foil.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EmblemLook = require(ReplicatedStorage.Shared.Board.EmblemLook)
@@ -41,10 +42,28 @@ local function plain(band: Color3, emblem: string?): Style
 	}
 end
 
+-- Chance and Community Chest look like the real decks: orange and yellow card stock printed in ink.
+CardStyle.CHANCE_ORANGE = Color3.fromRGB(245, 140, 44)
+CardStyle.CHEST_YELLOW = Color3.fromRGB(252, 222, 112)
+CardStyle.JAIL_GREY = Color3.fromRGB(200, 200, 196) -- warm, to stay off the light blue group
+
+local function printed(stock: Color3, back: Color3, emblem: string?): Style
+	return {
+		back = back,
+		face = stock,
+		ink = CardStyle.INK,
+		foil = CardStyle.INK,
+		band = stock,
+		bandText = CardStyle.INK,
+		emblem = emblem,
+	}
+end
+
 local DECKS: { [string]: Style } = {
-	Chance = plain(CardStyle.MIDNIGHT, "Question"),
-	CommunityChest = plain(CardStyle.CHARCOAL, "Chest"),
-	Jail = plain(CardStyle.STEEL, nil),
+	Chance = printed(CardStyle.CHANCE_ORANGE, CardStyle.CHANCE_ORANGE, "Question"),
+	CommunityChest = printed(CardStyle.CHEST_YELLOW, CardStyle.CHEST_YELLOW, "Chest"),
+	-- Steel on the back keeps the jail pill (PlayerList) off the property reds.
+	Jail = printed(CardStyle.JAIL_GREY, CardStyle.STEEL, nil),
 }
 
 function CardStyle.deck(deck: string): Style

@@ -24,10 +24,16 @@ local function assertClearOfGroups(style: CardStyle.Style, label: string)
 	end
 end
 
-tests["chance, community chest and jail cards keep clear of every colour group"] = function()
-	for _, deck in { "Chance", "CommunityChest", "Jail" } do
-		assertClearOfGroups(CardStyle.deck(deck), deck)
-	end
+tests["the jail card keeps clear of every colour group"] = function()
+	assertClearOfGroups(CardStyle.deck("Jail"), "Jail")
+end
+
+tests["chance is printed on orange and community chest on yellow, like the real decks"] = function()
+	local chance, chest = CardStyle.deck("Chance"), CardStyle.deck("CommunityChest")
+	Expect.equal(chance.face, CardStyle.CHANCE_ORANGE)
+	Expect.equal(chest.face, CardStyle.CHEST_YELLOW)
+	Expect.equal(chance.ink, CardStyle.INK, "black ink")
+	Expect.equal(chest.ink, CardStyle.INK, "black ink")
 end
 
 tests["railroad and utility deeds keep clear of every colour group"] = function()
