@@ -1,13 +1,18 @@
 --!strict
 -- Builds the lobby players spawn into: a marble plaza ringed in gold on a green island, a fountain
 -- crowned by a giant turning die, statues of the game's buildings and emblems on plinths, lamp
--- posts and a colonnade, three leaderboard boards, and kiosks that open the games browser. It sits
--- far from the board's spot so nobody in the lobby ever sees a game. Built from code, so it lives
--- in git; LobbyFx on the client adds the motion and fills the boards.
+-- posts and a colonnade, three leaderboard boards, kiosks that open the games browser, and the game
+-- tables (TableLayout): eight casual ones round the fountain and four ranked ones in a roped-off
+-- VIP area in front of the leaderboards, each with six chairs and a sign. It sits far from the
+-- board's spot so nobody in the lobby ever sees a game. Built from code, so it lives in git;
+-- LobbyFx on the client adds the motion and fills the boards; TableService seats people.
 
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local ColorGroups = require(ReplicatedStorage.Shared.Board.ColorGroups)
+local TableLayout = require(ReplicatedStorage.Shared.Lobby.TableLayout)
 
 local LobbyBuilder = {}
 
@@ -16,6 +21,7 @@ LobbyBuilder.MODEL_NAME = "Lobby"
 LobbyBuilder.SPIN_TAG = "LobbySpin" -- models LobbyFx turns slowly
 LobbyBuilder.BOARD_TAG = "LobbyLeaderboard" -- parts LobbyFx draws a leaderboard on
 LobbyBuilder.KIOSK_TAG = "LobbyKiosk" -- prompts that open the games browser
+LobbyBuilder.TABLE_TAG = "LobbyTable" -- game tables TableService seats people at
 
 local MARBLE = Color3.fromRGB(238, 233, 222)
 local MARBLE_DARK = Color3.fromRGB(206, 198, 184)
@@ -460,6 +466,181 @@ local function buildEnclosure(model: Model)
 	end
 end
 
+-- Game tables -----------------------------------------------------------------------------------
+
+local FLOOR_TOP = 0.47 -- the plaza's marble, over its gold inlays
+local WOOD = Color3.fromRGB(122, 78, 46)
+local WOOD_DARK = Color3.fromRGB(86, 52, 30)
+local INK = Color3.fromRGB(20, 26, 42)
+local FELT = Color3.fromRGB(32, 112, 70)
+local RANKED_FELT = Color3.fromRGB(0, 84, 150) -- Boardwalk blue
+local CARPET_BLUE = Color3.fromRGB(14, 52, 110)
+local VELVET = Color3.fromRGB(150, 22, 34)
+local DISPLAY = Font.fromEnum(Enum.Font.FredokaOne)
+local PRINTED = Font.fromEnum(Enum.Font.GothamBlack)
+
+local function text(parent: Instance, name: string, value: string, size: UDim2, position: UDim2, color: Color3, font: Font): TextLabel
+	local label = Instance.new("TextLabel")
+	label.Name = name
+	label.Size = size
+	label.Position = position
+	label.BackgroundTransparency = 1
+	label.FontFace = font
+	label.TextScaled = true
+	label.TextColor3 = color
+	label.Text = value
+	label.Parent = parent
+	return label
+end
+
+local function surface(parentPart: BasePart, face: Enum.NormalId, pixelsPerStud: number): SurfaceGui
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = face
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = pixelsPerStud
+	gui.LightInfluence = 0
+	gui.Parent = parentPart
+	return gui
+end
+
+
+-- The ranked tables' VIP area: a blue carpet sector, gold posts with velvet rope along its inner
+-- edge, and a RANKED arch over the gap where the red carpet runs in.
+local function buildRankedArea(model: Model)
+	local area = TableLayout.RANKED_AREA
+	local steps = 16
+	local step = 2 * area.halfAngle / steps
+	local middleRadius = (area.inner + area.outer) / 2
+	for index = 0, steps - 1 do
+		local angle = area.angle - area.halfAngle + (index + 0.5) * step
+		local centre = around(middleRadius, angle, FLOOR_TOP + 0.05)
+		part({
+			Name = "RankedCarpet",
+			Size = Vector3.new(2 * area.outer * math.sin(step / 2) + 0.4, 0.1, area.outer - area.inner),
+			CFrame = facingCentre(centre),
+			Color = CARPET_BLUE,
+			Material = Enum.Material.Fabric,
+		}, model)
+	end
+	local gap = 8 -- studs either side of the carpet's middle, the way in
+	local posts = {}
+	local postStep = 8 / area.inner
+	local angle = area.angle - area.halfAngle
+	while angle <= area.angle + area.halfAngle + 1e-6 do
+		if math.abs(math.sin(angle - area.angle) * area.inner) >= gap then
+			table.insert(posts, angle)
+		end
+		angle += postStep
+	end
+	for index, postAngle in posts do
+		local base = around(area.inner, postAngle, FLOOR_TOP)
+		upright("RopePost", 0.35, 3.2, base, GOLD, Enum.Material.Metal, model)
+		part({ Name = "RopeKnob", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.9, CFrame = CFrame.new(base + Vector3.new(0, 3.3, 0)), Color = GOLD, Material = Enum.Material.Metal }, model)
+		local nextAngle = posts[index + 1]
+		if nextAngle and nextAngle - postAngle <= postStep * 1.5 then
+			local a = base + Vector3.new(0, 2.7, 0)
+			local b = around(area.inner, nextAngle, FLOOR_TOP + 2.7)
+			part({ Name = "Rope", Size = Vector3.new(0.35, 0.35, (b - a).Magnitude), CFrame = CFrame.lookAt((a + b) / 2, b), Color = VELVET, Material = Enum.Material.Fabric, CanCollide = false }, model)
+		end
+	end
+	local entrance = facingCentre(around(area.inner, area.angle, FLOOR_TOP))
+	for _, side in { -gap, gap } do
+		upright("ArchPost", 0.6, 13, (entrance * CFrame.new(side, 0, 0)).Position, GOLD, Enum.Material.Metal, model)
+	end
+	local sign = part({ Name = "RankedSign", Size = Vector3.new(2 * gap + 2, 3.4, 0.6), CFrame = entrance * CFrame.new(0, 13, 0), Color = CARPET_BLUE, Material = Enum.Material.SmoothPlastic }, model)
+	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+		text(surface(sign, face, 30), "Title", "RANKED", UDim2.fromScale(0.9, 0.8), UDim2.fromScale(0.05, 0.1), GOLD, PRINTED)
+	end
+end
+
+local GROUP_ORDER = { "Brown", "LightBlue", "Pink", "Orange", "Red", "Yellow", "Green", "DarkBlue" }
+
+-- One game table: a round top in felt with a little board, dice and cards on it, six chairs, and
+-- the sign TableService writes on.
+local function buildTable(id: number, model: Model)
+	local ranked = TableLayout.kind(id) == "Ranked"
+	local holder = Instance.new("Model")
+	holder.Name = `Table{id}`
+	holder:SetAttribute("TableId", id)
+	holder:SetAttribute("Ranked", ranked)
+	local base = LobbyBuilder.CENTRE + TableLayout.offset(id) + Vector3.new(0, FLOOR_TOP, 0)
+	local topY = 3.2
+	upright("Pedestal", 1, topY - 0.3, base, WOOD_DARK, Enum.Material.Wood, holder)
+	upright("Foot", 2.4, 0.4, base, WOOD_DARK, Enum.Material.Wood, holder)
+	upright("Rim", TableLayout.TABLE_RADIUS + 0.4, 0.5, base + Vector3.new(0, topY - 0.55, 0), if ranked then GOLD else WOOD, if ranked then Enum.Material.Metal else Enum.Material.Wood, holder)
+	local top = upright("Top", TableLayout.TABLE_RADIUS, 0.4, base + Vector3.new(0, topY - 0.4, 0), if ranked then RANKED_FELT else FELT, Enum.Material.Fabric, holder)
+	top.Name = "Top"
+
+	-- A little board: white, with the colour groups along its edges, two per side.
+	local surfaceY = topY
+	local boardSize = 5.5
+	part({ Name = "MiniBoard", Size = Vector3.new(boardSize, 0.1, boardSize), CFrame = CFrame.new(base + Vector3.new(0, surfaceY + 0.05, 0)) * CFrame.Angles(0, math.rad(15), 0), Color = Color3.fromRGB(214, 234, 214), Material = Enum.Material.SmoothPlastic, CanCollide = false }, holder)
+	for side = 0, 3 do
+		for half = 0, 1 do
+			local group = GROUP_ORDER[side * 2 + half + 1]
+			local along = (half - 0.5) * boardSize / 2
+			local frame = CFrame.new(base + Vector3.new(0, surfaceY + 0.12, 0)) * CFrame.Angles(0, math.rad(15) + side * math.pi / 2, 0) * CFrame.new(along, 0, boardSize / 2 - 0.4)
+			part({ Name = "MiniStrip", Size = Vector3.new(boardSize / 2 - 0.3, 0.06, 0.6), CFrame = frame, Color = ColorGroups[group].color, Material = Enum.Material.SmoothPlastic, CanCollide = false }, holder)
+		end
+	end
+	for index, offset in { Vector3.new(-1.6, 0, 3.6), Vector3.new(-0.6, 0, 3.9) } do
+		part({ Name = "Die", Size = Vector3.one * 0.7, CFrame = CFrame.new(base + offset + Vector3.new(0, surfaceY + 0.35, 0)) * CFrame.Angles(0, index * 0.6, 0), Color = Color3.fromRGB(250, 246, 236), Material = Enum.Material.SmoothPlastic, CanCollide = false }, holder)
+	end
+	for index, color in { Color3.fromRGB(245, 140, 44), Color3.fromRGB(252, 222, 112) } do
+		part({ Name = "Cards", Size = Vector3.new(1.4, 0.35, 0.9), CFrame = CFrame.new(base + Vector3.new(1.4 + index * 1.7, surfaceY + 0.18, -3.4)) * CFrame.Angles(0, 0.3, 0), Color = color, Material = Enum.Material.SmoothPlastic, CanCollide = false }, holder)
+	end
+
+	-- Six chairs: seats you sit in through the prompt (never by bumping into them).
+	local chairs = Instance.new("Folder")
+	chairs.Name = "Chairs"
+	chairs.Parent = holder
+	for index = 1, TableLayout.CHAIRS do
+		local frame = CFrame.new(base) * TableLayout.chair(index)
+		local seat = part({ ClassName = "Seat", Name = `Chair{index}`, Size = Vector3.new(2.4, 0.6, 2.4), CFrame = frame * CFrame.new(0, 1.7, 0), Color = if ranked then GOLD else WOOD, Material = if ranked then Enum.Material.Fabric else Enum.Material.Wood, CanTouch = false }, chairs) :: Seat
+		seat:SetAttribute("Chair", index)
+		part({ Name = "ChairBack", Size = Vector3.new(2.4, 3, 0.4), CFrame = frame * CFrame.new(0, 3.5, 1.1), Color = if ranked then RANKED_FELT else WOOD_DARK, Material = Enum.Material.Wood }, seat)
+		for _, leg in { Vector3.new(-1, 0, -1), Vector3.new(1, 0, -1), Vector3.new(-1, 0, 1), Vector3.new(1, 0, 1) } do
+			part({ Name = "ChairLeg", Size = Vector3.new(0.3, 1.4, 0.3), CFrame = frame * CFrame.new(leg + Vector3.new(0, 0.7, 0)), Color = WOOD_DARK, Material = Enum.Material.Wood, CanCollide = false }, seat)
+		end
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "SitPrompt"
+		prompt.ActionText = "Sit down"
+		prompt.ObjectText = if ranked then `Ranked table {TableLayout.number(id)}` else `Table {id}`
+		prompt.HoldDuration = 0
+		prompt.MaxActivationDistance = 10
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = seat
+	end
+
+	-- The sign over the table.
+	local anchor = part({ Name = "SignAnchor", Size = Vector3.new(1, 1, 1), CFrame = CFrame.new(base + Vector3.new(0, 11, 0)), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false }, holder)
+	local sign = Instance.new("BillboardGui")
+	sign.Name = "Sign"
+	sign.Size = UDim2.fromScale(12, 3.3) -- in studs: far signs shrink instead of piling up
+	sign.MaxDistance = 90
+	sign.LightInfluence = 0
+	sign.Parent = anchor
+	local back = Instance.new("Frame")
+	back.Name = "Back"
+	back.Size = UDim2.fromScale(1, 1)
+	back.BackgroundColor3 = INK
+	back.BackgroundTransparency = 0.15
+	back.Parent = sign
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 14)
+	corner.Parent = back
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = GOLD
+	stroke.Thickness = 2
+	stroke.Transparency = if ranked then 0 else 0.6
+	stroke.Parent = back
+	text(back, "Title", if ranked then `Ranked table {TableLayout.number(id)}` else `Table {id}`, UDim2.fromScale(0.92, 0.46), UDim2.fromScale(0.04, 0.06), if ranked then GOLD else Color3.new(1, 1, 1), DISPLAY)
+	text(back, "Status", "Open · sit down to host", UDim2.fromScale(0.92, 0.34), UDim2.fromScale(0.04, 0.56), Color3.fromRGB(200, 208, 224), DISPLAY)
+
+	CollectionService:AddTag(holder, LobbyBuilder.TABLE_TAG)
+	holder.Parent = model
+end
+
 function LobbyBuilder.build(parent: Instance): Model
 	local existing = parent:FindFirstChild(LobbyBuilder.MODEL_NAME)
 	if existing then
@@ -484,6 +665,10 @@ function LobbyBuilder.build(parent: Instance): Model
 	buildKiosks(model)
 	buildSpawn(model)
 	buildStatues(model)
+	buildRankedArea(model)
+	for id = 1, TableLayout.COUNT do
+		buildTable(id, model)
+	end
 	setLighting()
 	model.Parent = parent
 	return model
