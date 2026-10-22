@@ -24,6 +24,7 @@ local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
 local Ranks = require(ReplicatedStorage.Shared.Rules.Ranks)
 local Scenes = require(ReplicatedStorage.Shared.Board.Scenes)
 local RoomSettings = require(ReplicatedStorage.Shared.Rules.RoomSettings)
+local TableLayout = require(ReplicatedStorage.Shared.Lobby.TableLayout)
 local ChallengesPanel = require(script.Parent.Lobby.ChallengesPanel)
 local Icons = require(script.Parent.Icons)
 local ItemArt = require(script.Parent.Lobby.ItemArt)
@@ -494,6 +495,15 @@ function roomById(self: LobbyHud, id: number?): any
 	return nil
 end
 
+-- The lobby table a room sits at, as its sign names it ("Table 2", "Ranked table 1").
+local function tableName(room: any): string?
+	local id = room.tableId
+	if typeof(id) ~= "number" then
+		return nil
+	end
+	return if TableLayout.kind(id) == "Ranked" then `Ranked table {TableLayout.number(id)}` else `Table {id}`
+end
+
 -- The settings form, editable (each change goes through `onChange`) or read-only.
 local function settingsForm(parent: Instance, settings: RoomSettings.Settings, editable: boolean, onChange: (RoomSettings.Settings) -> ())
 	local form = Ui.frame("Settings", UDim2.new(1, 0, 0, 9 * 42), parent)
@@ -601,7 +611,8 @@ local function renderBrowse(self: LobbyHud, content: Frame, ranked: boolean, top
 		sub.Position = UDim2.fromOffset(14, 34)
 		sub.TextXAlignment = Enum.TextXAlignment.Left
 		sub.TextColor3 = Theme.color.textDim
-		sub.Text = `{room.players}/{room.maxPlayers} players · {room.status}`
+		local at = tableName(room)
+		sub.Text = (if at then `{at} · ` else "") .. `{room.players}/{room.maxPlayers} players · {room.status}`
 		local chips = Ui.frame("Chips", UDim2.new(1, -150, 0, 22), card)
 		chips.Position = UDim2.fromOffset(14, 56)
 		Ui.list(chips, Enum.FillDirection.Horizontal, 6, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center)
@@ -716,7 +727,8 @@ local function renderGames(self: LobbyHud)
 	self.queueLabel = nil
 	local mine = roomById(self, if self.rooms then self.rooms.mine else nil)
 	if mine or self.creating then
-		heading(if mine then mine.name elseif self.creatingRanked then "Create a ranked game" else "Create a game", frame)
+		local at = if mine then tableName(mine) else nil
+		heading(if mine then (if at then `{mine.name} · {at}` else mine.name) elseif self.creatingRanked then "Create a ranked game" else "Create a game", frame)
 		local content = body(frame, 64)
 		if mine then
 			renderRoom(self, content, mine)
@@ -726,8 +738,19 @@ local function renderGames(self: LobbyHud)
 		return
 	end
 	heading("Play", frame)
+	-- The quickest way in: a seat at the fullest open casual table, or a new game at a free one.
+	local quick = Ui.button("Quick Play", frame, function()
+		self.callbacks.onLobby({ type = "QuickPlay" })
+	end, "primary")
+	quick.Size = UDim2.fromOffset(200, 46)
+	quick.Position = UDim2.fromOffset(20, 56)
+	local hint = Ui.label("TablesHint", frame, UDim2.new(1, -250, 0, 46), 15, Theme.font.body)
+	hint.Position = UDim2.fromOffset(234, 56)
+	hint.TextXAlignment = Enum.TextXAlignment.Left
+	hint.TextColor3 = Theme.color.textDim
+	hint.Text = "Or walk up to any table in the hall and sit down."
 	local tabs = Ui.frame("Tabs", UDim2.fromOffset(330, 40), frame)
-	tabs.Position = UDim2.fromOffset(20, 58)
+	tabs.Position = UDim2.fromOffset(20, 112)
 	Ui.list(tabs, Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center)
 	for index, tab in { "Ranked", "Casual" } do
 		local button = Ui.button(tab, tabs, function()
@@ -738,7 +761,7 @@ local function renderGames(self: LobbyHud)
 		button.LayoutOrder = index
 		Ui.setTextSize(button, 16)
 	end
-	local content = body(frame, 108)
+	local content = body(frame, 162)
 	if self.playTab == "Ranked" then
 		renderRanked(self, content)
 	else
