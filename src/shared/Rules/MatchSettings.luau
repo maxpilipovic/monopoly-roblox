@@ -1,10 +1,10 @@
 --!strict
--- The speed options picked in the lobby: a turn timer and an optional game length.
+-- The speed options picked in the lobby: a turn timer and an optional cap on the rounds played.
 -- Shared so the lobby shows the same choices the server accepts.
 
 export type Settings = {
 	timer: string, -- "Off" | "Relaxed" | "Fast"
-	length: string, -- "Off" | "Rounds15" | "Rounds25" | "Rounds40" | "Minutes30" | "Minutes45" | "Minutes60"
+	length: string, -- "Off" | "Rounds100" | "Rounds200" | "Rounds300": a cap on the rounds played
 	map: string, -- "Classic" | "College"
 }
 
@@ -12,9 +12,8 @@ local MatchSettings = {}
 
 local TIMERS = { "Off", "Relaxed", "Fast" }
 local TIMER_SECONDS = { Off = 0, Relaxed = 60, Fast = 20 }
-local LENGTHS = { "Off", "Rounds15", "Rounds25", "Rounds40", "Minutes30", "Minutes45", "Minutes60" }
-local ROUNDS = { Rounds15 = 15, Rounds25 = 25, Rounds40 = 40 }
-local MINUTES = { Minutes30 = 30, Minutes45 = 45, Minutes60 = 60 }
+local LENGTHS = { "Off", "Rounds100", "Rounds200", "Rounds300" }
+local ROUNDS = { Rounds100 = 100, Rounds200 = 200, Rounds300 = 300 }
 
 -- A literal rather than Maps.IDS so this stays a leaf module; keep the two lists the same.
 local MAPS = { "Classic", "College" }
@@ -61,8 +60,6 @@ end
 function MatchSettings.lengthLabel(id: string): string
 	if ROUNDS[id] then
 		return `Length: {ROUNDS[id]} rounds`
-	elseif MINUTES[id] then
-		return `Length: {MINUTES[id]} min`
 	end
 	return "Length: Off"
 end
@@ -78,10 +75,6 @@ end
 
 function MatchSettings.roundLimit(settings: Settings): number?
 	return ROUNDS[settings.length]
-end
-
-function MatchSettings.limitMinutes(settings: Settings): number?
-	return MINUTES[settings.length]
 end
 
 return MatchSettings

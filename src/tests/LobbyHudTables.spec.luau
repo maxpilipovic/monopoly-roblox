@@ -86,4 +86,17 @@ tests["your game's panel names its table, and there's no Quick Play while you're
 	end)
 end
 
+tests["a ranked room's settings have no bots or game length rows; a casual one's do"] = function()
+	withLobby(function(hud)
+		local ranked = room(5)
+		ranked.ranked = true
+		hud:setRooms({ rooms = { ranked }, mine = 7, hostOf = 7 })
+		Expect.equal(anyText(hud.root, "Bots fill empty seats"), false, "ranked: no bots row")
+		Expect.equal(anyText(hud.root, "Game length"), false, "ranked: no length row")
+		hud:setRooms({ rooms = { room(2) }, mine = 7, hostOf = 7 })
+		Expect.equal(anyText(hud.root, "Bots fill empty seats"), true, "casual: bots row")
+		Expect.equal(anyText(hud.root, "Game length"), true, "casual: length row")
+	end)
+end
+
 return tests

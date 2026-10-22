@@ -11,9 +11,9 @@ tests["defaults are a relaxed timer and no length limit"] = function()
 end
 
 tests["validate keeps known ids and replaces anything else with the default"] = function()
-	local chosen = MatchSettings.validate({ timer = "Fast", length = "Minutes30", seats = 4 })
+	local chosen = MatchSettings.validate({ timer = "Fast", length = "Rounds200", seats = 4 })
 	Expect.equal(chosen.timer, "Fast", "timer")
-	Expect.equal(chosen.length, "Minutes30", "length")
+	Expect.equal(chosen.length, "Rounds200", "length")
 
 	local fromNil = MatchSettings.validate(nil)
 	Expect.equal(fromNil.timer, "Relaxed", "nil timer")
@@ -24,6 +24,7 @@ tests["validate keeps known ids and replaces anything else with the default"] = 
 		{},
 		{ timer = 20, length = true },
 		{ timer = "fast", length = "Rounds99" },
+		{ timer = "fast", length = "Minutes30" }, -- the old time limits are gone
 		{ timer = "__index", length = "" },
 	} :: { any } do
 		local settings = MatchSettings.validate(raw)
@@ -41,10 +42,10 @@ tests["cycling goes through every option in order and wraps round"] = function()
 	Expect.equal(table.concat(timers, ","), "Off,Relaxed,Fast,Off")
 
 	local lengths = { "Off" }
-	for _ = 1, 7 do
+	for _ = 1, 4 do
 		table.insert(lengths, MatchSettings.nextLength(lengths[#lengths]))
 	end
-	Expect.equal(table.concat(lengths, ","), "Off,Rounds15,Rounds25,Rounds40,Minutes30,Minutes45,Minutes60,Off")
+	Expect.equal(table.concat(lengths, ","), "Off,Rounds100,Rounds200,Rounds300,Off")
 end
 
 tests["seconds, limits and labels"] = function()
@@ -54,16 +55,14 @@ tests["seconds, limits and labels"] = function()
 	Expect.equal(MatchSettings.bidSeconds(60), 20, "relaxed bid")
 	Expect.equal(MatchSettings.bidSeconds(20), 7, "fast bid")
 
-	Expect.equal(MatchSettings.roundLimit({ timer = "Off", length = "Rounds25" }), 25, "rounds")
-	Expect.equal(MatchSettings.roundLimit({ timer = "Off", length = "Minutes30" }), nil, "minutes has no round limit")
-	Expect.equal(MatchSettings.limitMinutes({ timer = "Off", length = "Minutes45" }), 45, "minutes")
-	Expect.equal(MatchSettings.limitMinutes({ timer = "Off", length = "Off" }), nil, "no limit")
+	Expect.equal(MatchSettings.roundLimit({ timer = "Off", length = "Rounds100" }), 100, "100 rounds")
+	Expect.equal(MatchSettings.roundLimit({ timer = "Off", length = "Rounds300" }), 300, "300 rounds")
+	Expect.equal(MatchSettings.roundLimit({ timer = "Off", length = "Off" }), nil, "no limit")
 
 	Expect.equal(MatchSettings.timerLabel("Relaxed"), "Timer: Relaxed 60 s")
 	Expect.equal(MatchSettings.timerLabel("Fast"), "Timer: Fast 20 s")
 	Expect.equal(MatchSettings.timerLabel("Off"), "Timer: Off")
-	Expect.equal(MatchSettings.lengthLabel("Rounds25"), "Length: 25 rounds")
-	Expect.equal(MatchSettings.lengthLabel("Minutes30"), "Length: 30 min")
+	Expect.equal(MatchSettings.lengthLabel("Rounds200"), "Length: 200 rounds")
 	Expect.equal(MatchSettings.lengthLabel("Off"), "Length: Off")
 end
 
@@ -76,9 +75,9 @@ tests["the map defaults to Classic, validates, cycles and labels"] = function()
 	Expect.equal(MatchSettings.nextMap("Classic"), "College")
 	Expect.equal(MatchSettings.nextMap("College"), "Classic", "wraps")
 	Expect.equal(MatchSettings.mapLabel("College"), "Map: College")
-	local chosen = MatchSettings.validate({ timer = "Fast", length = "Rounds15", map = "College" })
+	local chosen = MatchSettings.validate({ timer = "Fast", length = "Rounds100", map = "College" })
 	Expect.equal(chosen.timer, "Fast", "other options untouched")
-	Expect.equal(chosen.length, "Rounds15", "other options untouched")
+	Expect.equal(chosen.length, "Rounds100", "other options untouched")
 end
 
 return tests

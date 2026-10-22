@@ -200,9 +200,9 @@ tests["a timeout with nothing to raise goes bankrupt"] = function()
 end
 
 tests["sessions keep their settings and take the round limit from them"] = function()
-	local session = GameSession.new(humans(1), 2, GameFixtures.scriptedDice({}), nil, { timer = "Fast", length = "Rounds15" })
+	local session = GameSession.new(humans(1), 2, GameFixtures.scriptedDice({}), nil, { timer = "Fast", length = "Rounds100" })
 	Expect.equal(session.settings.timer, "Fast")
-	Expect.equal(session.state.roundLimit, 15)
+	Expect.equal(session.state.roundLimit, 100)
 	Expect.equal(session.endsAt, nil)
 	local plain = GameSession.new(humans(1), 2, GameFixtures.scriptedDice({}))
 	Expect.equal(plain.settings.timer, "Relaxed", "default settings")

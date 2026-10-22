@@ -418,7 +418,7 @@ local function startGame(room: Rooms.Room)
 	room.status = "Playing"
 	room.session = session
 	live[room.id] = l
-	local minutes = studioNumber("LimitMinutes") or MatchSettings.limitMinutes(session.settings)
+	local minutes = studioNumber("LimitMinutes") -- Studio playtest aid only: games have no time limit
 	if minutes then
 		session.endsAt = workspace:GetServerTimeNow() + minutes * 60
 		task.delay(minutes * 60, function()

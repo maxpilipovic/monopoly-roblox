@@ -83,7 +83,7 @@ function Rooms.create(reg: Registry, hostId: string, name: string, raw: any, ran
 		name = "",
 		hostId = hostId,
 		members = { { id = hostId, name = name } },
-		settings = RoomSettings.validate(raw),
+		settings = if ranked == true then RoomSettings.forRanked(RoomSettings.validate(raw)) else RoomSettings.validate(raw),
 		status = "Waiting",
 		ranked = ranked == true,
 		matched = false,
@@ -164,6 +164,9 @@ function Rooms.updateSettings(reg: Registry, playerId: string, raw: any): (boole
 		return false, "the game has already started"
 	end
 	local settings = RoomSettings.validate(raw)
+	if room.ranked then
+		settings = RoomSettings.forRanked(settings) -- real players only, played to the end
+	end
 	-- Never fewer seats than people already in the room.
 	settings.maxPlayers = math.max(settings.maxPlayers, #room.members)
 	room.settings = settings

@@ -118,6 +118,20 @@ tests["a hosted ranked room is listed, joined and set up like any other, and nee
 	Expect.equal(Rooms.list(reg)[1].ranked, true)
 end
 
+tests["a ranked room is only real players with no game length, whatever the host asks for"] = function()
+	local reg = Rooms.new()
+	local room = assert(Rooms.create(reg, "a", "Ana", { bots = true, length = "Rounds100" }, true))
+	Expect.equal(room.settings.bots, false, "no bots on create")
+	Expect.equal(room.settings.length, "Off", "no length on create")
+	assert(Rooms.updateSettings(reg, "a", { bots = true, length = "Rounds300", startingMoney = 2000 }))
+	Expect.equal(room.settings.bots, false, "no bots on update")
+	Expect.equal(room.settings.length, "Off", "no length on update")
+	Expect.equal(room.settings.startingMoney, 2000, "other settings still the host's")
+	local casual = assert(Rooms.create(reg, "b", "Ben", { bots = true, length = "Rounds100" }))
+	Expect.equal(casual.settings.bots, true, "casual keeps bots")
+	Expect.equal(casual.settings.length, "Rounds100", "casual keeps its length")
+end
+
 tests["a queue-matched ranked room holds its matched players, isn't listed and can't be joined"] = function()
 	local reg = Rooms.new()
 	local room = Rooms.createRanked(reg, { { id = "a", name = "Ana" }, { id = "b", name = "Ben" } }, { maxPlayers = 2 })

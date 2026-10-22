@@ -30,7 +30,7 @@ RoomSettings.DEFAULT = table.freeze({
 	maxPlayers = 4,
 	startingMoney = 1500,
 	auctions = true,
-	freeParking = false,
+	freeParking = true,
 	bots = true,
 	timer = MatchSettings.DEFAULT.timer,
 	length = MatchSettings.DEFAULT.length,
@@ -68,7 +68,7 @@ function RoomSettings.validate(raw: any): Settings
 end
 
 -- The fixed rules every ranked game is played under, like a chess time control: standard money and
--- auctions, no house rules, no bots, a turn timer and a time limit.
+-- auctions, no house rules, no bots, a turn timer and no game length.
 function RoomSettings.ranked(seats: number): Settings
 	return RoomSettings.validate({
 		maxPlayers = seats,
@@ -77,9 +77,18 @@ function RoomSettings.ranked(seats: number): Settings
 		freeParking = false,
 		bots = false,
 		timer = "Relaxed",
-		length = if seats <= 2 then "Minutes30" else "Minutes60",
+		length = "Off",
 		map = "Classic",
 	})
+end
+
+-- A hosted ranked game's settings: the host's choices, except that ranked is real players only
+-- (no bots) and plays to the end (no game length).
+function RoomSettings.forRanked(settings: Settings): Settings
+	local ranked = table.clone(settings)
+	ranked.bots = false
+	ranked.length = "Off"
+	return ranked
 end
 
 -- The engine's house rules.
