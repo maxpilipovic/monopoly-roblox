@@ -107,14 +107,15 @@ export type ProfileView = {
 
 -- The casual games on this server and which one (if any) the receiving player is in.
 export type RoomsUpdate = {
-	rooms: { any }, -- Rooms.RoomView
+	rooms: { any }, -- Rooms.RoomView, plus tableId: the lobby table it sits at
 	mine: number?,
 	hostOf: number?, -- the room this player hosts
 	notice: string?, -- why their last request was refused
 	queue: { mode: string, since: number }?, -- their place in the ranked queue (server time joined)
 }
 
--- Requests on the LOBBY remote: { type = "Create", settings } | { type = "Join", room } | { type = "Leave" }
+-- Requests on the LOBBY remote: { type = "Create", settings, ranked?, table?, chair? } | { type = "Join", room, chair? }
+-- | { type = "QuickPlay" } (sit at the fullest open casual table, or host at a free one) | { type = "Leave" }
 -- | { type = "Settings", settings } | { type = "Start" } | { type = "ReturnToLobby" }
 -- | { type = "Queue", mode = "Duel" | "Table" } | { type = "Unqueue" }
 -- Requests on the STORE remote: { type = "Equip", item } | { type = "Unequip", kind } | { type = "UnequipEffect" }

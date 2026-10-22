@@ -1,6 +1,7 @@
 --!strict
 -- The lobby's moving parts on this client: the giant die turning over the fountain, the three
--- leaderboards drawn from the server's published scores, and the kiosks that open the games browser.
+-- leaderboards drawn from the server's published scores, the kiosks that open the games browser,
+-- and the game tables' chair prompts, hidden while you're already in a game.
 
 local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
@@ -12,6 +13,7 @@ local LobbyFx = {}
 local SPIN_TAG = "LobbySpin"
 local BOARD_TAG = "LobbyLeaderboard"
 local KIOSK_TAG = "LobbyKiosk"
+local TABLE_TAG = "LobbyTable"
 local GOLD = Color3.fromRGB(222, 190, 110)
 local MEDALS = { Color3.fromRGB(255, 206, 84), Color3.fromRGB(205, 212, 224), Color3.fromRGB(214, 140, 86) }
 
@@ -111,6 +113,40 @@ local function redrawBoards()
 	end
 end
 
+local inRoom = false
+
+-- A chair offers itself when the server says it's free ("Open") and you're not in a game already.
+local function showChairPrompt(seat: Instance)
+	local prompt = seat:FindFirstChild("SitPrompt")
+	if prompt and prompt:IsA("ProximityPrompt") then
+		prompt.Enabled = seat:GetAttribute("Open") == true and not inRoom
+	end
+end
+
+local function chairsOf(model: Instance): { Instance }
+	local chairs = model:FindFirstChild("Chairs")
+	return if chairs then chairs:GetChildren() else {}
+end
+
+local function hookTable(model: Instance)
+	for _, seat in chairsOf(model) do
+		seat:GetAttributeChangedSignal("Open"):Connect(function()
+			showChairPrompt(seat)
+		end)
+		showChairPrompt(seat)
+	end
+end
+
+-- In a game (sitting at a table, or hosting from the menu): no other chair offers itself.
+function LobbyFx.setInRoom(value: boolean)
+	inRoom = value
+	for _, model in CollectionService:GetTagged(TABLE_TAG) do
+		for _, seat in chairsOf(model) do
+			showChairPrompt(seat)
+		end
+	end
+end
+
 function LobbyFx.start(openGames: () -> ())
 	-- The die over the fountain turns slowly, tumbling a little.
 	RunService.RenderStepped:Connect(function(dt)
@@ -132,6 +168,10 @@ function LobbyFx.start(openGames: () -> ())
 		hookKiosk(prompt)
 	end
 	CollectionService:GetInstanceAddedSignal(KIOSK_TAG):Connect(hookKiosk)
+	for _, model in CollectionService:GetTagged(TABLE_TAG) do
+		hookTable(model)
+	end
+	CollectionService:GetInstanceAddedSignal(TABLE_TAG):Connect(hookTable)
 end
 
 return LobbyFx

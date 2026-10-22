@@ -35,6 +35,7 @@ local lobby = LobbyHud.new(Players.LocalPlayer:WaitForChild("PlayerGui"), {
 })
 roomsRemote.OnClientEvent:Connect(function(update)
 	lobby:setRooms(update)
+	LobbyFx.setInRoom(update.mine ~= nil)
 end)
 profileRemote.OnClientEvent:Connect(function(profile)
 	lobby:setProfile(profile)

@@ -27,6 +27,8 @@ local Profile = require(script.Parent.Data.Profile)
 local RankedQueue = require(script.Parent.RankedQueue)
 local Rooms = require(script.Parent.Rooms)
 local Snapshot = require(script.Parent.Game.Snapshot)
+local TableService = require(script.Parent.Lobby.TableService)
+local Tables = require(script.Parent.Lobby.Tables)
 local Tally = require(script.Parent.Game.Tally)
 local Throttle = require(script.Parent.Game.Throttle)
 local TurnClock = require(script.Parent.Game.TurnClock)
@@ -114,6 +116,10 @@ end
 
 local function sendRooms(notifyOnly: Player?, notice: string?)
 	local list = Rooms.list(registry)
+	for _, view in list do
+		(view :: any).tableId = Tables.tableOf(TableService.seating, view.id)
+	end
+	TableService.refresh(list)
 	for _, player in (if notifyOnly then { notifyOnly } else Players:GetPlayers()) :: { Player } do
 		local id = tostring(player.UserId)
 		local room = Rooms.roomOf(registry, id)
@@ -277,11 +283,15 @@ local function closeGame(l: Live)
 	l.room.status = "Waiting"
 	l.room.session = nil
 	l.clockGeneration += 1
+	local tableId = Tables.tableOf(TableService.seating, l.room.id)
 	for _, player in members(l.room) do
 		local id = tostring(player.UserId)
 		if not l.returned[id] then
 			updateRemote:FireClient(player, LOBBY_UPDATE)
-			toLobby(player)
+			toLobby(player) -- respawns them, and TableService seats them back at the table
+		elseif tableId and not l.room.matched then
+			-- Went back early from the results: sit down at the table again for the rematch.
+			TableService.seat(player, tableId, l.room.settings.maxPlayers)
 		end
 	end
 	if l.room.matched then
@@ -432,6 +442,7 @@ end
 -- have their loss recorded too.
 local function leaveRoom(player: Player)
 	local id = tostring(player.UserId)
+	TableService.unseat(player)
 	RankedQueue.leave(queue, id)
 	local room = Rooms.roomOf(registry, id)
 	if not room then
@@ -532,14 +543,27 @@ local function matchQueue()
 	end
 end
 
-local function onLobbyRequest(player: Player, request: any)
+-- Lobby requests, from the client (throttled, below) or from TableService (sitting, standing up).
+local function handleLobby(player: Player, request: any)
 	local id = tostring(player.UserId)
-	if typeof(request) ~= "table" or not Throttle.allow(requests, id, os.clock()) then
-		return
-	end
 	local kind = request.type
 	local ok, err = true, nil
-	if kind == "Create" or kind == "Join" then
+	local seatAt: { tableId: number, maxPlayers: number }? = nil
+	if kind == "QuickPlay" then
+		local infos = {}
+		for _, view in Rooms.list(registry) do
+			table.insert(infos, { id = view.id, ranked = view.ranked, status = view.status, players = view.players, maxPlayers = view.maxPlayers })
+		end
+		local pick = if Rooms.roomOf(registry, id) then nil else Tables.quickPlay(TableService.seating, infos)
+		if pick and pick.join then
+			handleLobby(player, { type = "Join", room = pick.join })
+		elseif pick and pick.host then
+			handleLobby(player, { type = "Create", table = pick.host, ranked = false })
+		else
+			sendRooms(player, if Rooms.roomOf(registry, id) then "you're already in a game" else "every table is busy right now")
+		end
+		return
+	elseif kind == "Create" or kind == "Join" then
 		if RankedQueue.entryOf(queue, id) then
 			ok, err = false, "leave the ranked queue first"
 		elseif (request.ranked == true or (kind == "Join" and (Rooms.byId(registry, request.room) or {} :: any).ranked)) and PlayerData.isUnreadable(player) then
@@ -547,9 +571,26 @@ local function onLobbyRequest(player: Player, request: any)
 		elseif kind == "Create" then
 			local room
 			room, err = Rooms.create(registry, id, player.DisplayName, request.settings, request.ranked == true)
+			if room then
+				-- Every hosted game has a table; none free means no game.
+				local wanted = if typeof(request.table) == "number" then request.table else nil
+				local tableId = Tables.assign(TableService.seating, room.id, room.ranked, wanted)
+				if tableId then
+					seatAt = { tableId = tableId, maxPlayers = room.settings.maxPlayers }
+				else
+					Rooms.leave(registry, id)
+					room = nil
+					err = if request.ranked == true then "all ranked tables are in use" else "all casual tables are in use"
+				end
+			end
 			ok = room ~= nil
 		else
 			ok, err = Rooms.join(registry, request.room, id, player.DisplayName)
+			local room = if ok then Rooms.byId(registry, request.room) else nil
+			local tableId = room and Tables.tableOf(TableService.seating, room.id)
+			if room and tableId then
+				seatAt = { tableId = tableId, maxPlayers = room.settings.maxPlayers }
+			end
 		end
 	elseif kind == "Leave" then
 		leaveRoom(player)
@@ -576,11 +617,22 @@ local function onLobbyRequest(player: Player, request: any)
 	else
 		return
 	end
+	if seatAt then
+		local chair = if typeof(request.chair) == "number" then request.chair else nil
+		TableService.seat(player, seatAt.tableId, seatAt.maxPlayers, chair)
+	end
 	if ok then
 		sendRooms()
 	else
 		sendRooms(player, err)
 	end
+end
+
+local function onLobbyRequest(player: Player, request: any)
+	if typeof(request) ~= "table" or not Throttle.allow(requests, tostring(player.UserId), os.clock()) then
+		return
+	end
+	handleLobby(player, request)
 end
 
 local function onAction(player: Player, action: any)
@@ -648,6 +700,15 @@ function RoomService.start()
 	actionRemote.OnServerEvent:Connect(onAction)
 	lobbyRemote.OnServerEvent:Connect(onLobbyRequest)
 	readyRemote.OnServerEvent:Connect(onReady)
+
+	-- Sitting at a lobby table hosts or joins its game; standing up leaves it.
+	TableService.start({
+		request = handleLobby,
+		roomOf = function(player: Player)
+			local room = Rooms.roomOf(registry, tostring(player.UserId))
+			return if room then { id = room.id, status = room.status, maxPlayers = room.settings.maxPlayers } else nil
+		end,
+	})
 
 	local function onPlayerAdded(player: Player)
 		player.CharacterAdded:Connect(function(character)

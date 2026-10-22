@@ -613,10 +613,10 @@ local function buildTable(id: number, model: Model)
 	end
 
 	-- The sign over the table.
-	local anchor = part({ Name = "SignAnchor", Size = Vector3.new(1, 1, 1), CFrame = CFrame.new(base + Vector3.new(0, 11, 0)), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false }, holder)
+	local anchor = part({ Name = "SignAnchor", Size = Vector3.new(1, 1, 1), CFrame = CFrame.new(base + Vector3.new(0, 14, 0)), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false }, holder)
 	local sign = Instance.new("BillboardGui")
 	sign.Name = "Sign"
-	sign.Size = UDim2.fromScale(12, 3.3) -- in studs: far signs shrink instead of piling up
+	sign.Size = UDim2.fromScale(8, 2.2) -- in studs: far signs shrink instead of piling up
 	sign.MaxDistance = 90
 	sign.LightInfluence = 0
 	sign.Parent = anchor
