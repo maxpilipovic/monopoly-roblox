@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local Cards = require(ReplicatedStorage.Shared.Board.Cards)
 local Engine = require(ServerScriptService.Server.Game.Engine)
+local CrazyCards = require(ServerScriptService.Server.Game.CrazyCards)
 local GameFixtures = require(script.Parent.GameFixtures)
 local Expect = require(script.Parent.Expect)
 local MapTestHelper = require(script.Parent.MapTestHelper)
@@ -23,8 +24,8 @@ end
 -- A game with Crazy Chance on. `setup` arranges the board before p1 rolls 4 -> 7 (Chance) and
 -- draws `cardId` from the crazy deck; `randoms` answers the engine's random choices after the
 -- first (which picks the crazy deck).
-local function crazyDraw(cardId: string, setup: ((any) -> ())?, randoms: { number }?, playerCount: number?)
-	local state = GameFixtures.newGame(playerCount or 3, { { 1, 2 } })
+local function crazyDraw(cardId: string, setup: ((any) -> ())?, randoms: { number }?, playerCount: number?, map: string?)
+	local state = GameFixtures.newGame(playerCount or 3, { { 1, 2 } }, map)
 	state.rules.crazyChance = true
 	local values = { 1 }
 	for _, value in randoms or {} do
@@ -44,7 +45,7 @@ end
 local CRAZY_DECKS = {
 	Classic = { size = 14, title = "Crazy Chance", prefix = "crazy." },
 	College = { size = 14, title = "Crazy Chance", prefix = "crazy." },
-	EIU = { size = 14, title = "Crazy Night", prefix = "eiu.crazy." },
+	EIU = { size = 16, title = "Crazy Night", prefix = "eiu.crazy." },
 }
 
 tests["each map's crazy deck: wild cards under the map's own title"] = function()
@@ -245,6 +246,79 @@ tests["mass arrest jails everyone else; jailbreak frees everyone"] = function()
 		player(s, "p2").position = 10
 	end)
 	Expect.equal(player(freed, "p2").inJail, false)
+end
+
+-- crazyDraw on the EIU map, whose crazy deck has the bail-out and the block-party raid.
+local function eiuDraw(cardId: string, setup: ((any) -> ())?, randoms: { number }?, playerCount: number?)
+	local state
+	MapTestHelper.onMap("EIU", function()
+		state = crazyDraw(cardId, setup, randoms, playerCount, "EIU")
+	end)
+	return state
+end
+
+local function jail(state, id: string)
+	player(state, id).inJail = true
+	player(state, id).position = Engine.JAIL_POSITION
+end
+
+tests["bail out: pays $100 per jailed player and frees them"] = function()
+	local state = eiuDraw("eiu.crazy.bailBuddy", function(s)
+		jail(s, "p2")
+		jail(s, "p3")
+	end)
+	Expect.equal(player(state, "p1").money, 1300, "two bails")
+	Expect.equal(player(state, "p2").inJail, false, "p2 freed")
+	Expect.equal(player(state, "p3").inJail, false, "p3 freed")
+	Expect.equal(#GameFixtures.eventsOfType(state, "LeftJail"), 2, "two releases")
+end
+
+tests["bail out with nobody in jail arrests a random other player"] = function()
+	local state = eiuDraw("eiu.crazy.bailBuddy", nil, { 2 })
+	Expect.equal(player(state, "p3").inJail, true, "the second other player")
+	Expect.equal(player(state, "p2").inJail, false)
+	Expect.equal(player(state, "p1").money, 1500, "nothing paid")
+end
+
+tests["bail out it can't afford: everyone is still freed, the rest is debt"] = function()
+	local state = eiuDraw("eiu.crazy.bailBuddy", function(s)
+		player(s, "p1").money = 150
+		jail(s, "p2")
+		jail(s, "p3")
+	end)
+	Expect.equal(player(state, "p2").inJail, false, "p2 freed")
+	Expect.equal(player(state, "p3").inJail, false, "p3 freed")
+	assert(#state.debts > 0, "the unpaid bail is a debt")
+	Expect.equal(state.phase, "Debt")
+end
+
+tests["raid: everyone standing on a hangout goes to jail, not those already there"] = function()
+	local state = eiuDraw("eiu.crazy.blockParty", function(s)
+		jail(s, "p2")
+		player(s, "p3").position = 25
+		player(s, "p4").position = 35
+	end, nil, 4)
+	Expect.equal(player(state, "p3").inJail, true, "p3 on Stu's")
+	Expect.equal(player(state, "p4").inJail, true, "p4 on PBox")
+	Expect.equal(player(state, "p1").inJail, false, "p1 is on Saturday Night")
+	Expect.equal(#GameFixtures.eventsOfType(state, "SentToJail"), 2, "p2 isn't jailed twice")
+end
+
+tests["raid on an empty street finds nobody"] = function()
+	local state = eiuDraw("eiu.crazy.blockParty")
+	Expect.equal(#GameFixtures.eventsOfType(state, "SentToJail"), 0)
+	Expect.equal(#GameFixtures.eventsOfType(state, "RaidFoundNobody"), 1)
+end
+
+tests["raid takes the drawer too"] = function()
+	local state = GameFixtures.bareState(2)
+	local drawer = player(state, "p1")
+	drawer.position = 5
+	local jailed = {}
+	local ops = { jail = function(_, who) table.insert(jailed, who.id) end, emit = function() end }
+	CrazyCards.apply(state, drawer, { kind = "RaidKind", tileKind = "Railroad" }, ops :: any)
+	Expect.equal(jailed[1], "p1")
+	Expect.equal(#jailed, 1)
 end
 
 return tests

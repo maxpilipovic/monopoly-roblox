@@ -204,7 +204,9 @@ local EIU_TEXT: { [string]: string } = {
 	["chest.inherit"] = "Care package from home with $100 hidden in the cookies. Collect $100.",
 }
 
--- The EIU Crazy Chance deck ("Crazy Night"), drawn instead of CRAZY on the EIU map.
+-- The EIU Crazy Chance deck ("Crazy Night"), drawn instead of CRAZY on the EIU map. Two effects of
+-- its own: BailOut (amount: paid per jailed player, who walks free; nobody jailed jails a random
+-- other player) and RaidKind (tileKind: everyone standing on one goes to jail).
 local EIU_CRAZY: { Entry } = {
 	{ id = "eiu.crazy.wrongHouse", text = "Woke up in the wrong house after the party. Swap places with the richest player.", effect = { kind = "SwapWithLeader" } },
 	{ id = "eiu.crazy.ghost", text = "Mary Hawkins was seen on Pemberton's 4th floor. Everyone runs to a random square.", effect = { kind = "Scatter" } },
@@ -228,6 +230,16 @@ local EIU_CRAZY: { Entry } = {
 	{ id = "eiu.crazy.inspection", text = "Surprise housing inspection! Every street with buildings loses a house.", effect = { kind = "Demolition" } },
 	{ id = "eiu.crazy.noiseComplaint", text = "Noise complaint sweep. Charleston PD takes everyone else to Coles County Jail.", effect = { kind = "MassArrest" } },
 	{ id = "eiu.crazy.brothersPitchIn", text = "The brothers pool their cash. Everyone in Coles County Jail walks free.", effect = { kind = "Jailbreak" } },
+	{
+		id = "eiu.crazy.bailBuddy",
+		text = "Your buddy got arrested trying to steal the Ike's sign. Bail him out: pay $100 for each player in jail, and they walk free. Nobody locked up? He's arrested now: a random other player goes to jail.",
+		effect = { kind = "BailOut", amount = 100 },
+	},
+	{
+		id = "eiu.crazy.blockParty",
+		text = "Charleston PD breaks up the 4th Street block party. Everyone standing on a hangout goes to Coles County Jail.",
+		effect = { kind = "RaidKind", tileKind = "Railroad" },
+	},
 }
 
 -- A map's own text for each classic card: same effect, same order, id "<prefix>.<classic id>".

@@ -42,6 +42,8 @@ CrazyCards.KINDS = table.freeze({
 	Demolition = true,
 	MassArrest = true,
 	Jailbreak = true,
+	BailOut = true,
+	RaidKind = true,
 })
 
 local function active(state: GameState): { Player }
@@ -276,6 +278,38 @@ function CrazyCards.apply(state: GameState, drawer: Player, effect: Cards.Effect
 			if player.inJail then
 				ops.release(state, player)
 			end
+		end
+	elseif kind == "BailOut" then
+		-- Each jailed player walks as soon as their bail is charged; bail the drawer can't pay is an
+		-- ordinary debt. With nobody to bail out, the buddy gets arrested instead.
+		local jailed = {}
+		for _, player in others(state, drawer) do
+			if player.inJail then
+				table.insert(jailed, player)
+			end
+		end
+		if #jailed == 0 then
+			local buddy = pick(state, others(state, drawer))
+			if buddy then
+				ops.jail(state, buddy)
+			end
+		end
+		for _, player in jailed do
+			ops.charge(state, drawer, nil, effect.amount :: number, "Bail")
+			ops.release(state, player)
+		end
+	elseif kind == "RaidKind" then
+		local raided = {}
+		for _, player in active(state) do
+			if not player.inJail and Tiles.at(player.position).kind == effect.tileKind then
+				table.insert(raided, player)
+			end
+		end
+		for _, player in raided do
+			ops.jail(state, player)
+		end
+		if #raided == 0 then
+			ops.emit(state, { type = "RaidFoundNobody", player = drawer.id })
 		end
 	else
 		error(`not a crazy card effect: {kind}`)

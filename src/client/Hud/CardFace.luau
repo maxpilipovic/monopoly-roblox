@@ -44,6 +44,8 @@ local CRAZY_BADGES: { [string]: { text: string, tone: Tone } } = {
 	Demolition = { text = "Every street loses a house", tone = "neutral" },
 	MassArrest = { text = "Everyone else to Jail", tone = "good" },
 	Jailbreak = { text = "Everyone out of Jail", tone = "neutral" },
+	BailOut = { text = "Bail out the jail — $100 each", tone = "neutral" },
+	RaidKind = { text = "Everyone on a hangout to Jail", tone = "neutral" },
 }
 
 local function badge(card: Cards.Card): { text: string, tone: Tone }

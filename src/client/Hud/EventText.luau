@@ -117,6 +117,8 @@ function EventText.describe(event: { [string]: any }, names: { [string]: string 
 		return `{name(event.from)}'s {tileName(event.position)} now belongs to {name(event.to)}`
 	elseif kind == "TurnOrderReversed" then
 		return "Play now goes the other way round the table"
+	elseif kind == "RaidFoundNobody" then
+		return `{name(event.player)}'s raid found nobody`
 	elseif kind == "Demolished" then
 		if event.count == 0 then
 			return "Demolition: nothing was built"

@@ -80,4 +80,11 @@ tests["the room panel has a Crazy Chance switch, ranked too"] = function()
 	Expect.equal(ranked, true, "ranked")
 end
 
+tests["the EIU crazy cards are badged and logged"] = function()
+	Expect.equal((CardFace.of("eiu.crazy.bailBuddy", "Ana") :: CardFace.Face).badge.text, "Bail out the jail — $100 each")
+	Expect.equal((CardFace.of("eiu.crazy.blockParty", "Ana") :: CardFace.Face).badge.text, "Everyone on a hangout to Jail")
+	Expect.equal((CardFace.of("eiu.crazy.ghost", "Ana") :: CardFace.Face).title, "Crazy Night")
+	Expect.equal(EventText.describe({ type = "RaidFoundNobody", player = "p1" }, NAMES), "Ana's raid found nobody")
+end
+
 return tests

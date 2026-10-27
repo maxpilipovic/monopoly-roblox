@@ -116,6 +116,8 @@ CardArt.BY_CARD = table.freeze({
 	["eiu.crazy.inspection"] = "Tools",
 	["eiu.crazy.noiseComplaint"] = "Jail",
 	["eiu.crazy.brothersPitchIn"] = "LockOpen",
+	["eiu.crazy.bailBuddy"] = "LockOpen",
+	["eiu.crazy.blockParty"] = "Officer",
 })
 
 -- The big picture on each deck's back, as on the real decks.
