@@ -46,6 +46,8 @@ end
 CardStyle.CHANCE_ORANGE = Color3.fromRGB(245, 140, 44)
 CardStyle.CHEST_YELLOW = Color3.fromRGB(252, 222, 112)
 CardStyle.JAIL_GREY = Color3.fromRGB(200, 200, 196) -- warm, to stay off the light blue group
+CardStyle.CRAZY_PURPLE = Color3.fromRGB(200, 168, 255) -- Crazy Chance: lavender stock
+CardStyle.CRAZY_BACK = Color3.fromRGB(96, 40, 170) -- and a deep purple back
 
 local function printed(stock: Color3, back: Color3, emblem: string?): Style
 	return {
@@ -62,6 +64,7 @@ end
 local DECKS: { [string]: Style } = {
 	Chance = printed(CardStyle.CHANCE_ORANGE, CardStyle.CHANCE_ORANGE, "Question"),
 	CommunityChest = printed(CardStyle.CHEST_YELLOW, CardStyle.CHEST_YELLOW, "Chest"),
+	Crazy = printed(CardStyle.CRAZY_PURPLE, CardStyle.CRAZY_BACK, nil),
 	-- Steel on the back keeps the jail pill (PlayerList) off the property reds.
 	Jail = printed(CardStyle.JAIL_GREY, CardStyle.STEEL, nil),
 }

@@ -42,7 +42,7 @@ function GameFixtures.bareState(playerCount: number): Types.GameState
 		rollAgain = false,
 		bankHouses = 32,
 		bankHotels = 12,
-		decks = { Chance = Cards.idsFor("Chance"), CommunityChest = Cards.idsFor("CommunityChest") },
+		decks = { Chance = Cards.idsFor("Chance"), CommunityChest = Cards.idsFor("CommunityChest"), Crazy = Cards.idsFor("Crazy") },
 		auction = nil,
 		debts = {},
 		resumePhase = nil,
@@ -56,10 +56,24 @@ function GameFixtures.bareState(playerCount: number): Types.GameState
 		winReason = nil,
 		events = {},
 		rollDice = GameFixtures.scriptedDice({}),
-		rules = { auctions = true, freeParking = false },
+		rules = { auctions = true, freeParking = false, crazyChance = false },
+		random = function(n: number): number
+			return 1
+		end,
+		direction = 1,
 		freeParkingPot = 0,
 		bankruptOrder = {},
 	}
+end
+
+
+-- A random source that answers with these numbers in turn (each clamped to 1..n), then 1.
+function GameFixtures.scriptedRandom(values: { number }): (number) -> number
+	local index = 0
+	return function(n: number): number
+		index += 1
+		return math.clamp(values[index] or 1, 1, n)
+	end
 end
 
 function GameFixtures.own(state: Types.GameState, owner: string, position: number, houses: number?)

@@ -1,6 +1,6 @@
 --!strict
--- What the host of a casual game picks: how many seats, the starting money, the house rules
--- (auctions, the Free Parking pot), bots, and the speed and map options. Shared so the lobby shows
+-- What the host of a game picks: how many seats, the starting money, the house rules
+-- (auctions, the Free Parking pot, Crazy Chance), bots, and the speed and map options. Shared so the lobby shows
 -- exactly what the server accepts; the server validates every request through here.
 
 local MatchSettings = require(script.Parent.MatchSettings)
@@ -11,6 +11,7 @@ export type Settings = {
 	startingMoney: number,
 	auctions: boolean, -- off: a declined property stays with the bank
 	freeParking: boolean, -- on: fines and fees pile up on Free Parking for whoever lands there
+	crazyChance: boolean, -- on: a third of Chance draws are wild Crazy Chance cards
 	bots: boolean, -- fill seats nobody took
 	timer: string,
 	length: string,
@@ -31,6 +32,7 @@ RoomSettings.DEFAULT = table.freeze({
 	startingMoney = 1500,
 	auctions = true,
 	freeParking = true,
+	crazyChance = false,
 	bots = true,
 	timer = MatchSettings.DEFAULT.timer,
 	length = MatchSettings.DEFAULT.length,
@@ -59,6 +61,7 @@ function RoomSettings.validate(raw: any): Settings
 		startingMoney = math.clamp(money, RoomSettings.MONEY_MIN, RoomSettings.MONEY_MAX),
 		auctions = switch(raw, "auctions", defaults.auctions),
 		freeParking = switch(raw, "freeParking", defaults.freeParking),
+		crazyChance = switch(raw, "crazyChance", defaults.crazyChance),
 		bots = switch(raw, "bots", defaults.bots),
 		timer = match.timer,
 		length = match.length,
@@ -92,8 +95,8 @@ function RoomSettings.forRanked(settings: Settings): Settings
 end
 
 -- The engine's house rules.
-function RoomSettings.rules(settings: Settings): { startingMoney: number, auctions: boolean, freeParking: boolean }
-	return { startingMoney = settings.startingMoney, auctions = settings.auctions, freeParking = settings.freeParking }
+function RoomSettings.rules(settings: Settings): { startingMoney: number, auctions: boolean, freeParking: boolean, crazyChance: boolean }
+	return { startingMoney = settings.startingMoney, auctions = settings.auctions, freeParking = settings.freeParking, crazyChance = settings.crazyChance }
 end
 
 -- The speed and map options the game session already understands.
@@ -109,6 +112,9 @@ function RoomSettings.chips(settings: Settings): { string }
 	end
 	if settings.freeParking then
 		table.insert(chips, "Free Parking pot")
+	end
+	if settings.crazyChance then
+		table.insert(chips, "Crazy Chance")
 	end
 	if settings.timer ~= "Off" then
 		table.insert(chips, `{settings.timer} timer`)

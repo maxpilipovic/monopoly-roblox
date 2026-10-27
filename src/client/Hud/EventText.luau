@@ -63,6 +63,10 @@ function EventText.describe(event: { [string]: any }, names: { [string]: string 
 			return `{name(event.from)} paid ${event.amount} tax`
 		elseif event.reason == "Card" and event.from and event.to then
 			return `{name(event.from)} paid ${event.amount} to {name(event.to)}`
+		elseif event.reason == "Lottery" and event.to then
+			return `{name(event.to)} won the ${event.amount} lottery`
+		elseif event.reason == "RobinHood" then
+			return `Robin Hood: {name(event.from)} paid {name(event.to)} ${event.amount}`
 		elseif event.reason == "MortgageInterest" then
 			return `{name(event.from)} paid ${event.amount} mortgage interest`
 		end
@@ -103,9 +107,21 @@ function EventText.describe(event: { [string]: any }, names: { [string]: string 
 		if not card then
 			return nil
 		end
-		return `{name(event.player)} drew {Cards.DECK_TITLES[card.deck]}: {card.text}`
+		return `{name(event.player)} drew {Cards.titleFor(card.id) or Cards.DECK_TITLES[card.deck]}: {card.text}`
 	elseif kind == "Built" then
+		if event.free then
+			return `{name(event.player)} got a free house on {tileName(event.position)}`
+		end
 		return `{name(event.player)} built a {if event.hotel then "hotel" else "house"} on {tileName(event.position)}`
+	elseif kind == "DeedMoved" then
+		return `{name(event.from)}'s {tileName(event.position)} now belongs to {name(event.to)}`
+	elseif kind == "TurnOrderReversed" then
+		return "Play now goes the other way round the table"
+	elseif kind == "Demolished" then
+		if event.count == 0 then
+			return "Demolition: nothing was built"
+		end
+		return `Demolition: {event.count} building{if event.count == 1 then "" else "s"} came down`
 	elseif kind == "BuildingSold" then
 		return `{name(event.player)} sold a {if event.hotel then "hotel" else "house"} on {tileName(event.position)}`
 	elseif kind == "Mortgaged" then

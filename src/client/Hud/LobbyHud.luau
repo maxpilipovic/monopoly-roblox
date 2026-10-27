@@ -507,7 +507,7 @@ end
 -- The settings form, editable (each change goes through `onChange`) or read-only. A ranked game
 -- shows no bots or game length: it is real players only, played to the end.
 local function settingsForm(parent: Instance, settings: RoomSettings.Settings, editable: boolean, ranked: boolean, onChange: (RoomSettings.Settings) -> ())
-	local form = Ui.frame("Settings", UDim2.new(1, 0, 0, 9 * 42), parent)
+	local form = Ui.frame("Settings", UDim2.new(1, 0, 0, 10 * 42), parent)
 	Ui.list(form, Enum.FillDirection.Vertical, 4, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Top)
 	local function changed(key: string, value: any)
 		local copy = table.clone(settings) :: any
@@ -552,17 +552,18 @@ local function settingsForm(parent: Instance, settings: RoomSettings.Settings, e
 	stepper(2, "Starting money", `${settings.startingMoney}`, "startingMoney", settings.startingMoney, RoomSettings.MONEY_STEP)
 	toggle(3, "Auctions", "auctions", settings.auctions)
 	toggle(4, "Free Parking pot", "freeParking", settings.freeParking)
+	toggle(5, "Crazy Chance", "crazyChance", settings.crazyChance)
 	if not ranked then
-		toggle(5, "Bots fill empty seats", "bots", settings.bots)
+		toggle(6, "Bots fill empty seats", "bots", settings.bots)
 	end
-	cycle(6, "Turn timer", (MatchSettings.timerLabel(settings.timer):gsub("^Timer: ", "")), "timer", MatchSettings.nextTimer(settings.timer))
+	cycle(7, "Turn timer", (MatchSettings.timerLabel(settings.timer):gsub("^Timer: ", "")), "timer", MatchSettings.nextTimer(settings.timer))
 	if not ranked then
-		cycle(7, "Game length", (MatchSettings.lengthLabel(settings.length):gsub("^Length: ", "")), "length", MatchSettings.nextLength(settings.length))
+		cycle(8, "Game length", (MatchSettings.lengthLabel(settings.length):gsub("^Length: ", "")), "length", MatchSettings.nextLength(settings.length))
 	end
-	cycle(8, "Board names", settings.map, "map", MatchSettings.nextMap(settings.map))
+	cycle(9, "Board names", settings.map, "map", MatchSettings.nextMap(settings.map))
 	local sceneIndex = table.find(Scenes.IDS, settings.scene) or 1
 	local scene = Scenes.byId[settings.scene] or Scenes.LIST[1]
-	cycle(9, "Scene", scene.name, "scene", Scenes.IDS[sceneIndex % #Scenes.IDS + 1])
+	cycle(10, "Scene", scene.name, "scene", Scenes.IDS[sceneIndex % #Scenes.IDS + 1])
 end
 
 local function footer(parent: Instance): Frame

@@ -8,6 +8,7 @@ local Cards = require(ReplicatedStorage.Shared.Board.Cards)
 local Maps = require(ReplicatedStorage.Shared.Board.Maps)
 local PropertyRules = require(ReplicatedStorage.Shared.Rules.PropertyRules)
 local TradeRules = require(ReplicatedStorage.Shared.Rules.TradeRules)
+local CrazyCards = require(script.Parent.CrazyCards)
 local Rent = require(script.Parent.Rent)
 local Types = require(script.Parent.Types)
 
@@ -128,6 +129,25 @@ local function leaveJail(state: GameState, player: Player, reason: string, amoun
 	emit(state, { type = "LeftJail", player = player.id, reason = reason, amount = amount })
 end
 
+-- What the crazy cards may do to the game, through the same rules as everything else.
+local CRAZY_OPS: CrazyCards.Ops = {
+	transfer = transfer,
+	charge = charge,
+	moveTo = moveTo,
+	emit = emit,
+	jail = function(state: GameState, player: Player)
+		moveTo(state, player, Engine.JAIL_POSITION, "ToJail")
+		player.inJail = true
+		player.jailAttempts = 0
+		emit(state, { type = "SentToJail", player = player.id, reason = "Card" })
+	end,
+	release = function(state: GameState, player: Player)
+		leaveJail(state, player, "Card")
+	end,
+	jailPosition = Engine.JAIL_POSITION,
+	houseLimit = PropertyRules.HOUSES_PER_HOTEL,
+}
+
 local resolveLanding: (state: GameState, player: Player, rentRule: string?) -> ()
 local resume: (state: GameState) -> ()
 
@@ -155,7 +175,9 @@ end
 
 local function applyCard(state: GameState, player: Player, effect: Cards.Effect)
 	local kind = effect.kind
-	if kind == "Collect" then
+	if CrazyCards.KINDS[kind] then
+		CrazyCards.apply(state, player, effect, CRAZY_OPS)
+	elseif kind == "Collect" then
 		transfer(state, nil, player.id, effect.amount :: number, "Card")
 	elseif kind == "Pay" then
 		charge(state, player, nil, effect.amount :: number, "Card")
@@ -243,7 +265,9 @@ function resolveLanding(state: GameState, player: Player, rentRule: string?)
 	elseif tile.kind == "Tax" then
 		charge(state, player, nil, tile.amount :: number, "Tax")
 	elseif tile.kind == "Chance" or tile.kind == "CommunityChest" then
-		drawCard(state, player, tile.kind)
+		-- Crazy Chance: a third of Chance draws come from the crazy deck.
+		local crazy = tile.kind == "Chance" and state.rules.crazyChance and state.random(3) == 1
+		drawCard(state, player, if crazy then Cards.CRAZY else tile.kind)
 		return
 	elseif tile.kind == "GoToJail" then
 		sendToJail(state, player, "GoToJail")
@@ -516,13 +540,16 @@ local function endTurn(state: GameState)
 	state.resumePhase = nil
 	table.clear(state.tradeOffers)
 	local previous = state.currentIndex
-	for _ = 1, #state.players do
-		state.currentIndex = state.currentIndex % #state.players + 1
+	local count = #state.players
+	for _ = 1, count do
+		state.currentIndex = (state.currentIndex - 1 + state.direction) % count + 1
 		if not Engine.currentPlayer(state).bankrupt then
 			break
 		end
 	end
-	if state.currentIndex <= previous then
+	-- A new round each time play wraps round the table, whichever way it's going.
+	local wrapped = if state.direction > 0 then state.currentIndex <= previous else state.currentIndex >= previous
+	if wrapped then
 		state.round += 1
 	end
 	-- A game length limit ends the game here, between turns, so nobody is cut off mid-move.
@@ -793,8 +820,10 @@ function Engine.new(
 	shuffle: Types.Shuffler?,
 	roundLimit: number?,
 	map: string?,
-	rules: Types.HouseRules?
+	rules: Types.HouseRules?,
+	random: ((n: number) -> number)?
 ): GameState
+	local rng = Random.new()
 	assert(
 		#players >= Engine.MIN_PLAYERS and #players <= Engine.MAX_PLAYERS,
 		`a game needs {Engine.MIN_PLAYERS}-{Engine.MAX_PLAYERS} players, got {#players}`
@@ -830,6 +859,12 @@ function Engine.new(
 		end
 		decks[deck] = ids
 	end
+	-- Only drawn in Crazy Chance games, but always there so a game's decks are all alike.
+	local crazy = Cards.idsFor(Cards.CRAZY)
+	if shuffle then
+		shuffle(crazy)
+	end
+	decks[Cards.CRAZY] = crazy
 
 	local state: GameState = {
 		players = playerStates,
@@ -859,7 +894,12 @@ function Engine.new(
 		rules = {
 			auctions = not (rules and rules.auctions == false),
 			freeParking = rules ~= nil and rules.freeParking == true,
+			crazyChance = rules ~= nil and rules.crazyChance == true,
 		},
+		random = random or function(n: number): number
+			return rng:NextInteger(1, n)
+		end,
+		direction = 1,
 		freeParkingPot = 0,
 		bankruptOrder = {},
 	}

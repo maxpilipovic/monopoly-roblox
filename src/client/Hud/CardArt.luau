@@ -6,6 +6,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TileArt = require(ReplicatedStorage.Shared.Board.TileArt)
+local Icons = require(script.Parent.Icons)
 
 local CardArt = {}
 
@@ -32,6 +33,22 @@ CardArt.IMAGES = table.freeze({
 	Officer = TileArt.IMAGES.Officer,
 	Question = TileArt.IMAGES.Question,
 	Chest = TileArt.IMAGES.Chest,
+	-- Crazy Chance pictures: the game's own rendered icons.
+	Podium = Icons.uri("Podium"),
+	Storm = Icons.uri("Storm"),
+	Swap = Icons.uri("Swap"),
+	Doubles = Icons.uri("Doubles"),
+	CashFlow = Icons.uri("CashFlow"),
+	Clover = Icons.uri("Clover"),
+	MoneyRain = Icons.uri("MoneyRain"),
+	Coins = Icons.uri("Coins"),
+	Swords = Icons.uri("Swords"),
+	Trade = Icons.uri("Trade"),
+	House = Icons.uri("House"),
+	Fireworks = Icons.uri("Fireworks"),
+	Jail = Icons.uri("Jail"),
+	LockOpen = Icons.uri("LockOpen"),
+	Lightning = Icons.uri("Lightning"),
 })
 
 -- Classic card id -> picture.
@@ -69,6 +86,20 @@ CardArt.BY_CARD = table.freeze({
 	["chest.beautyContest"] = "Trophy",
 	["chest.inherit"] = "Cash",
 	jail = "Officer", -- the card everyone sees when someone is sent to jail
+	["crazy.swapLeader"] = "Podium",
+	["crazy.scatter"] = "Storm",
+	["crazy.reverse"] = "Swap",
+	["crazy.extraTurn"] = "Doubles",
+	["crazy.robinHood"] = "CashFlow",
+	["crazy.lottery"] = "Clover",
+	["crazy.jackpot"] = "MoneyRain",
+	["crazy.splitCash"] = "Coins",
+	["crazy.heist"] = "Swords",
+	["crazy.swapDeed"] = "Trade",
+	["crazy.freeHouse"] = "House",
+	["crazy.demolition"] = "Fireworks",
+	["crazy.massArrest"] = "Jail",
+	["crazy.jailbreak"] = "LockOpen",
 })
 
 -- The big picture on each deck's back, as on the real decks.
@@ -76,6 +107,7 @@ CardArt.BACKS = table.freeze({
 	Chance = "Question",
 	CommunityChest = "Chest",
 	Jail = "Officer",
+	Crazy = "Lightning",
 })
 
 local COLLEGE_PREFIX = "college."

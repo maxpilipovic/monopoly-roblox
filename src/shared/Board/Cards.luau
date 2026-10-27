@@ -3,7 +3,7 @@
 -- then shuffled. Each list starts with money-only cards (Chance: three, Community Chest: one):
 -- tests that roll onto a card tile with unshuffled decks rely on that, so keep them first.
 
-export type DeckName = "Chance" | "CommunityChest"
+export type DeckName = "Chance" | "CommunityChest" | "Crazy"
 
 -- kind: Collect / Pay / PayEachPlayer / CollectFromEachPlayer (amount), AdvanceTo (position),
 -- AdvanceToNearest (tileKind: "Railroad" | "Utility"), GoBack (spaces), GoToJail, JailFree,
@@ -109,6 +109,28 @@ local COMMUNITY_CHEST: { Entry } = {
 	{ id = "chest.inherit", text = "You inherit $100.", effect = { kind = "Collect", amount = 100 } },
 }
 
+-- Crazy Chance (a room setting): wild cards that turn the game over. When it's on, a third of
+-- Chance draws come from this deck instead. Same cards on every map. Effects beyond the classic
+-- ones: SwapWithLeader, Scatter, Reverse, ExtraTurn, RobinHood (amount), Lottery (amount),
+-- SplitCash, Heist, SwapDeed, FreeHouse (amount: paid when you have no set), Demolition,
+-- MassArrest, Jailbreak.
+local CRAZY: { Entry } = {
+	{ id = "crazy.swapLeader", text = "Swap places on the board with the richest player.", effect = { kind = "SwapWithLeader" } },
+	{ id = "crazy.scatter", text = "Earthquake! Every piece is thrown to a random square.", effect = { kind = "Scatter" } },
+	{ id = "crazy.reverse", text = "Reverse! Play now goes the other way round the table.", effect = { kind = "Reverse" } },
+	{ id = "crazy.extraTurn", text = "Take another turn after this one.", effect = { kind = "ExtraTurn" } },
+	{ id = "crazy.robinHood", text = "Robin Hood: the richest player pays the poorest $200.", effect = { kind = "RobinHood", amount = 200 } },
+	{ id = "crazy.lottery", text = "Lottery! Everyone puts in $50 and one lucky player takes the pot.", effect = { kind = "Lottery", amount = 50 } },
+	{ id = "crazy.jackpot", text = "Bank error of the century. Collect $500.", effect = { kind = "Collect", amount = 500 } },
+	{ id = "crazy.splitCash", text = "Everyone's cash goes in one pile and is split evenly.", effect = { kind = "SplitCash" } },
+	{ id = "crazy.heist", text = "Heist! Take a random unbuilt property from the richest player.", effect = { kind = "Heist" } },
+	{ id = "crazy.swapDeed", text = "Swap one of your unbuilt properties for a random one of someone else's.", effect = { kind = "SwapDeed" } },
+	{ id = "crazy.freeHouse", text = "Building boom: a free house on one of your sets. No set? Collect $100.", effect = { kind = "FreeHouse", amount = 100 } },
+	{ id = "crazy.demolition", text = "Demolition! Every street with buildings loses a house.", effect = { kind = "Demolition" } },
+	{ id = "crazy.massArrest", text = "Mass arrest! Everyone else goes to Jail.", effect = { kind = "MassArrest" } },
+	{ id = "crazy.jailbreak", text = "Jailbreak! Everyone in Jail walks free.", effect = { kind = "Jailbreak" } },
+}
+
 -- College text for each classic card; same effect, same order, id "college.<classic id>".
 local COLLEGE_TEXT: { [string]: string } = {
 	["chance.dividend"] = "Your campus job pays out. Collect $50.",
@@ -157,7 +179,10 @@ end
 
 local Cards = {}
 
+-- The classic decks, every game. The crazy deck is apart: only Crazy Chance games draw from it.
 Cards.DECKS = table.freeze({ "Chance", "CommunityChest" } :: { DeckName })
+Cards.CRAZY = "Crazy" :: DeckName
+Cards.CRAZY_TITLE = "Crazy Chance"
 
 type MapCards = { list: { Card }, idsByDeck: { [string]: { string } }, titles: { [string]: string } }
 
@@ -167,20 +192,23 @@ local titleById: { [string]: string } = {} -- each card's deck title on its own 
 local function buildMap(chance: { Entry }, chest: { Entry }, titles: { [string]: string }): MapCards
 	local list: { Card } = {}
 	local idsByDeck: { [string]: { string } } = {}
-	local function addDeck(deck: DeckName, entries: { Entry })
+	local function addDeck(deck: DeckName, entries: { Entry }, title: string, listed: boolean)
 		local ids = {}
 		for _, entry in entries do
-			local card: Card = { id = entry.id, deck = deck, text = entry.text, effect = table.freeze(entry.effect) }
+			local card: Card = { id = entry.id, deck = deck, text = entry.text, effect = table.freeze(table.clone(entry.effect)) }
 			table.freeze(card)
-			table.insert(list, card)
+			if listed then
+				table.insert(list, card)
+			end
 			byId[card.id] = card
-			titleById[card.id] = titles[deck]
+			titleById[card.id] = title
 			table.insert(ids, card.id)
 		end
 		idsByDeck[deck] = table.freeze(ids)
 	end
-	addDeck("Chance", chance)
-	addDeck("CommunityChest", chest)
+	addDeck("Chance", chance, titles.Chance, true)
+	addDeck("CommunityChest", chest, titles.CommunityChest, true)
+	addDeck(Cards.CRAZY, CRAZY, Cards.CRAZY_TITLE, false)
 	return { list = table.freeze(list), idsByDeck = idsByDeck, titles = table.freeze(titles) }
 end
 

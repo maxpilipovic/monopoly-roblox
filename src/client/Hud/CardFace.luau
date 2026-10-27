@@ -29,6 +29,23 @@ local KIND_NOUNS = {
 	Utility = { classic = "utility", college = "utility" },
 }
 
+-- What each Crazy Chance card does, at a glance.
+local CRAZY_BADGES: { [string]: { text: string, tone: Tone } } = {
+	SwapWithLeader = { text = "Swap places with the leader", tone = "neutral" },
+	Scatter = { text = "Everyone teleports", tone = "neutral" },
+	Reverse = { text = "Turn order reversed", tone = "neutral" },
+	ExtraTurn = { text = "Roll again", tone = "good" },
+	RobinHood = { text = "Richest pays poorest $200", tone = "neutral" },
+	Lottery = { text = "$50 each, winner takes all", tone = "neutral" },
+	SplitCash = { text = "Cash split evenly", tone = "neutral" },
+	Heist = { text = "Steal a property", tone = "good" },
+	SwapDeed = { text = "Swap a property", tone = "neutral" },
+	FreeHouse = { text = "Free house", tone = "good" },
+	Demolition = { text = "Every street loses a house", tone = "neutral" },
+	MassArrest = { text = "Everyone else to Jail", tone = "good" },
+	Jailbreak = { text = "Everyone out of Jail", tone = "neutral" },
+}
+
 local function badge(card: Cards.Card): { text: string, tone: Tone }
 	local effect = card.effect
 	local kind = effect.kind
@@ -55,6 +72,10 @@ local function badge(card: Cards.Card): { text: string, tone: Tone }
 		return { text = "Keep this card", tone = "good" }
 	elseif kind == "Repairs" then
 		return { text = `−${effect.perHouse} per house · −${effect.perHotel} per hotel`, tone = "bad" }
+	end
+	local crazy = CRAZY_BADGES[kind]
+	if crazy then
+		return crazy
 	end
 	return { text = "", tone = "neutral" }
 end

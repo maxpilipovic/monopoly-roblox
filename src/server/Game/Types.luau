@@ -58,7 +58,7 @@ export type DiceRoller = () -> (number, number)
 
 export type Shuffler = (ids: { string }) -> () -- shuffles in place
 
-export type HouseRules = { startingMoney: number?, auctions: boolean?, freeParking: boolean? }
+export type HouseRules = { startingMoney: number?, auctions: boolean?, freeParking: boolean?, crazyChance: boolean? }
 
 export type GameState = {
 	players: { Player },
@@ -85,7 +85,9 @@ export type GameState = {
 	winReason: string?, -- how the game ended: "Bankruptcy" | "RoundLimit" | "TimeLimit"
 	events: { Event },
 	rollDice: DiceRoller,
-	rules: { auctions: boolean, freeParking: boolean },
+	rules: { auctions: boolean, freeParking: boolean, crazyChance: boolean },
+	random: (n: number) -> number, -- a whole number from 1 to n (scripted in tests)
+	direction: number, -- 1 round the table, -1 once a Reverse card has turned it
 	freeParkingPot: number, -- fines and fees waiting on Free Parking (rules.freeParking)
 	bankruptOrder: { string }, -- players in the order they went bankrupt (for finishing places)
 }
