@@ -122,6 +122,106 @@ def tap():
 	return col
 
 
-EMBLEMS = [question(), chest(), locomotive(), bulb(), tap()]
+# The EIU board's emblems. Hangouts are a neon OPEN sign (never a drink); the delivery spots a sub
+# and a pizza box; Care Package a taped cardboard box.
+NEON = (1.0, 0.27, 0.47)
+BREAD = (0.87, 0.67, 0.41)
+PAPER = (0.94, 0.93, 0.9)
+LETTUCE = (0.43, 0.67, 0.27)
+CARDBOARD = (0.69, 0.51, 0.32)
+TAPE = (0.84, 0.77, 0.59)
+PIZZA_RED = (0.77, 0.16, 0.16)
+
+
+def hangout():
+	col = collection("Hangout")
+	body = Part("Body")
+	body.box((1.9, 0.12, 0.8), (0, 0, 0.62), bevel=0.04)  # the sign's dark backing
+	for x in (-0.6, 0.6):
+		body.cylinder(0.03, 0.22, (x, 0, 1.12), segments=8)  # hanging wires
+	trim = Part("Trim")
+	trim.box((2.0, 0.16, 0.06), (0, 0, 1.05), bevel=0.02)
+	trim.box((2.0, 0.16, 0.06), (0, 0, 0.19), bevel=0.02)
+	trim.box((0.06, 0.16, 0.86), (-0.97, 0, 0.62), bevel=0.02)
+	trim.box((0.06, 0.16, 0.86), (0.97, 0, 0.62), bevel=0.02)
+	trim.box((1.2, 0.5, 0.16), (0, 0, 0.08), bevel=0.04)  # foot
+	trim.box((0.2, 0.14, 0.12), (0, 0, 0.2))
+	glow = Part("Glow")
+	# OPEN in neon tube, read from the front (+Y). Seen from the front, Blender -X is on the right,
+	# so the first letter sits at +X.
+	y, z, t, h = 0.09, 0.62, 0.045, 0.24  # tube depth, letter centre, tube radius, half letter height
+	o, p, e, n = 0.66, 0.22, -0.22, -0.66
+
+	def bar(a, b):
+		ax, az = a
+		bx, bz = b
+		length = math.hypot(bx - ax, bz - az)
+		angle = math.atan2(bx - ax, bz - az)
+		glow.cylinder(t, length, ((ax + bx) / 2, y, (az + bz) / 2), segments=8, rot=Matrix.Rotation(angle, 4, "Y"))
+
+	glow.torus(0.17, t, (o, y, z), major_segs=20, minor_segs=6, rot=UPRIGHT @ Matrix.Diagonal((1, 1.4, 1, 1)))
+	bar((p + 0.12, z - h), (p + 0.12, z + h))
+	glow.torus(0.1, t, (p + 0.02, y, z + h - 0.1), major_segs=14, minor_segs=6, rot=UPRIGHT, arc=math.pi, start=math.pi / 2)  # bowl to the viewer's right
+	bar((e + 0.12, z - h), (e + 0.12, z + h))
+	for dz in (-h, 0, h):
+		bar((e + 0.12, z + dz), (e - 0.1, z + dz))
+	bar((n + 0.13, z - h), (n + 0.13, z + h))
+	bar((n - 0.13, z - h), (n - 0.13, z + h))
+	bar((n + 0.13, z + h), (n - 0.13, z - h))
+	body.finish(col, color=INK)
+	trim.finish(col, color=GOLD)
+	glow.finish(col, color=NEON, full_smooth=True)
+	return col
+
+
+def sub():
+	col = collection("Sub")
+	body = Part("Body")
+	body.sphere(0.5, (0, 0, 0.2), segs=24, rings=10, scale=(2.2, 0.75, 0.42))  # bottom of the roll
+	body.sphere(0.5, (0, 0, 0.48), segs=24, rings=10, scale=(2.15, 0.72, 0.5))  # top of the roll
+	filling = Part("Filling")
+	for i in range(9):
+		x = -0.9 + i * 0.225
+		filling.sphere(0.2, (x, 0, 0.33), segs=10, rings=5, scale=(1.2, 1.9, 0.35))  # lettuce frills
+	trim = Part("Trim")
+	trim.box((0.6, 0.86, 0.66), (0.55, 0, 0.32), bevel=0.06)  # paper wrap round one end
+	body.finish(col, color=BREAD, full_smooth=True)
+	filling.finish(col, color=LETTUCE, full_smooth=True)
+	trim.finish(col, color=PAPER)
+	return col
+
+
+def pizza():
+	col = collection("Pizza")
+	body = Part("Body")
+	body.box((1.5, 1.5, 0.22), (0, 0, 0.11), bevel=0.03)
+	body.box((1.5, 1.5, 0.22), (0, 0, 0.34), bevel=0.03, rot=Matrix.Rotation(math.radians(9), 4, "Z"))
+	trim = Part("Trim")
+	# The pizzeria's print on the top lid: a ring round a slice.
+	trim.torus(0.42, 0.035, (0, 0, 0.455), major_segs=28, minor_segs=6)
+	trim.cylinder(0.28, 0.02, (0, 0, 0.455), segments=3)  # a flat triangle: the slice
+	body.finish(col, color=CARDBOARD)
+	trim.finish(col, color=PIZZA_RED)
+	return col
+
+
+def care_package():
+	col = collection("CarePackage")
+	body = Part("Body")
+	body.box((1.2, 0.9, 0.85), (0, 0, 0.425), bevel=0.03)
+	# The two top flaps, folded down and taped.
+	body.box((1.18, 0.44, 0.04), (0, 0.22, 0.86), bevel=0.01)
+	body.box((1.18, 0.44, 0.04), (0, -0.22, 0.86), bevel=0.01)
+	trim = Part("Trim")
+	trim.box((1.24, 0.2, 0.03), (0, 0, 0.885))  # tape along the seam
+	trim.box((0.03, 0.2, 0.3), (0.615, 0, 0.73))  # and down each end
+	trim.box((0.03, 0.2, 0.3), (-0.615, 0, 0.73))
+	trim.box((0.5, 0.02, 0.18), (0.25, 0.46, 0.5))  # shipping label on the front
+	body.finish(col, color=CARDBOARD)
+	trim.finish(col, color=TAPE)
+	return col
+
+
+EMBLEMS = [question(), chest(), locomotive(), bulb(), tap(), hangout(), sub(), pizza(), care_package()]
 for c in EMBLEMS:
 	print(report(c))
