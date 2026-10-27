@@ -1,10 +1,10 @@
 --!strict
--- Chests and equipping. A chest is opened with coins, with a chest key (a challenge reward), or with
--- Robux: those are Developer Products, the purchase prompt is shown from here, and Roblox calls
+-- Chests, coin packs and equipping. A chest is opened with coins or with a chest key (a challenge
+-- reward); an item already owned turns into coins instead (Rewards.DUPLICATE_COINS). Robux buys only
+-- coin packs: Developer Products, the purchase prompt is shown from here, and Roblox calls
 -- ProcessReceipt once it's paid. A receipt is granted at most once (its id is kept in the profile),
--- and only reported granted once the profile is saved, so Roblox retries otherwise. While a chest's
--- product id is 0, Studio can test-open it for free; live servers refuse. An item already owned
--- turns into coins instead (Rewards.DUPLICATE_COINS).
+-- and only reported granted once the profile is saved, so Roblox retries otherwise. While a pack's
+-- product id is 0, Studio can test-buy it for free; live servers refuse.
 
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
@@ -13,6 +13,7 @@ local RunService = game:GetService("RunService")
 
 local Catalog = require(ReplicatedStorage.Shared.Cosmetics.Catalog)
 local Chests = require(ReplicatedStorage.Shared.Store.Chests)
+local CoinPacks = require(ReplicatedStorage.Shared.Store.CoinPacks)
 local Progress = require(ReplicatedStorage.Shared.Progress.Progress)
 local Rewards = require(ReplicatedStorage.Shared.Progress.Rewards)
 local Protocol = require(ReplicatedStorage.Shared.Net.Protocol)
@@ -28,18 +29,13 @@ local requests = Throttle.new(0.3)
 
 -- Rolls and grants one chest's item, and tells the player what came out. `pay` takes the price
 -- (coins or a key) inside the same change, and refuses by returning false.
-local function open(player: Player, chest: Chests.Chest, purchaseId: string?, pay: ((Profile.Profile) -> boolean)?): boolean
+local function open(player: Player, chest: Chests.Chest, pay: (Profile.Profile) -> boolean): boolean
 	local profile = PlayerData.get(player)
 	if not profile or PlayerData.isUnreadable(player) then
-		-- Their real data couldn't be read: anything granted now could never be kept, so leave the
-		-- purchase pending for Roblox to retry once their data loads (next session).
+		-- Their real data couldn't be read: anything granted now could never be kept.
 		return false
 	end
-	if purchaseId and Profile.hasReceipt(profile, purchaseId) then
-		-- Granted on an earlier attempt: report it only once that's safely saved.
-		return PlayerData.save(player)
-	end
-	if pay and not pay(profile) then
+	if not pay(profile) then
 		return false
 	end
 	local item = Chests.roll(chest.id, random)
@@ -54,11 +50,30 @@ local function open(player: Player, chest: Chests.Chest, purchaseId: string?, pa
 			count = Profile.grant(p, item)
 		end
 		Progress.add(p, { chestsOpened = 1 })
+	end)
+	task.spawn(PlayerData.save, player)
+	chestRemote:FireClient(player, { chest = chest.id, item = item, count = count, refund = refund } :: Protocol.ChestResult)
+	return true
+end
+
+-- Adds a coin pack's coins (the wallet updates with the profile). A paid pack (`purchaseId`) is
+-- granted at most once and only reported granted once saved, so Roblox retries otherwise.
+local function grantCoins(player: Player, pack: CoinPacks.Pack, purchaseId: string?): boolean
+	local profile = PlayerData.get(player)
+	if not profile or PlayerData.isUnreadable(player) then
+		-- Their real data couldn't be read: leave the purchase pending for Roblox to retry once their
+		-- data loads (next session).
+		return false
+	end
+	if purchaseId and Profile.hasReceipt(profile, purchaseId) then
+		return PlayerData.save(player)
+	end
+	PlayerData.update(player, function(p)
+		Progress.addCoins(p, pack.coins)
 		if purchaseId then
 			Profile.addReceipt(p, purchaseId)
 		end
 	end)
-	-- A paid chest is only reported granted once it's saved; a Studio test open doesn't wait.
 	if purchaseId then
 		if not PlayerData.save(player) then
 			return false
@@ -66,17 +81,16 @@ local function open(player: Player, chest: Chests.Chest, purchaseId: string?, pa
 	else
 		task.spawn(PlayerData.save, player)
 	end
-	chestRemote:FireClient(player, { chest = chest.id, item = item, count = count, refund = refund } :: Protocol.ChestResult)
 	return true
 end
 
 local function processReceipt(receipt: any): Enum.ProductPurchaseDecision
 	local player = Players:GetPlayerByUserId(receipt.PlayerId)
-	local chest = Chests.forProduct(receipt.ProductId)
-	if not player or not chest then
+	local pack = CoinPacks.forProduct(receipt.ProductId)
+	if not player or not pack then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
-	local ok, granted = pcall(open, player, chest, tostring(receipt.PurchaseId))
+	local ok, granted = pcall(grantCoins, player, pack, tostring(receipt.PurchaseId))
 	if ok and granted then
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
@@ -103,7 +117,7 @@ local function onRequest(player: Player, request: any)
 			return
 		end
 		local withKey = request.type == "UseKey"
-		open(player, chest, nil, function(profile)
+		open(player, chest, function(profile)
 			if withKey then
 				if (profile.keys[chest.id] or 0) <= 0 then
 					return false
@@ -121,15 +135,15 @@ local function onRequest(player: Player, request: any)
 			end
 			return true
 		end)
-	elseif request.type == "Buy" or request.type == "TestOpen" then
-		local chest = typeof(request.chest) == "string" and Chests.byId[request.chest]
-		if not chest then
+	elseif request.type == "BuyCoins" or request.type == "TestBuyCoins" then
+		local pack = typeof(request.pack) == "string" and CoinPacks.byId[request.pack]
+		if not pack then
 			return
 		end
-		if chest.productId ~= 0 and request.type == "Buy" then
-			MarketplaceService:PromptProductPurchase(player, chest.productId)
+		if pack.productId ~= 0 and request.type == "BuyCoins" then
+			MarketplaceService:PromptProductPurchase(player, pack.productId)
 		elseif RunService:IsStudio() then
-			open(player, chest, nil)
+			grantCoins(player, pack, nil)
 		end
 	end
 end

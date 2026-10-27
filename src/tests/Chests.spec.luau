@@ -2,6 +2,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Catalog = require(ReplicatedStorage.Shared.Cosmetics.Catalog)
 local Chests = require(ReplicatedStorage.Shared.Store.Chests)
+local Rewards = require(ReplicatedStorage.Shared.Progress.Rewards)
 local Expect = require(script.Parent.Expect)
 
 local tests = {}
@@ -47,10 +48,11 @@ tests["every droppable item can come from some chest"] = function()
 	end
 end
 
-tests["chests are found by their developer product id"] = function()
-	local silver = Chests.byId.Silver
-	Expect.equal(Chests.forProduct(silver.productId), if silver.productId ~= 0 then silver else nil)
-	Expect.equal(Chests.forProduct(-1), nil)
+tests["chests are opened with coins or keys, never sold for Robux"] = function()
+	for _, chest in Chests.LIST do
+		Expect.equal((chest :: any).productId, nil, `{chest.id} has no product`)
+		assert((Rewards.CHEST_COINS[chest.id] or 0) > 0, `{chest.id} has a coin price`)
+	end
 end
 
 tests["every item's own chance is listed and they add up to one"] = function()

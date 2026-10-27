@@ -1,15 +1,13 @@
 --!strict
--- The chests sold for Robux: price, odds per rarity (shown before purchase, as Roblox requires for
--- paid random items) and the roll itself. Within a rarity every droppable item is equally likely.
+-- The chests, opened with coins (Rewards.CHEST_COINS) or a chest key: odds per rarity (shown before
+-- opening, as Roblox requires for random items bought with currency that Robux can buy) and the roll
+-- itself. Within a rarity every droppable item is equally likely.
 
 local Catalog = require(script.Parent.Parent.Cosmetics.Catalog)
-local Products = require(script.Parent.Products)
 
 export type Chest = {
 	id: string,
 	name: string,
-	price: number, -- Robux, as set on the developer product
-	productId: number,
 	odds: { [string]: number }, -- rarity -> chance, summing to 1
 	blurb: string,
 }
@@ -20,24 +18,18 @@ Chests.LIST = {
 	{
 		id = "Silver",
 		name = "Silver Chest",
-		price = 49,
-		productId = Products.Silver,
 		odds = { Common = 0.7, Rare = 0.25, Epic = 0.045, Legendary = 0.005 },
 		blurb = "A solid start: mostly commons, a shot at something rare.",
 	},
 	{
 		id = "Gold",
 		name = "Gold Chest",
-		price = 149,
-		productId = Products.Gold,
 		odds = { Common = 0.35, Rare = 0.45, Epic = 0.17, Legendary = 0.03 },
 		blurb = "Rares are likely and epics are common.",
 	},
 	{
 		id = "Diamond",
 		name = "Diamond Chest",
-		price = 399,
-		productId = Products.Diamond,
 		odds = { Common = 0, Rare = 0.4, Epic = 0.45, Legendary = 0.15 },
 		blurb = "No commons. A real chance at a legendary.",
 	},
@@ -46,18 +38,6 @@ Chests.LIST = {
 Chests.byId = {} :: { [string]: Chest }
 for _, chest in Chests.LIST do
 	Chests.byId[chest.id] = chest
-end
-
-function Chests.forProduct(productId: number): Chest?
-	if productId == 0 then
-		return nil
-	end
-	for _, chest in Chests.LIST do
-		if chest.productId == productId then
-			return chest
-		end
-	end
-	return nil
 end
 
 -- "Rare 25%" lines for the shop, in rarity order.

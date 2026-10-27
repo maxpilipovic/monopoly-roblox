@@ -14,6 +14,7 @@ local TweenService = game:GetService("TweenService")
 
 local Catalog = require(ReplicatedStorage.Shared.Cosmetics.Catalog)
 local Chests = require(ReplicatedStorage.Shared.Store.Chests)
+local CoinPacks = require(ReplicatedStorage.Shared.Store.CoinPacks)
 local Progress = require(ReplicatedStorage.Shared.Progress.Progress)
 local Rewards = require(ReplicatedStorage.Shared.Progress.Rewards)
 local Stats = require(ReplicatedStorage.Shared.Progress.Stats)
@@ -303,7 +304,7 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 		self.statLabels[info[1]] = value
 	end
 
-	-- The wallet, top right: coins and chest keys; tapping it opens the chests.
+	-- The wallet, top right: coins and chest keys; its + opens the coin shop.
 	local wallet = Ui.panel("Wallet", UDim2.fromOffset(250, 56), UDim2.new(1, -16, 0, 16), Vector2.new(1, 0), root)
 	self.wallet = wallet
 	local coinIcon = Icons.image(wallet, "Coin", UDim2.fromOffset(46, 46))
@@ -326,7 +327,7 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 	keyIcon.AnchorPoint = Vector2.new(1, 0.5)
 	keyIcon.Position = UDim2.new(1, -94, 0.5, 0)
 	local more = Ui.button("+", wallet, function()
-		self:toggle("Chests")
+		self:toggle("Coins")
 	end, "primary")
 	more.Size = UDim2.fromOffset(40, 40)
 	more.AnchorPoint = Vector2.new(1, 0.5)
@@ -353,6 +354,7 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 	panel(self, "Challenges", ChallengesPanel.SIZE)
 	panel(self, "Pieces", Vector2.new(660, 600))
 	panel(self, "Chests", Vector2.new(720, 540))
+	panel(self, "Coins", Vector2.new(740, 340))
 
 	local toast = Ui.label("Toast", root, UDim2.fromOffset(420, 40), 17, Theme.font.bodyBold)
 	toast.AnchorPoint = Vector2.new(0.5, 0)
@@ -1022,6 +1024,14 @@ local function renderChests(self: LobbyHud)
 	note.TextXAlignment = Enum.TextXAlignment.Left
 	note.TextColor3 = Theme.color.textDim
 	note.Text = `Pieces, auras, dice skins and rent effects. Duplicates turn into coins. Odds are on each chest.`
+	local getCoins = Ui.button("Get coins", frame, function()
+		self:openPanel("Coins")
+	end, "accent")
+	getCoins.Size = UDim2.fromOffset(150, 36)
+	getCoins.AnchorPoint = Vector2.new(1, 0)
+	getCoins.Position = UDim2.new(1, -56, 0, 14)
+	Ui.setTextSize(getCoins, 15)
+	Icons.onButton(getCoins, "Coin", 26)
 	local row = Ui.frame("Row", UDim2.new(1, -40, 1, -90), frame)
 	row.Position = UDim2.fromOffset(20, 78)
 	Ui.list(row, Enum.FillDirection.Horizontal, 14, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top)
@@ -1064,7 +1074,7 @@ local function renderChests(self: LobbyHud)
 			self:render()
 		end)
 
-		-- Ways to open it: a key you've won, coins, or Robux.
+		-- Ways to open it: a key you've won, or coins.
 		local buttons = Ui.frame("Buttons", UDim2.new(1, -24, 0, 150), card)
 		buttons.Position = UDim2.new(0, 12, 1, -158)
 		Ui.list(buttons, Enum.FillDirection.Vertical, 8, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Bottom)
@@ -1090,13 +1100,47 @@ local function renderChests(self: LobbyHud)
 		withCoins.Size = UDim2.new(1, 0, 0, 48)
 		withCoins.LayoutOrder = 2
 		Icons.onButton(withCoins, "Coin", 34)
-		local live = chest.productId ~= 0
-		local robux = Ui.button(if live then `R$ {chest.price}` elseif RunService:IsStudio() then "Test open (Studio)" else "Robux: coming soon", buttons, function()
-			self.callbacks.onStore({ type = if live then "Buy" else "TestOpen", chest = chest.id })
-		end, if live or RunService:IsStudio() then "secondary" else "disabled")
-		robux.Size = UDim2.new(1, 0, 0, 38)
-		robux.LayoutOrder = 3
-		Ui.setTextSize(robux, 15)
+	end
+end
+
+-- The coin shop: the packs Robux can buy. Coins are also earned by playing and from challenges, and
+-- they open the chests.
+local function renderCoins(self: LobbyHud)
+	local frame = self.panels.Coins
+	Ui.clear(frame, function(child)
+		return child.Name == "Close"
+	end)
+	heading("Get coins", frame)
+	local note = Ui.label("Note", frame, UDim2.new(1, -40, 0, 18), 13, Theme.font.body)
+	note.Position = UDim2.fromOffset(20, 50)
+	note.TextXAlignment = Enum.TextXAlignment.Left
+	note.TextColor3 = Theme.color.textDim
+	note.Text = "Coins open chests. You also earn them by playing games and finishing challenges."
+	local row = Ui.frame("Row", UDim2.new(1, -40, 1, -96), frame)
+	row.Position = UDim2.fromOffset(20, 82)
+	Ui.list(row, Enum.FillDirection.Horizontal, 12, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top)
+	for index, pack in CoinPacks.LIST do
+		local card = Ui.surface(pack.id, UDim2.fromOffset(160, 230), row)
+		card.LayoutOrder = index
+		local icon = Icons.image(card, if index >= 3 then "Coins" else "Coin", UDim2.fromOffset(72, 72))
+		icon.AnchorPoint = Vector2.new(0.5, 0)
+		icon.Position = UDim2.new(0.5, 0, 0, 14)
+		local amount = Ui.label("Coins", card, UDim2.new(1, 0, 0, 34), 26, Theme.font.display)
+		amount.Position = UDim2.fromOffset(0, 92)
+		amount.TextColor3 = Color3.fromRGB(255, 210, 80)
+		amount.Text = Stats.commas(pack.coins)
+		local name = Ui.label("Name", card, UDim2.new(1, 0, 0, 22), 15, Theme.font.bodyBold)
+		name.Position = UDim2.fromOffset(0, 126)
+		name.TextColor3 = Theme.color.textDim
+		name.Text = pack.name
+		local live = pack.productId ~= 0
+		local buy = Ui.button(if live then `R$ {pack.price}` elseif RunService:IsStudio() then "Test buy (Studio)" else "Coming soon", card, function()
+			self.callbacks.onStore({ type = if live then "BuyCoins" else "TestBuyCoins", pack = pack.id })
+		end, if live or RunService:IsStudio() then "primary" else "disabled")
+		buy.Name = "Buy"
+		buy.Size = UDim2.new(1, -24, 0, 44)
+		buy.Position = UDim2.new(0, 12, 1, -56)
+		Ui.setTextSize(buy, if live then 18 else 14)
 	end
 end
 
@@ -1149,6 +1193,8 @@ function LobbyHud.render(self: LobbyHud)
 				renderGames(self)
 			elseif name == "Pieces" then
 				renderPieces(self)
+			elseif name == "Coins" then
+				renderCoins(self)
 			elseif name == "Challenges" then
 				ChallengesPanel.render(self, frame)
 			else

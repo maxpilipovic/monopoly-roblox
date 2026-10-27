@@ -119,8 +119,8 @@ export type RoomsUpdate = {
 -- | { type = "Settings", settings } | { type = "Start" } | { type = "ReturnToLobby" }
 -- | { type = "Queue", mode = "Duel" | "Table" } | { type = "Unqueue" }
 -- Requests on the STORE remote: { type = "Equip", item } | { type = "Unequip", kind } | { type = "UnequipEffect" }
--- | { type = "Buy", chest } (Robux) | { type = "BuyWithCoins", chest } | { type = "UseKey", chest }
--- | { type = "TestOpen", chest } (Studio only)
+-- | { type = "BuyWithCoins", chest } | { type = "UseKey", chest } | { type = "BuyCoins", pack } (Robux)
+-- | { type = "TestBuyCoins", pack } (Studio only)
 -- refund: the item was already owned, so it became this many coins instead.
 export type ChestResult = { chest: string, item: string, count: number, refund: number? }
 
