@@ -215,6 +215,7 @@ end
 local MAPS: { [string]: MapCards } = {
 	Classic = buildMap(CHANCE, COMMUNITY_CHEST, { Chance = "Chance", CommunityChest = "Community Chest" }),
 	College = buildMap(collegeEntries(CHANCE), collegeEntries(COMMUNITY_CHEST), { Chance = "Pop Quiz", CommunityChest = "Student Union" }),
+	EIU = buildMap(CHANCE, COMMUNITY_CHEST, { Chance = "Chance", CommunityChest = "Community Chest" }), -- EIU decks come next
 }
 local active = MAPS.Classic
 

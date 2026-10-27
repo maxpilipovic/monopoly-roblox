@@ -118,11 +118,33 @@ for i, tile in classic do
 end
 finish(college)
 
-local MAPS: { [string]: { Tile } } = { Classic = classic, College = college }
+-- The EIU map: Eastern Illinois University and Charleston, IL. The railroads are the hangouts
+-- uptown and the utilities are late-night delivery. Same rules as classic.
+local EIU_NAMES = {
+	"Move-In Day", "Carman Hall", "Care Package", "Thomas Hall", "Tuition Bill",
+	"Marty's", "Taylor Hall", "Saturday Night", "Lawson Hall", "Pemberton Hall",
+	"Coles County Jail", "Coleman Hall", "Jimmy John's", "Lumpkin Hall", "Blair Hall",
+	"Ike's", "Campus Pond", "Care Package", "Student Rec Center", "MLK Union",
+	"Tailgate Lot", "Lake Charleston", "Saturday Night", "Lincoln Log Cabin", "The Square",
+	"Stu's", "Greek Court", "Sorority Row", "Pagliai's", "Sigma Pi House",
+	"Busted on 4th St", "Doudna Fine Arts", "Lantz Arena", "Care Package", "Booth Library",
+	"PBox", "Saturday Night", "O'Brien Field", "Parking Ticket", "Old Main",
+}
+assert(#EIU_NAMES == #classic, "one EIU name per tile")
+
+local eiu: { Tile } = {}
+for i, tile in classic do
+	local copy = table.clone(tile)
+	copy.name = EIU_NAMES[i]
+	table.insert(eiu, copy)
+end
+finish(eiu)
+
+local MAPS: { [string]: { Tile } } = { Classic = classic, College = college, EIU = eiu }
 
 local Tiles = {}
 
-Tiles.MAPS = table.freeze({ "Classic", "College" })
+Tiles.MAPS = table.freeze({ "Classic", "College", "EIU" })
 Tiles.COUNT = #classic
 Tiles.list = classic -- the active map's tiles; switched by Tiles.use
 

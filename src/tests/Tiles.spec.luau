@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 local ColorGroups = require(ReplicatedStorage.Shared.Board.ColorGroups)
 local Expect = require(script.Parent.Expect)
+local MapTestHelper = require(script.Parent.MapTestHelper)
 
 local tests = {}
 
@@ -86,6 +87,29 @@ tests["tile data is frozen"] = function()
 	assert(table.isfrozen(Tiles.list), "list not frozen")
 	assert(table.isfrozen(Tiles.at(1)), "tile not frozen")
 	assert(table.isfrozen(Tiles.at(1).rent :: any), "rent not frozen")
+end
+
+tests["the EIU map renames every tile and keeps the classic rules"] = function()
+	local classic = Tiles.list
+	MapTestHelper.onMap("EIU", function()
+		for i, tile in Tiles.list do
+			local base = classic[i]
+			Expect.equal(tile.position, base.position, `{i} position`)
+			Expect.equal(tile.kind, base.kind, `{i} kind`)
+			Expect.equal(tile.price, base.price, `{i} price`)
+			Expect.equal(tile.group, base.group, `{i} group`)
+			Expect.equal(tile.rent, base.rent, `{i} rent`)
+			Expect.equal(tile.amount, base.amount, `{i} amount`)
+		end
+		local names = {
+			[0] = "Move-In Day", [5] = "Marty's", [10] = "Coles County Jail", [12] = "Jimmy John's",
+			[15] = "Ike's", [25] = "Stu's", [28] = "Pagliai's", [29] = "Sigma Pi House",
+			[30] = "Busted on 4th St", [35] = "PBox", [38] = "Parking Ticket", [39] = "Old Main",
+		}
+		for position, name in names do
+			Expect.equal(Tiles.at(position).name, name, `name at {position}`)
+		end
+	end)
 end
 
 return tests

@@ -5,7 +5,7 @@
 export type Settings = {
 	timer: string, -- "Off" | "Relaxed" | "Fast"
 	length: string, -- "Off" | "Rounds100" | "Rounds200" | "Rounds300": a cap on the rounds played
-	map: string, -- "Classic" | "College"
+	map: string, -- "Classic" | "College" | "EIU"
 }
 
 local MatchSettings = {}
@@ -16,7 +16,7 @@ local LENGTHS = { "Off", "Rounds100", "Rounds200", "Rounds300" }
 local ROUNDS = { Rounds100 = 100, Rounds200 = 200, Rounds300 = 300 }
 
 -- A literal rather than Maps.IDS so this stays a leaf module; keep the two lists the same.
-local MAPS = { "Classic", "College" }
+local MAPS = { "Classic", "College", "EIU" }
 
 MatchSettings.DEFAULT = table.freeze({ timer = "Relaxed", length = "Off", map = "Classic" }) :: Settings
 
