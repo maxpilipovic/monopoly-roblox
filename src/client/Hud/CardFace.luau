@@ -4,6 +4,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Cards = require(ReplicatedStorage.Shared.Board.Cards)
+local MapLook = require(ReplicatedStorage.Shared.Board.MapLook)
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 
 export type Tone = "good" | "bad" | "neutral"
@@ -22,12 +23,6 @@ export type Face = {
 local CardFace = {}
 
 local JAIL_POSITION = 10
-local COLLEGE_PREFIX = "college."
--- What each map calls the tiles a "nearest" card sends you to.
-local KIND_NOUNS = {
-	Railroad = { classic = "railroad", college = "shuttle" },
-	Utility = { classic = "utility", college = "utility" },
-}
 
 -- What each Crazy Chance card does, at a glance.
 local CRAZY_BADGES: { [string]: { text: string, tone: Tone } } = {
@@ -62,9 +57,8 @@ local function badge(card: Cards.Card): { text: string, tone: Tone }
 	elseif kind == "AdvanceTo" then
 		return { text = `→ {Tiles.at(effect.position :: number).name}`, tone = "neutral" }
 	elseif kind == "AdvanceToNearest" then
-		local nouns = KIND_NOUNS[effect.tileKind :: string]
-		local college = card.id:sub(1, #COLLEGE_PREFIX) == COLLEGE_PREFIX
-		local noun = if nouns then (if college then nouns.college else nouns.classic) else "stop"
+		local map = MapLook.forCard(card.id)
+		local noun = MapLook.noun(map, effect.tileKind :: string)
 		return { text = `→ Nearest {noun}`, tone = "neutral" }
 	elseif kind == "GoBack" then
 		return { text = `← {effect.spaces} spaces`, tone = "neutral" }

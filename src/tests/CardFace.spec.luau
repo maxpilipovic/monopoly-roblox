@@ -47,6 +47,15 @@ tests["college cards use the college board's words"] = function()
 	end)
 end
 
+tests["EIU cards use the EIU board's words"] = function()
+	MapTestHelper.onMap("EIU", function()
+		Expect.equal(badge("eiu.chance.railroad1"), "→ Nearest hangout [neutral]")
+		Expect.equal(badge("eiu.chance.utility"), "→ Nearest delivery [neutral]")
+		Expect.equal(badge("eiu.chance.jail"), "Go to Coles County Jail [bad]")
+		Expect.equal(badge("eiu.chance.boardwalk"), "→ Old Main [neutral]")
+	end)
+end
+
 tests["a card keeps its own deck title whatever map is active"] = function()
 	Expect.equal((CardFace.of("college.chest.go", "Ana") :: CardFace.Face).title, "Student Union", "college card on Classic")
 	MapTestHelper.onCollege(function()
