@@ -67,6 +67,8 @@ function EventText.describe(event: { [string]: any }, names: { [string]: string 
 			return `{name(event.to)} won the ${event.amount} lottery`
 		elseif event.reason == "RobinHood" then
 			return `Robin Hood: {name(event.from)} paid {name(event.to)} ${event.amount}`
+		elseif event.reason == "Bail" and event.from then
+			return `{name(event.from)} paid ${event.amount} bail`
 		elseif event.reason == "MortgageInterest" then
 			return `{name(event.from)} paid ${event.amount} mortgage interest`
 		end
@@ -98,6 +100,8 @@ function EventText.describe(event: { [string]: any }, names: { [string]: string 
 			return `{name(event.player)} rolled doubles and got out of jail`
 		elseif event.reason == "Fine" then
 			return `{name(event.player)} paid ${event.amount} and got out of jail`
+		elseif event.reason == "Bail" then
+			return `{name(event.player)} was bailed out`
 		elseif event.reason == "FineOwed" then
 			return `{name(event.player)} left jail owing the ${event.amount} fine`
 		end

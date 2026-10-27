@@ -6,6 +6,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EmblemLook = require(ReplicatedStorage.Shared.Board.EmblemLook)
+local Maps = require(ReplicatedStorage.Shared.Board.Maps)
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 
 export type Style = {
@@ -69,7 +70,13 @@ local DECKS: { [string]: Style } = {
 	Jail = printed(CardStyle.JAIL_GREY, CardStyle.STEEL, nil),
 }
 
+-- The EIU map's Care Package cards carry a cardboard box instead of the chest.
+local EIU_CHEST = printed(CardStyle.CHEST_YELLOW, CardStyle.CHEST_YELLOW, "CarePackage")
+
 function CardStyle.deck(deck: string): Style
+	if deck == "CommunityChest" and Maps.current() == "EIU" then
+		return EIU_CHEST
+	end
 	return DECKS[deck] or plain(CardStyle.CHARCOAL, nil)
 end
 

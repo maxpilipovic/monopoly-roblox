@@ -4,6 +4,7 @@
 -- pointing officer, Chance's big question mark and Community Chest's chest of coins. The pictures
 -- are renders from tools/blender/tile_art.py; the words are text so each map can name the tiles.
 
+local Maps = require(script.Parent.Maps)
 local Tiles = require(script.Parent.Tiles)
 
 local TileArt = {}
@@ -14,6 +15,7 @@ TileArt.IMAGES = table.freeze({
 	Chest = "rbxassetid://137382609368714",
 	Car = "rbxassetid://115835201015082",
 	Officer = "rbxassetid://91358765395411",
+	CarePackage = "rbxassetid://87963715586346", -- the EIU map's Care Package tiles
 })
 
 TileArt.GO_SALARY = 200 -- matches Engine.GO_SALARY (server-only)
@@ -190,7 +192,7 @@ local BUILDERS: { [string]: (Frame, Tiles.Tile) -> () } = {
 		card(art, tile, TileArt.IMAGES.Question)
 	end,
 	CommunityChest = function(art, tile)
-		card(art, tile, TileArt.IMAGES.Chest)
+		card(art, tile, if Maps.current() == "EIU" then TileArt.IMAGES.CarePackage else TileArt.IMAGES.Chest)
 	end,
 }
 

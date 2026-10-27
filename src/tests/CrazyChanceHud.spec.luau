@@ -8,6 +8,7 @@ local CardStyle = require(StarterPlayer.StarterPlayerScripts.Client.Hud.CardStyl
 local EventText = require(StarterPlayer.StarterPlayerScripts.Client.Hud.EventText)
 local LobbyHud = require(StarterPlayer.StarterPlayerScripts.Client.Hud.LobbyHud)
 local Expect = require(script.Parent.Expect)
+local MapTestHelper = require(script.Parent.MapTestHelper)
 
 local tests = {}
 
@@ -85,6 +86,15 @@ tests["the EIU crazy cards are badged and logged"] = function()
 	Expect.equal((CardFace.of("eiu.crazy.blockParty", "Ana") :: CardFace.Face).badge.text, "Everyone on a hangout to Jail")
 	Expect.equal((CardFace.of("eiu.crazy.ghost", "Ana") :: CardFace.Face).title, "Crazy Night")
 	Expect.equal(EventText.describe({ type = "RaidFoundNobody", player = "p1" }, NAMES), "Ana's raid found nobody")
+end
+
+tests["EIU Care Package cards carry the care package; bail-outs are logged as bail"] = function()
+	MapTestHelper.onMap("EIU", function()
+		Expect.equal(CardStyle.deck("CommunityChest").emblem, "CarePackage")
+	end)
+	Expect.equal(CardStyle.deck("CommunityChest").emblem, "Chest", "Classic keeps the chest")
+	Expect.equal(EventText.describe({ type = "LeftJail", player = "p2", reason = "Bail" }, NAMES), "Bot 1 was bailed out")
+	Expect.equal(EventText.describe({ type = "Paid", from = "p1", to = nil, amount = 100, reason = "Bail" }, NAMES), "Ana paid $100 bail")
 end
 
 return tests

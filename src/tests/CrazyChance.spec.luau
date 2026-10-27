@@ -271,6 +271,7 @@ tests["bail out: pays $100 per jailed player and frees them"] = function()
 	Expect.equal(player(state, "p2").inJail, false, "p2 freed")
 	Expect.equal(player(state, "p3").inJail, false, "p3 freed")
 	Expect.equal(#GameFixtures.eventsOfType(state, "LeftJail"), 2, "two releases")
+	Expect.equal(GameFixtures.eventsOfType(state, "LeftJail")[1].reason, "Bail", "released on bail")
 end
 
 tests["bail out with nobody in jail arrests a random other player"] = function()

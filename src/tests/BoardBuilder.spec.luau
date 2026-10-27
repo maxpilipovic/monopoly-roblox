@@ -182,4 +182,22 @@ tests["the board takes its map's colours"] = function()
 	holder:Destroy()
 end
 
+tests["EIU Care Package tiles print a care package, not the chest"] = function()
+	local holder = Instance.new("Folder")
+	local function picture(model: Model, position: number): string?
+		for _, part in (model:FindFirstChild("Tiles") :: Folder):GetChildren() do
+			if part:GetAttribute("TilePosition") == position then
+				local image = part:FindFirstChildWhichIsA("ImageLabel", true)
+				return image and image.Image
+			end
+		end
+		return nil
+	end
+	MapTestHelper.onMap("EIU", function()
+		Expect.equal(picture(BoardBuilder.build(holder), 2), TileArt.IMAGES.CarePackage, "EIU")
+	end)
+	Expect.equal(picture(BoardBuilder.build(holder), 2), TileArt.IMAGES.Chest, "Classic keeps the chest")
+	holder:Destroy()
+end
+
 return tests

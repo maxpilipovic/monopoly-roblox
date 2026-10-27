@@ -21,7 +21,7 @@ export type Ops = {
 	moveTo: (state: GameState, player: Player, to: number, style: string, flight: boolean?) -> (),
 	emit: (state: GameState, event: Types.Event) -> (),
 	jail: (state: GameState, player: Player) -> (), -- into the cell, without ending anyone's move
-	release: (state: GameState, player: Player) -> (),
+	release: (state: GameState, player: Player, reason: string?) -> (), -- reason defaults to "Card"
 	jailPosition: number,
 	houseLimit: number, -- houses on a street before a hotel
 }
@@ -296,7 +296,7 @@ function CrazyCards.apply(state: GameState, drawer: Player, effect: Cards.Effect
 		end
 		for _, player in jailed do
 			ops.charge(state, drawer, nil, effect.amount :: number, "Bail")
-			ops.release(state, player)
+			ops.release(state, player, "Bail")
 		end
 	elseif kind == "RaidKind" then
 		local raided = {}

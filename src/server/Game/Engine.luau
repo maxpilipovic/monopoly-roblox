@@ -141,8 +141,8 @@ local CRAZY_OPS: CrazyCards.Ops = {
 		player.jailAttempts = 0
 		emit(state, { type = "SentToJail", player = player.id, reason = "Card" })
 	end,
-	release = function(state: GameState, player: Player)
-		leaveJail(state, player, "Card")
+	release = function(state: GameState, player: Player, reason: string?)
+		leaveJail(state, player, reason or "Card")
 	end,
 	jailPosition = Engine.JAIL_POSITION,
 	houseLimit = PropertyRules.HOUSES_PER_HOTEL,
