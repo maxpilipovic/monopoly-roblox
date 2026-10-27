@@ -32,9 +32,9 @@ tests["College tiles mirror Classic in everything but names"] = function()
 			assert(tile.name ~= twin.name, `{label} keeps the classic name {twin.name}`)
 			Expect.equal(Tiles.at(tile.position), tile, `{label} at()`)
 		end
-		Expect.equal(Tiles.at(0).name, "Orientation", "Go")
-		Expect.equal(Tiles.at(39).name, "Football Stadium", "Boardwalk")
-		Expect.equal(Tiles.at(10).name, "Dean's Office", "Jail")
+		Expect.equal(Tiles.at(0).name, "Move-In Day", "Go")
+		Expect.equal(Tiles.at(39).name, "Old Main", "Boardwalk")
+		Expect.equal(Tiles.at(10).name, "Coles County Jail", "Jail")
 	end)
 	Expect.equal(Tiles.at(39).name, "Boardwalk", "Classic is back")
 end
@@ -62,15 +62,15 @@ tests["every Classic card has a College twin with the same effect, in the same o
 				end
 			end
 		end
-		Expect.equal(Cards.DECK_TITLES.Chance, "Pop Quiz")
-		Expect.equal(Cards.DECK_TITLES.CommunityChest, "Student Union")
+		Expect.equal(Cards.DECK_TITLES.Chance, "Saturday Night")
+		Expect.equal(Cards.DECK_TITLES.CommunityChest, "Care Package")
 		Expect.equal(#Cards.list, 32, "active list is the college decks")
 	end)
 	Expect.equal(Cards.DECK_TITLES.Chance, "Chance", "Classic titles are back")
 end
 
 tests["every card id resolves whatever map is active"] = function()
-	Expect.equal(Cards.byId["college.chance.go"].text, "Back to Orientation. Collect $200.", "college card on Classic")
+	Expect.equal(Cards.byId["college.chance.go"].text, "Back to Move-In Day. Collect $200.", "college card on Classic")
 	MapTestHelper.onCollege(function()
 		Expect.equal(Cards.byId["chance.go"].text, "Advance to Go. Collect $200.", "classic card on College")
 	end)
@@ -80,7 +80,7 @@ tests["Maps switches tiles and cards together and rejects unknown maps"] = funct
 	Expect.equal(Maps.current(), "Classic")
 	MapTestHelper.onCollege(function()
 		Expect.equal(Maps.current(), "College")
-		Expect.equal(Tiles.at(5).name, "North Campus Shuttle")
+		Expect.equal(Tiles.at(5).name, "Marty's")
 		Expect.equal(Cards.idsFor("Chance")[1], "college.chance.dividend")
 	end)
 	assert(not pcall(Maps.use, "Moon"), "unknown map accepted")

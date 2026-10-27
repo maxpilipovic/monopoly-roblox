@@ -82,14 +82,14 @@ tests["the room panel has a Crazy Chance switch, ranked too"] = function()
 end
 
 tests["the EIU crazy cards are badged and logged"] = function()
-	Expect.equal((CardFace.of("eiu.crazy.bailBuddy", "Ana") :: CardFace.Face).badge.text, "Bail out the jail — $100 each")
-	Expect.equal((CardFace.of("eiu.crazy.blockParty", "Ana") :: CardFace.Face).badge.text, "Everyone on a hangout to Jail")
-	Expect.equal((CardFace.of("eiu.crazy.ghost", "Ana") :: CardFace.Face).title, "Crazy Night")
+	Expect.equal((CardFace.of("college.crazy.bailBuddy", "Ana") :: CardFace.Face).badge.text, "Bail out the jail — $100 each")
+	Expect.equal((CardFace.of("college.crazy.blockParty", "Ana") :: CardFace.Face).badge.text, "Everyone on a hangout to Jail")
+	Expect.equal((CardFace.of("college.crazy.ghost", "Ana") :: CardFace.Face).title, "Crazy Night")
 	Expect.equal(EventText.describe({ type = "RaidFoundNobody", player = "p1" }, NAMES), "Ana's raid found nobody")
 end
 
 tests["EIU Care Package cards carry the care package; bail-outs are logged as bail"] = function()
-	MapTestHelper.onMap("EIU", function()
+	MapTestHelper.onMap("College", function()
 		Expect.equal(CardStyle.deck("CommunityChest").emblem, "CarePackage")
 	end)
 	Expect.equal(CardStyle.deck("CommunityChest").emblem, "Chest", "Classic keeps the chest")

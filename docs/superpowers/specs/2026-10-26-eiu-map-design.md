@@ -15,7 +15,9 @@ joke he wants), Blender-made art, and the EIU campus around the table.
 
 ## Goals
 
-1. A new map, **EIU**, alongside Classic and College. College stays as it is.
+1. ~~A new map, **EIU**, alongside Classic and College.~~ Changed by the owner on 2026-10-26 after the
+   build: the **College** map *is* the EIU map (ids `college.*`, map id "College"); the generic campus
+   content is gone and the picker offers only Classic and College.
 2. Every tile renamed for EIU / Charleston (table below). Prices, rents, colour sets and positions
    are classic.
 3. EIU text for all 16 Chance and 16 Community Chest cards (same effects as classic, like College),

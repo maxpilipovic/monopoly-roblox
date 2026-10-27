@@ -91,7 +91,7 @@ end
 
 tests["the EIU map renames every tile and keeps the classic rules"] = function()
 	local classic = Tiles.list
-	MapTestHelper.onMap("EIU", function()
+	MapTestHelper.onMap("College", function()
 		for i, tile in Tiles.list do
 			local base = classic[i]
 			Expect.equal(tile.position, base.position, `{i} position`)

@@ -44,8 +44,8 @@ end
 -- Each map's crazy deck: its size, its title and the prefix its ids share.
 local CRAZY_DECKS = {
 	Classic = { size = 14, title = "Crazy Chance", prefix = "crazy." },
-	College = { size = 14, title = "Crazy Chance", prefix = "crazy." },
-	EIU = { size = 16, title = "Crazy Night", prefix = "eiu.crazy." },
+	College = { size = 16, title = "Crazy Night", prefix = "college.crazy." },
+
 }
 
 tests["each map's crazy deck: wild cards under the map's own title"] = function()
@@ -248,11 +248,11 @@ tests["mass arrest jails everyone else; jailbreak frees everyone"] = function()
 	Expect.equal(player(freed, "p2").inJail, false)
 end
 
--- crazyDraw on the EIU map, whose crazy deck has the bail-out and the block-party raid.
+-- crazyDraw on the college map, whose crazy deck has the bail-out and the block-party raid.
 local function eiuDraw(cardId: string, setup: ((any) -> ())?, randoms: { number }?, playerCount: number?)
 	local state
-	MapTestHelper.onMap("EIU", function()
-		state = crazyDraw(cardId, setup, randoms, playerCount, "EIU")
+	MapTestHelper.onMap("College", function()
+		state = crazyDraw(cardId, setup, randoms, playerCount, "College")
 	end)
 	return state
 end
@@ -263,7 +263,7 @@ local function jail(state, id: string)
 end
 
 tests["bail out: pays $100 per jailed player and frees them"] = function()
-	local state = eiuDraw("eiu.crazy.bailBuddy", function(s)
+	local state = eiuDraw("college.crazy.bailBuddy", function(s)
 		jail(s, "p2")
 		jail(s, "p3")
 	end)
@@ -275,14 +275,14 @@ tests["bail out: pays $100 per jailed player and frees them"] = function()
 end
 
 tests["bail out with nobody in jail arrests a random other player"] = function()
-	local state = eiuDraw("eiu.crazy.bailBuddy", nil, { 2 })
+	local state = eiuDraw("college.crazy.bailBuddy", nil, { 2 })
 	Expect.equal(player(state, "p3").inJail, true, "the second other player")
 	Expect.equal(player(state, "p2").inJail, false)
 	Expect.equal(player(state, "p1").money, 1500, "nothing paid")
 end
 
 tests["bail out it can't afford: everyone is still freed, the rest is debt"] = function()
-	local state = eiuDraw("eiu.crazy.bailBuddy", function(s)
+	local state = eiuDraw("college.crazy.bailBuddy", function(s)
 		player(s, "p1").money = 150
 		jail(s, "p2")
 		jail(s, "p3")
@@ -294,7 +294,7 @@ tests["bail out it can't afford: everyone is still freed, the rest is debt"] = f
 end
 
 tests["raid: everyone standing on a hangout goes to jail, not those already there"] = function()
-	local state = eiuDraw("eiu.crazy.blockParty", function(s)
+	local state = eiuDraw("college.crazy.blockParty", function(s)
 		jail(s, "p2")
 		player(s, "p3").position = 25
 		player(s, "p4").position = 35
@@ -306,7 +306,7 @@ tests["raid: everyone standing on a hangout goes to jail, not those already ther
 end
 
 tests["raid on an empty street finds nobody"] = function()
-	local state = eiuDraw("eiu.crazy.blockParty")
+	local state = eiuDraw("college.crazy.blockParty")
 	Expect.equal(#GameFixtures.eventsOfType(state, "SentToJail"), 0)
 	Expect.equal(#GameFixtures.eventsOfType(state, "RaidFoundNobody"), 1)
 end

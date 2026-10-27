@@ -110,7 +110,7 @@ local COMMUNITY_CHEST: { Entry } = {
 }
 
 -- Crazy Chance (a room setting): wild cards that turn the game over. When it's on, a third of
--- Chance draws come from this deck instead (EIU has its own, EIU_CRAZY). Effects beyond the classic
+-- Chance draws come from this deck instead (the college map has its own). Effects beyond the classic
 -- ones: SwapWithLeader, Scatter, Reverse, ExtraTurn, RobinHood (amount), Lottery (amount),
 -- SplitCash, Heist, SwapDeed, FreeHouse (amount: paid when you have no set), Demolition,
 -- MassArrest, Jailbreak.
@@ -131,45 +131,10 @@ local CRAZY: { Entry } = {
 	{ id = "crazy.jailbreak", text = "Jailbreak! Everyone in Jail walks free.", effect = { kind = "Jailbreak" } },
 }
 
--- College text for each classic card; same effect, same order, id "college.<classic id>".
+-- The college map (EIU and Charleston): its text for each classic card; same effect, same order,
+-- id "college.<classic id>". The hangouts are named, never drinking: the game must stay outside
+-- Roblox's Restricted rating.
 local COLLEGE_TEXT: { [string]: string } = {
-	["chance.dividend"] = "Your campus job pays out. Collect $50.",
-	["chance.loan"] = "Your scholarship comes through. Collect $150.",
-	["chance.speeding"] = "Library late fee: pay $15.",
-	["chance.boardwalk"] = "Tickets to the big game: advance to the Football Stadium.",
-	["chance.go"] = "Back to Orientation. Collect $200.",
-	["chance.illinois"] = "Advance to Engineering Hall. If you pass Orientation, collect $200.",
-	["chance.stCharles"] = "Advance to the Art Studio. If you pass Orientation, collect $200.",
-	["chance.reading"] = "Catch the North Campus Shuttle. If you pass Orientation, collect $200.",
-	["chance.railroad1"] = "Run for the nearest shuttle. If it is owned, pay the owner twice the fare.",
-	["chance.railroad2"] = "Run for the nearest shuttle. If it is owned, pay the owner twice the fare.",
-	["chance.utility"] = "Head to the nearest utility. If it is owned, roll the dice and pay the owner ten times the roll.",
-	["chance.jailFree"] = "Doctor's note: get out of the Dean's Office free. Keep this card until needed.",
-	["chance.back3"] = "Forgot your student ID. Go back 3 spaces.",
-	["chance.jail"] = "Caught plagiarizing. Go to the Dean's Office. Do not pass Orientation, do not collect $200.",
-	["chance.repairs"] = "Dorm damage inspection: pay $25 per house and $100 per hotel.",
-	["chance.chairman"] = "Elected class president. Buy each player a $50 pizza.",
-	["chest.taxRefund"] = "Textbook buyback. Collect $20.",
-	["chest.bankError"] = "Financial aid office error in your favor. Collect $200.",
-	["chest.doctor"] = "Campus clinic copay. Pay $50.",
-	["chest.stock"] = "Sold your old laptop. Collect $50.",
-	["chest.go"] = "Back to Orientation. Collect $200.",
-	["chest.jailFree"] = "Get out of the Dean's Office free. Keep this card until needed.",
-	["chest.jail"] = "Pulled the fire alarm. Go to the Dean's Office. Do not pass Orientation, do not collect $200.",
-	["chest.holiday"] = "Summer internship pays off. Collect $100.",
-	["chest.birthday"] = "It's your birthday. Collect $10 from every player.",
-	["chest.lifeInsurance"] = "Won the hackathon. Collect $100.",
-	["chest.hospital"] = "Slept through the final. Pay $100 to retake it.",
-	["chest.school"] = "Lab fees due. Pay $50.",
-	["chest.consultancy"] = "Tutored a classmate. Collect $25.",
-	["chest.streetRepairs"] = "Housing fines for your parties: pay $40 per house and $115 per hotel.",
-	["chest.beautyContest"] = "Second place in the talent show. Collect $10.",
-	["chest.inherit"] = "Care package from home with $100 inside.",
-}
-
--- EIU text for each classic card; same effect, same order, id "eiu.<classic id>". The hangouts are
--- named, never drinking: the game must stay outside Roblox's Restricted rating.
-local EIU_TEXT: { [string]: string } = {
 	["chance.dividend"] = "Won the cornhole tournament at the tailgate. Collect $50.",
 	["chance.loan"] = "Your refund check finally hits. Collect $150.",
 	["chance.speeding"] = "Parking Services got you again. Pay $15.",
@@ -204,39 +169,39 @@ local EIU_TEXT: { [string]: string } = {
 	["chest.inherit"] = "Care package from home with $100 hidden in the cookies. Collect $100.",
 }
 
--- The EIU Crazy Chance deck ("Crazy Night"), drawn instead of CRAZY on the EIU map. Two effects of
+-- The college Crazy Chance deck ("Crazy Night"), drawn instead of CRAZY on the college map. Two effects of
 -- its own: BailOut (amount: paid per jailed player, who walks free; nobody jailed jails a random
 -- other player) and RaidKind (tileKind: everyone standing on one goes to jail).
-local EIU_CRAZY: { Entry } = {
-	{ id = "eiu.crazy.wrongHouse", text = "Woke up in the wrong house after the party. Swap places with the richest player.", effect = { kind = "SwapWithLeader" } },
-	{ id = "eiu.crazy.ghost", text = "Mary Hawkins was seen on Pemberton's 4th floor. Everyone runs to a random square.", effect = { kind = "Scatter" } },
-	{ id = "eiu.crazy.oneWay", text = "Someone flipped the one-way signs on 4th Street. Play goes the other way round.", effect = { kind = "Reverse" } },
-	{ id = "eiu.crazy.allNighter", text = "All-nighter in Booth and you're still going. Take another turn.", effect = { kind = "ExtraTurn" } },
-	{ id = "eiu.crazy.philanthropy", text = "Philanthropy week: the richest player pays the poorest $200.", effect = { kind = "RobinHood", amount = 200 } },
-	{ id = "eiu.crazy.raffle", text = "Chapter raffle! Everyone puts in $50 and one lucky player takes the pot.", effect = { kind = "Lottery", amount = 50 } },
-	{ id = "eiu.crazy.alumni", text = "A rich Sigma Pi alum is feeling generous. Collect $500.", effect = { kind = "Collect", amount = 500 } },
-	{ id = "eiu.crazy.houseFund", text = "House meeting: everyone's cash goes in the house fund and is split evenly.", effect = { kind = "SplitCash" } },
+local COLLEGE_CRAZY: { Entry } = {
+	{ id = "college.crazy.wrongHouse", text = "Woke up in the wrong house after the party. Swap places with the richest player.", effect = { kind = "SwapWithLeader" } },
+	{ id = "college.crazy.ghost", text = "Mary Hawkins was seen on Pemberton's 4th floor. Everyone runs to a random square.", effect = { kind = "Scatter" } },
+	{ id = "college.crazy.oneWay", text = "Someone flipped the one-way signs on 4th Street. Play goes the other way round.", effect = { kind = "Reverse" } },
+	{ id = "college.crazy.allNighter", text = "All-nighter in Booth and you're still going. Take another turn.", effect = { kind = "ExtraTurn" } },
+	{ id = "college.crazy.philanthropy", text = "Philanthropy week: the richest player pays the poorest $200.", effect = { kind = "RobinHood", amount = 200 } },
+	{ id = "college.crazy.raffle", text = "Chapter raffle! Everyone puts in $50 and one lucky player takes the pot.", effect = { kind = "Lottery", amount = 50 } },
+	{ id = "college.crazy.alumni", text = "A rich Sigma Pi alum is feeling generous. Collect $500.", effect = { kind = "Collect", amount = 500 } },
+	{ id = "college.crazy.houseFund", text = "House meeting: everyone's cash goes in the house fund and is split evenly.", effect = { kind = "SplitCash" } },
 	{
-		id = "eiu.crazy.composite",
+		id = "college.crazy.composite",
 		text = "Your pledge class stole a rival house's composite. Take a random unbuilt property from the richest.",
 		effect = { kind = "Heist" },
 	},
-	{ id = "eiu.crazy.roomSwap", text = "Room swap! Trade one of your unbuilt properties for a random one of someone else's.", effect = { kind = "SwapDeed" } },
+	{ id = "college.crazy.roomSwap", text = "Room swap! Trade one of your unbuilt properties for a random one of someone else's.", effect = { kind = "SwapDeed" } },
 	{
-		id = "eiu.crazy.alumniWeekend",
+		id = "college.crazy.alumniWeekend",
 		text = "Alumni weekend: they build you a free house on one of your sets. No set? Collect $100.",
 		effect = { kind = "FreeHouse", amount = 100 },
 	},
-	{ id = "eiu.crazy.inspection", text = "Surprise housing inspection! Every street with buildings loses a house.", effect = { kind = "Demolition" } },
-	{ id = "eiu.crazy.noiseComplaint", text = "Noise complaint sweep. Charleston PD takes everyone else to Coles County Jail.", effect = { kind = "MassArrest" } },
-	{ id = "eiu.crazy.brothersPitchIn", text = "The brothers pool their cash. Everyone in Coles County Jail walks free.", effect = { kind = "Jailbreak" } },
+	{ id = "college.crazy.inspection", text = "Surprise housing inspection! Every street with buildings loses a house.", effect = { kind = "Demolition" } },
+	{ id = "college.crazy.noiseComplaint", text = "Noise complaint sweep. Charleston PD takes everyone else to Coles County Jail.", effect = { kind = "MassArrest" } },
+	{ id = "college.crazy.brothersPitchIn", text = "The brothers pool their cash. Everyone in Coles County Jail walks free.", effect = { kind = "Jailbreak" } },
 	{
-		id = "eiu.crazy.bailBuddy",
+		id = "college.crazy.bailBuddy",
 		text = "Buddy tried to steal Ike's sign. Pay $100 bail per player in jail. Jail empty? Someone's arrested.",
 		effect = { kind = "BailOut", amount = 100 },
 	},
 	{
-		id = "eiu.crazy.blockParty",
+		id = "college.crazy.blockParty",
 		text = "Charleston PD busts the 4th Street block party. Everyone on a hangout goes to Coles County Jail.",
 		effect = { kind = "RaidKind", tileKind = "Railroad" },
 	},
@@ -293,13 +258,7 @@ local MAPS: { [string]: MapCards } = {
 	College = buildMap(
 		mapEntries("college", COLLEGE_TEXT, CHANCE),
 		mapEntries("college", COLLEGE_TEXT, COMMUNITY_CHEST),
-		CRAZY,
-		{ Chance = "Pop Quiz", CommunityChest = "Student Union", Crazy = Cards.CRAZY_TITLE }
-	),
-	EIU = buildMap(
-		mapEntries("eiu", EIU_TEXT, CHANCE),
-		mapEntries("eiu", EIU_TEXT, COMMUNITY_CHEST),
-		EIU_CRAZY,
+		COLLEGE_CRAZY,
 		{ Chance = "Saturday Night", CommunityChest = "Care Package", Crazy = "Crazy Night" }
 	),
 }

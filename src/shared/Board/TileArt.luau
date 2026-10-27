@@ -192,7 +192,7 @@ local BUILDERS: { [string]: (Frame, Tiles.Tile) -> () } = {
 		card(art, tile, TileArt.IMAGES.Question)
 	end,
 	CommunityChest = function(art, tile)
-		card(art, tile, if Maps.current() == "EIU" then TileArt.IMAGES.CarePackage else TileArt.IMAGES.Chest)
+		card(art, tile, if Maps.current() == "College" then TileArt.IMAGES.CarePackage else TileArt.IMAGES.Chest)
 	end,
 }
 

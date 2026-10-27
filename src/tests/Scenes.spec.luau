@@ -28,23 +28,22 @@ tests["a random scene is always a real one"] = function()
 	end
 end
 
-tests["EIU Campus belongs to the EIU map and only to it"] = function()
+tests["EIU Campus belongs to the college map and only to it"] = function()
 	local campus = Scenes.byId.EIUCampus
 	assert(campus, "no EIU Campus scene")
 	Expect.equal(campus.name, "EIU Campus")
-	Expect.equal(campus.map, "EIU")
-	Expect.equal(table.concat(Scenes.forMap("EIU"), "|"), "EIUCampus")
+	Expect.equal(campus.map, "College")
+	Expect.equal(table.concat(Scenes.forMap("College"), "|"), "EIUCampus")
 	local classic = Scenes.forMap("Classic")
 	Expect.equal(table.find(classic, "EIUCampus"), nil, "not offered on Classic")
 	Expect.equal(#classic, 4, "every other scene is")
-	Expect.equal(table.find(Scenes.forMap("College"), "EIUCampus"), nil, "not offered on College")
 end
 
 tests["a random scene never belongs to another map"] = function()
 	local random = Random.new(11)
 	for _ = 1, 200 do
 		assert(Scenes.random(random) ~= "EIUCampus", "Classic got the EIU scene")
-		Expect.equal(Scenes.random(random, "EIU"), "EIUCampus")
+		Expect.equal(Scenes.random(random, "College"), "EIUCampus")
 	end
 end
 

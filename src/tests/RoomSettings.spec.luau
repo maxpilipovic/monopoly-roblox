@@ -77,11 +77,11 @@ tests["the board scene is one of the three, Boardwalk by default"] = function()
 	Expect.equal(table.concat(RoomSettings.chips(RoomSettings.validate({ scene = "Tropical" })), "|"), "$1500|Free Parking pot|Relaxed timer|Tropical Island")
 end
 
-tests["the EIU map always plays on EIU Campus, and no other map does"] = function()
-	Expect.equal(RoomSettings.validate({ map = "EIU", scene = "Winter" }).scene, "EIUCampus", "EIU locks its scene")
-	Expect.equal(RoomSettings.validate({ map = "EIU" }).scene, "EIUCampus", "even by default")
+tests["the college map always plays on EIU Campus, and no other map does"] = function()
+	Expect.equal(RoomSettings.validate({ map = "College", scene = "Winter" }).scene, "EIUCampus", "EIU locks its scene")
+	Expect.equal(RoomSettings.validate({ map = "College" }).scene, "EIUCampus", "even by default")
 	Expect.equal(RoomSettings.validate({ map = "Classic", scene = "EIUCampus" }).scene, "Boardwalk", "switching away falls back")
-	Expect.equal(RoomSettings.validate({ map = "College", scene = "Winter" }).scene, "Winter", "other maps choose freely")
+	Expect.equal(RoomSettings.validate({ map = "Classic", scene = "Winter" }).scene, "Winter", "other maps choose freely")
 end
 
 return tests

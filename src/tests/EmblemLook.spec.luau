@@ -40,7 +40,7 @@ tests["every emblem shape has a finish for each of its parts"] = function()
 end
 
 tests["EIU tiles get the hangout, delivery and care package emblems"] = function()
-	MapTestHelper.onMap("EIU", function()
+	MapTestHelper.onMap("College", function()
 		for position, shape in { [5] = "Hangout", [15] = "Hangout", [25] = "Hangout", [35] = "Hangout", [12] = "Sub", [28] = "Pizza", [2] = "CarePackage", [7] = "Question" } do
 			Expect.equal(EmblemLook.forTile(Tiles.at(position)), shape, `EIU tile {position}`)
 		end

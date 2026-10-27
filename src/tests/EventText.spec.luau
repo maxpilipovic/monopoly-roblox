@@ -99,7 +99,7 @@ tests["a College card is logged with its own text and deck title"] = function()
 	MapTestHelper.onCollege(function()
 		Expect.equal(
 			EventText.describe({ type = "CardDrawn", player = "p1", deck = "Chance", card = "college.chance.back3" }, NAMES),
-			"Ana drew Pop Quiz: Forgot your student ID. Go back 3 spaces."
+			"Ana drew Saturday Night: Forgot your Panther Card. Go back 3 spaces."
 		)
 	end)
 end

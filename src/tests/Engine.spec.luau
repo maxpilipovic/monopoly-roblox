@@ -238,7 +238,7 @@ tests["a new game without a map is Classic, even after a College game"] = functi
 	local ok, err = pcall(function()
 		Expect.equal(college.map, "College")
 		Expect.equal(college.decks.Chance[1], "college.chance.dividend", "college cards dealt")
-		Expect.equal(Tiles.at(39).name, "Football Stadium")
+		Expect.equal(Tiles.at(39).name, "Old Main")
 	end)
 	local classic = GameFixtures.newGame(2) -- no map given
 	Expect.equal(classic.map, "Classic")

@@ -14,7 +14,7 @@ EmblemLook.SHAPES = { "Question", "Chest", "Locomotive", "Bulb", "Tap", "Hangout
 
 local ELECTRIC_POSITION = 12 -- the other utility is the water works
 
--- The EIU board's own emblems: a neon sign on the hangouts, a sub and a pizza box for late-night
+-- The college (EIU) board's own emblems: a neon sign on the hangouts, a sub and a pizza box for late-night
 -- delivery, and a cardboard box for Care Package.
 local EIU_SHAPES = { Railroad = "Hangout", CommunityChest = "CarePackage" }
 local EIU_DELIVERY = { [12] = "Sub", [28] = "Pizza" }
@@ -57,7 +57,7 @@ EmblemLook.FINISHES = table.freeze({
 }) :: { [string]: { [string]: PartFinish } }
 
 function EmblemLook.forTile(tile: Tiles.Tile): string?
-	if Maps.current() == "EIU" then
+	if Maps.current() == "College" then
 		local shape = EIU_DELIVERY[tile.position] or EIU_SHAPES[tile.kind]
 		if shape then
 			return shape

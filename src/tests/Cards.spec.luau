@@ -80,8 +80,8 @@ end
 tests["a card's deck title comes from its own map"] = function()
 	Expect.equal(Cards.titleFor("chance.go"), "Chance")
 	Expect.equal(Cards.titleFor("chest.go"), "Community Chest")
-	Expect.equal(Cards.titleFor("college.chance.go"), "Pop Quiz")
-	Expect.equal(Cards.titleFor("college.chest.go"), "Student Union")
+	Expect.equal(Cards.titleFor("college.chance.go"), "Saturday Night")
+	Expect.equal(Cards.titleFor("college.chest.go"), "Care Package")
 	Expect.equal(Cards.titleFor("nope"), nil)
 	Cards.use("College")
 	local classicOnCollege = Cards.titleFor("chance.go")
@@ -92,7 +92,7 @@ end
 tests["EIU cards: same effects as classic, EIU words"] = function()
 	for _, deck in { "Chance", "CommunityChest" } do
 		for _, id in Cards.idsFor(deck) do
-			local card = Cards.byId[`eiu.{id}`]
+			local card = Cards.byId[`college.{id}`]
 			assert(card, `no EIU card for {id}`)
 			Expect.equal(card.deck, deck, `{id} deck`)
 			for key, value in Cards.byId[id].effect do
@@ -100,18 +100,18 @@ tests["EIU cards: same effects as classic, EIU words"] = function()
 			end
 		end
 	end
-	Expect.equal(Cards.byId["eiu.chance.reading"].text, "The boys are at Marty's. Head over. If you pass Move-In Day, collect $200.")
+	Expect.equal(Cards.byId["college.chance.reading"].text, "The boys are at Marty's. Head over. If you pass Move-In Day, collect $200.")
 	Expect.equal(
-		Cards.byId["eiu.chest.jail"].text,
+		Cards.byId["college.chest.jail"].text,
 		"Pulled the Carman Hall fire alarm at 3 a.m. Go to Coles County Jail. No Move-In Day, no $200."
 	)
-	Expect.equal(Cards.byId["eiu.chance.chairman"].text, "Elected chapter president. Pay each player $50 for the formal.")
-	Expect.equal(Cards.titleFor("eiu.chance.go"), "Saturday Night")
-	Expect.equal(Cards.titleFor("eiu.chest.go"), "Care Package")
+	Expect.equal(Cards.byId["college.chance.chairman"].text, "Elected chapter president. Pay each player $50 for the formal.")
+	Expect.equal(Cards.titleFor("college.chance.go"), "Saturday Night")
+	Expect.equal(Cards.titleFor("college.chest.go"), "Care Package")
 end
 
 tests["every EIU advance-to card names the tile it moves you to"] = function()
-	MapTestHelper.onMap("EIU", function()
+	MapTestHelper.onMap("College", function()
 		for _, card in Cards.list do
 			if card.effect.kind == "AdvanceTo" then
 				local name = Tiles.at(card.effect.position :: number).name
@@ -123,7 +123,7 @@ end
 
 tests["no EIU card mentions drink"] = function()
 	local WORDS = { "beer", "drink", "drunk", "keg", "shot", "booze", "bottle", "hangover", "blackout", "blacked", "wasted", "liquor" }
-	MapTestHelper.onMap("EIU", function()
+	MapTestHelper.onMap("College", function()
 		local ids = Cards.idsFor("Crazy")
 		for _, card in Cards.list do
 			table.insert(ids, card.id)
@@ -145,7 +145,7 @@ tests["EIU card text fits on a card: no longer than the longest classic card"] =
 	for _, card in Cards.list do
 		longest = math.max(longest, #card.text)
 	end
-	MapTestHelper.onMap("EIU", function()
+	MapTestHelper.onMap("College", function()
 		local ids = Cards.idsFor("Crazy")
 		for _, card in Cards.list do
 			table.insert(ids, card.id)

@@ -24,15 +24,15 @@ tests["college cards share their classic card's picture"] = function()
 end
 
 tests["EIU cards share their classic card's picture"] = function()
-	Expect.equal(CardArt.forCard("eiu.chest.birthday"), CardArt.forCard("chest.birthday"))
+	Expect.equal(CardArt.forCard("college.chest.birthday"), CardArt.forCard("chest.birthday"))
 end
 
 tests["EIU cards with a picture of their own use it"] = function()
-	Expect.equal(CardArt.forCard("eiu.chance.jail"), CardArt.IMAGES.Handcuffs)
-	Expect.equal(CardArt.forCard("eiu.crazy.ghost"), CardArt.IMAGES.Ghost)
-	Expect.equal(CardArt.forCard("eiu.chance.boardwalk"), CardArt.IMAGES.OldMain)
-	Expect.equal(CardArt.forCard("eiu.chest.inherit"), CardArt.IMAGES.CarePackage)
-	Expect.equal(CardArt.forCard("eiu.chance.reading"), CardArt.IMAGES.NeonSign)
+	Expect.equal(CardArt.forCard("college.chance.jail"), CardArt.IMAGES.Handcuffs)
+	Expect.equal(CardArt.forCard("college.crazy.ghost"), CardArt.IMAGES.Ghost)
+	Expect.equal(CardArt.forCard("college.chance.boardwalk"), CardArt.IMAGES.OldMain)
+	Expect.equal(CardArt.forCard("college.chest.inherit"), CardArt.IMAGES.CarePackage)
+	Expect.equal(CardArt.forCard("college.chance.reading"), CardArt.IMAGES.NeonSign)
 	Expect.equal(CardArt.forCard("chance.jail"), CardArt.IMAGES.Officer, "classic keeps its own")
 end
 
