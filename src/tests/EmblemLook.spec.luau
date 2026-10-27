@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EmblemLook = require(ReplicatedStorage.Shared.Board.EmblemLook)
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 local Expect = require(script.Parent.Expect)
+local MapTestHelper = require(script.Parent.MapTestHelper)
 
 local tests = {}
 
@@ -36,6 +37,20 @@ tests["every emblem shape has a finish for each of its parts"] = function()
 		Expect.equal(finish ~= nil, true, `{shape} finish`)
 		Expect.equal(finish.Body ~= nil, true, `{shape} body`)
 	end
+end
+
+tests["EIU tiles get the hangout, delivery and care package emblems"] = function()
+	MapTestHelper.onMap("EIU", function()
+		for position, shape in { [5] = "Hangout", [15] = "Hangout", [25] = "Hangout", [35] = "Hangout", [12] = "Sub", [28] = "Pizza", [2] = "CarePackage", [7] = "Question" } do
+			Expect.equal(EmblemLook.forTile(Tiles.at(position)), shape, `EIU tile {position}`)
+		end
+		for _, shape in { "Hangout", "Sub", "Pizza", "CarePackage" } do
+			assert(table.find(EmblemLook.SHAPES, shape), `{shape} listed`)
+			assert(EmblemLook.FINISHES[shape], `{shape} finished`)
+		end
+	end)
+	Expect.equal(EmblemLook.forTile(Tiles.at(5)), "Locomotive", "Classic railroads keep the locomotive")
+	Expect.equal(EmblemLook.forTile(Tiles.at(2)), "Chest", "Classic chest")
 end
 
 return tests

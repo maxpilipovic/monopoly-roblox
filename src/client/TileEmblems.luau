@@ -15,7 +15,7 @@ local TileEmblems = {}
 local FOLDER_WAIT_SECONDS = 60 -- for Assets to reach the emblems
 local SHAPE_WAIT_SECONDS = 20 -- for one emblem inside it
 -- How tall each emblem stands, in studs.
-local HEIGHTS = { Question = 3.2, Chest = 2.5, Locomotive = 2.7, Bulb = 3.2, Tap = 3.2 }
+local HEIGHTS = { Question = 3.2, Chest = 2.5, Locomotive = 2.7, Bulb = 3.2, Tap = 3.2, Hangout = 3, Sub = 1.6, Pizza = 1.8, CarePackage = 2.3 }
 
 -- Each shape is waited for once, whatever the answer, so a model that failed to load costs one
 -- wait rather than one per tile.

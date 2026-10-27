@@ -6,6 +6,7 @@ local ColorGroups = require(ReplicatedStorage.Shared.Board.ColorGroups)
 local Layout = require(ReplicatedStorage.Shared.Board.Layout)
 local BoardBuilder = require(game:GetService("ReplicatedStorage").Shared.Board.BoardBuilder)
 local TileArt = require(ReplicatedStorage.Shared.Board.TileArt)
+local MapLook = require(ReplicatedStorage.Shared.Board.MapLook)
 local Expect = require(script.Parent.Expect)
 local MapTestHelper = require(script.Parent.MapTestHelper)
 
@@ -165,6 +166,19 @@ tests["relabel writes the active map's names onto the board"] = function()
 	BoardBuilder.relabel(model)
 	Expect.equal(label(39), "Boardwalk\n$400", "back to Classic")
 	Expect.equal(label(0), "GO", "Classic Go")
+	holder:Destroy()
+end
+
+tests["the board takes its map's colours"] = function()
+	local holder = Instance.new("Folder")
+	MapTestHelper.onMap("EIU", function()
+		local model = BoardBuilder.build(holder)
+		Expect.equal((model:FindFirstChild("Base") :: Part).Color, MapLook.board("EIU").base, "EIU base")
+		Expect.equal((model:FindFirstChild("Center") :: Part).Color, MapLook.board("EIU").center, "EIU centre")
+	end)
+	local model = BoardBuilder.build(holder)
+	Expect.equal((model:FindFirstChild("Base") :: Part).Color, MapLook.board("Classic").base, "Classic base again")
+	assert(MapLook.board("EIU").base ~= MapLook.board("Classic").base, "EIU looks different")
 	holder:Destroy()
 end
 

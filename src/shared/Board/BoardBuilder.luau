@@ -7,6 +7,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ColorGroups = require(ReplicatedStorage.Shared.Board.ColorGroups)
 local EmblemLook = require(ReplicatedStorage.Shared.Board.EmblemLook)
 local Layout = require(ReplicatedStorage.Shared.Board.Layout)
+local MapLook = require(ReplicatedStorage.Shared.Board.MapLook)
+local Maps = require(ReplicatedStorage.Shared.Board.Maps)
 local TileArt = require(ReplicatedStorage.Shared.Board.TileArt)
 local Tiles = require(ReplicatedStorage.Shared.Board.Tiles)
 
@@ -15,9 +17,6 @@ local BoardBuilder = {}
 BoardBuilder.MODEL_NAME = "Board"
 BoardBuilder.LABEL_MAX_TEXT_SIZE = 40
 
-local TILE_COLOR = Color3.fromRGB(214, 234, 214)
-local BASE_COLOR = Color3.fromRGB(35, 35, 35)
-local CENTER_COLOR = Color3.fromRGB(196, 226, 200)
 local TEXT_COLOR = Color3.fromRGB(25, 25, 25)
 local TILE_GAP = 0.15 -- tiles are shrunk by this much so the dark base shows as grid lines
 local STRIP_DEPTH = 2.5 -- depth of the color band on property tiles
@@ -90,7 +89,7 @@ local function buildTile(tile: Tiles.Tile, parent: Instance)
 		string.format("Tile%02d", tile.position),
 		size,
 		Layout.ORIGIN * placement.cframe,
-		TILE_COLOR,
+		MapLook.board(Maps.current()).tile,
 		parent
 	)
 	part:SetAttribute("TilePosition", tile.position)
@@ -121,6 +120,7 @@ local function buildTile(tile: Tiles.Tile, parent: Instance)
 end
 
 function BoardBuilder.build(parent: Instance): Model
+	local colors = MapLook.board(Maps.current())
 	local existing = parent:FindFirstChild(BoardBuilder.MODEL_NAME)
 	if existing then
 		existing:Destroy()
@@ -136,7 +136,7 @@ function BoardBuilder.build(parent: Instance): Model
 		"Base",
 		Vector3.new(Layout.BOARD_SIZE, Layout.TILE_THICKNESS, Layout.BOARD_SIZE),
 		Layout.ORIGIN * CFrame.new(0, -0.1, 0),
-		BASE_COLOR,
+		colors.base,
 		model
 	)
 
@@ -145,7 +145,7 @@ function BoardBuilder.build(parent: Instance): Model
 		"Center",
 		Vector3.new(innerSize, Layout.TILE_THICKNESS, innerSize),
 		Layout.ORIGIN,
-		CENTER_COLOR,
+		colors.center,
 		model
 	)
 	model.PrimaryPart = center

@@ -132,6 +132,7 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 			end
 			return
 		end
+		Maps.use(snapshot.map) -- names, card text and the board follow the game being shown
 		if not board:model() then
 			board:ensure(snapshot.scene)
 			CameraDirector.setActive(true)
@@ -139,7 +140,6 @@ function GameClient.start(hooks: Tokens.TokenHooks?, onInGame: ((boolean) -> ())
 				onInGame(true)
 			end
 		end
-		Maps.use(snapshot.map) -- names and card text follow the game being shown
 
 		-- Forget rings long past.
 		local now = os.clock()
