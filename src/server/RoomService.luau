@@ -388,7 +388,7 @@ local function startGame(room: Rooms.Room)
 		shuffleSeats = true,
 		announceOrder = true,
 	})
-	session.scene = if room.matched then Scenes.random(random) else settings.scene
+	session.scene = if room.matched then Scenes.random(random, settings.map) else settings.scene
 	-- Cosmetics are fixed for the game when it starts.
 	for _, seat in session.state.players do
 		if seat.isBot then

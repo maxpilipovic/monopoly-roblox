@@ -561,9 +561,14 @@ local function settingsForm(parent: Instance, settings: RoomSettings.Settings, e
 		cycle(8, "Game length", (MatchSettings.lengthLabel(settings.length):gsub("^Length: ", "")), "length", MatchSettings.nextLength(settings.length))
 	end
 	cycle(9, "Board names", settings.map, "map", MatchSettings.nextMap(settings.map))
-	local sceneIndex = table.find(Scenes.IDS, settings.scene) or 1
+	local scenes = Scenes.forMap(settings.map)
+	local sceneIndex = table.find(scenes, settings.scene) or 1
 	local scene = Scenes.byId[settings.scene] or Scenes.LIST[1]
-	cycle(10, "Scene", scene.name, "scene", Scenes.IDS[sceneIndex % #Scenes.IDS + 1])
+	if #scenes > 1 then
+		cycle(10, "Scene", scene.name, "scene", scenes[sceneIndex % #scenes + 1])
+	else
+		valueLabel(settingRow(form, 10, "Scene"), scene.name, 0, 200).TextXAlignment = Enum.TextXAlignment.Left -- the map's own
+	end
 end
 
 local function footer(parent: Instance): Frame

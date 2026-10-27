@@ -50,6 +50,16 @@ local function switch(raw: any, key: string, fallback: boolean): boolean
 	return if typeof(value) == "boolean" then value else fallback
 end
 
+-- The scene a map is played in: the asked-for one if the map may use it, else the map's first
+-- (its own scene, or the default).
+local function sceneFor(map: string, asked: any): string
+	local allowed = Scenes.forMap(map)
+	if typeof(asked) == "string" and table.find(allowed, asked) then
+		return asked
+	end
+	return if table.find(allowed, RoomSettings.DEFAULT.scene) then RoomSettings.DEFAULT.scene else allowed[1]
+end
+
 function RoomSettings.validate(raw: any): Settings
 	local defaults = RoomSettings.DEFAULT
 	local players = math.clamp(math.round(number(raw, "maxPlayers", defaults.maxPlayers)), RoomSettings.MIN_PLAYERS, RoomSettings.MAX_PLAYERS)
@@ -66,7 +76,7 @@ function RoomSettings.validate(raw: any): Settings
 		timer = match.timer,
 		length = match.length,
 		map = match.map,
-		scene = if typeof(raw) == "table" and typeof(raw.scene) == "string" and Scenes.byId[raw.scene] then raw.scene else defaults.scene,
+		scene = sceneFor(match.map, if typeof(raw) == "table" then raw.scene else nil),
 	}
 end
 

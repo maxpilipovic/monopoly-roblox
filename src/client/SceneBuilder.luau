@@ -17,6 +17,7 @@ local BUILDERS: { [string]: (Kit.Context) -> () } = {
 	Tropical = require(script.Parent.SceneKit.Tropical),
 	Winter = require(script.Parent.SceneKit.Winter),
 	City = require(script.Parent.SceneKit.City),
+	EIUCampus = require(script.Parent.SceneKit.EIUCampus),
 }
 
 local SceneBuilder = {}

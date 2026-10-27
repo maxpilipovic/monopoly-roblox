@@ -1,11 +1,13 @@
 --!strict
 -- The settings a board can be played in: what surrounds it (SceneBuilder builds it on each client)
--- and how it's lit and graded. Picked by a casual game's host; ranked games get one at random.
+-- and how it's lit and graded. Picked by a casual game's host; ranked games get one at random. A scene
+-- may belong to one map (`map`): that map always plays in it and no other map is offered it.
 
 export type Scene = {
 	id: string,
 	name: string,
 	blurb: string,
+	map: string?, -- the one map this scene belongs to
 	clockTime: number,
 	latitude: number, -- where the sun and moon sit in the sky
 	brightness: number,
@@ -106,6 +108,27 @@ Scenes.LIST = {
 		sunRays = 0.1,
 		grade = { brightness = 0.01, contrast = 0.14, saturation = 0.15, tint = Color3.fromRGB(255, 236, 228) },
 	},
+	{
+		id = "EIUCampus",
+		name = "EIU Campus",
+		blurb = "The Library Quad on an autumn evening: Old Main, the campus pond and the panther statue.",
+		map = "EIU",
+		clockTime = 17.6,
+		latitude = 40,
+		brightness = 2.2,
+		exposure = 0.05,
+		ambient = Color3.fromRGB(112, 96, 92),
+		outdoorAmbient = Color3.fromRGB(160, 140, 130),
+		fogColor = Color3.fromRGB(210, 170, 140),
+		atmosphereColor = Color3.fromRGB(240, 200, 170),
+		atmosphereDecay = Color3.fromRGB(150, 110, 120),
+		atmosphereDensity = 0.3,
+		glare = 0.3,
+		haze = 1.2,
+		bloom = { intensity = 0.6, size = 30, threshold = 1.5 },
+		sunRays = 0.1,
+		grade = { brightness = 0.02, contrast = 0.12, saturation = 0.18, tint = Color3.fromRGB(255, 236, 220) },
+	},
 } :: { Scene }
 
 Scenes.byId = {} :: { [string]: Scene }
@@ -115,8 +138,23 @@ for _, scene in Scenes.LIST do
 	table.insert(Scenes.IDS, scene.id)
 end
 
-function Scenes.random(random: Random): string
-	return Scenes.IDS[random:NextInteger(1, #Scenes.IDS)]
+-- The scenes a map may be played in: the one that belongs to it, or else every scene that belongs
+-- to no map.
+function Scenes.forMap(mapId: string): { string }
+	local own, open = {}, {}
+	for _, scene in Scenes.LIST do
+		if scene.map == mapId then
+			table.insert(own, scene.id)
+		elseif scene.map == nil then
+			table.insert(open, scene.id)
+		end
+	end
+	return if #own > 0 then own else open
+end
+
+function Scenes.random(random: Random, mapId: string?): string
+	local ids = Scenes.forMap(mapId or "Classic")
+	return ids[random:NextInteger(1, #ids)]
 end
 
 return Scenes
