@@ -5,6 +5,7 @@ local Cards = require(ReplicatedStorage.Shared.Board.Cards)
 local Engine = require(ServerScriptService.Server.Game.Engine)
 local GameFixtures = require(script.Parent.GameFixtures)
 local Expect = require(script.Parent.Expect)
+local MapTestHelper = require(script.Parent.MapTestHelper)
 
 local tests = {}
 
@@ -39,16 +40,28 @@ local function crazyDraw(cardId: string, setup: ((any) -> ())?, randoms: { numbe
 	return state
 end
 
-tests["the crazy deck: fourteen wild cards, titled Crazy Chance on every map"] = function()
-	local ids = Cards.idsFor("Crazy")
-	Expect.equal(#ids, 14, "deck size")
-	for _, id in ids do
-		local card = Cards.byId[id]
-		Expect.equal(card.deck, "Crazy", `{id} deck`)
-		Expect.equal(Cards.titleFor(id), "Crazy Chance", `{id} title`)
-		assert(card.effect.kind ~= "JailFree", `{id} must not be kept`)
+-- Each map's crazy deck: its size, its title and the prefix its ids share.
+local CRAZY_DECKS = {
+	Classic = { size = 14, title = "Crazy Chance", prefix = "crazy." },
+	College = { size = 14, title = "Crazy Chance", prefix = "crazy." },
+	EIU = { size = 14, title = "Crazy Night", prefix = "eiu.crazy." },
+}
+
+tests["each map's crazy deck: wild cards under the map's own title"] = function()
+	for mapId, expected in CRAZY_DECKS do
+		MapTestHelper.onMap(mapId, function()
+			local ids = Cards.idsFor("Crazy")
+			Expect.equal(#ids, expected.size, `{mapId} deck size`)
+			for _, id in ids do
+				local card = Cards.byId[id]
+				Expect.equal(id:sub(1, #expected.prefix), expected.prefix, `{id} prefix`)
+				Expect.equal(card.deck, "Crazy", `{id} deck`)
+				Expect.equal(Cards.titleFor(id), expected.title, `{id} title`)
+				assert(card.effect.kind ~= "JailFree", `{id} must not be kept`)
+			end
+			Expect.equal(#Cards.list, 32, `{mapId}: the classic decks are unchanged`)
+		end)
 	end
-	Expect.equal(#Cards.list, 32, "the classic decks are unchanged")
 end
 
 tests["with Crazy Chance off, every Chance draw is a Chance card"] = function()

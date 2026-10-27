@@ -23,6 +23,10 @@ tests["college cards share their classic card's picture"] = function()
 	Expect.equal(CardArt.forCard("chest.birthday"), CardArt.IMAGES.Cake)
 end
 
+tests["EIU cards share their classic card's picture"] = function()
+	Expect.equal(CardArt.forCard("eiu.chest.birthday"), CardArt.forCard("chest.birthday"))
+end
+
 tests["each deck has its picture on the back"] = function()
 	Expect.equal(CardArt.back("Chance"), CardArt.IMAGES.Question)
 	Expect.equal(CardArt.back("CommunityChest"), CardArt.IMAGES.Chest)

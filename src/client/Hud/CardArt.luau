@@ -2,11 +2,12 @@
 -- The picture on each Chance and Community Chest card, like the drawings on the real cards: a money
 -- bag for a payout, the bank, a signpost for "advance to", a cake for your birthday... Renders from
 -- tools/blender/card_art.py (assets/cards); the officer, the question mark and the chest are the
--- board's own (TileArt). College cards share their classic card's picture.
+-- board's own (TileArt). Other maps' cards share their classic card's picture.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TileArt = require(ReplicatedStorage.Shared.Board.TileArt)
 local Icons = require(script.Parent.Icons)
+local MapLook = require(ReplicatedStorage.Shared.Board.MapLook)
 
 local CardArt = {}
 
@@ -100,6 +101,21 @@ CardArt.BY_CARD = table.freeze({
 	["crazy.demolition"] = "Fireworks",
 	["crazy.massArrest"] = "Jail",
 	["crazy.jailbreak"] = "LockOpen",
+	-- The EIU Crazy Night deck.
+	["eiu.crazy.wrongHouse"] = "Podium",
+	["eiu.crazy.ghost"] = "Storm",
+	["eiu.crazy.oneWay"] = "Swap",
+	["eiu.crazy.allNighter"] = "Doubles",
+	["eiu.crazy.philanthropy"] = "CashFlow",
+	["eiu.crazy.raffle"] = "Clover",
+	["eiu.crazy.alumni"] = "MoneyRain",
+	["eiu.crazy.houseFund"] = "Coins",
+	["eiu.crazy.composite"] = "Swords",
+	["eiu.crazy.roomSwap"] = "Trade",
+	["eiu.crazy.alumniWeekend"] = "House",
+	["eiu.crazy.inspection"] = "Tools",
+	["eiu.crazy.noiseComplaint"] = "Jail",
+	["eiu.crazy.brothersPitchIn"] = "LockOpen",
 })
 
 -- The big picture on each deck's back, as on the real decks.
@@ -110,10 +126,8 @@ CardArt.BACKS = table.freeze({
 	Crazy = "Lightning",
 })
 
-local COLLEGE_PREFIX = "college."
-
 function CardArt.forCard(cardId: string): string?
-	local classic = if cardId:sub(1, #COLLEGE_PREFIX) == COLLEGE_PREFIX then cardId:sub(#COLLEGE_PREFIX + 1) else cardId
+	local _, classic = MapLook.forCard(cardId)
 	local name = CardArt.BY_CARD[classic]
 	return name and CardArt.IMAGES[name]
 end
