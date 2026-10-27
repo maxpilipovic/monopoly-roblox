@@ -39,7 +39,7 @@ export type BoardColors = { tile: Color3, base: Color3, center: Color3 }
 local BOARDS: { [string]: BoardColors } = {
 	Classic = { tile = Color3.fromRGB(214, 234, 214), base = Color3.fromRGB(35, 35, 35), center = Color3.fromRGB(196, 226, 200) },
 	-- EIU blue and grey.
-	EIU = { tile = Color3.fromRGB(226, 229, 234), base = Color3.fromRGB(0, 42, 102), center = Color3.fromRGB(188, 198, 214) },
+	EIU = { tile = Color3.fromRGB(206, 212, 222), base = Color3.fromRGB(0, 42, 102), center = Color3.fromRGB(112, 132, 166) },
 }
 
 function MapLook.board(mapId: string): BoardColors
