@@ -103,7 +103,7 @@ tests["EIU cards: same effects as classic, EIU words"] = function()
 	Expect.equal(Cards.byId["eiu.chance.reading"].text, "The boys are at Marty's. Head over. If you pass Move-In Day, collect $200.")
 	Expect.equal(
 		Cards.byId["eiu.chest.jail"].text,
-		"Pulled the fire alarm in Carman Hall at 3 a.m. Go to Coles County Jail. Do not pass Move-In Day, do not collect $200."
+		"Pulled the Carman Hall fire alarm at 3 a.m. Go to Coles County Jail. No Move-In Day, no $200."
 	)
 	Expect.equal(Cards.byId["eiu.chance.chairman"].text, "Elected chapter president. Pay each player $50 for the formal.")
 	Expect.equal(Cards.titleFor("eiu.chance.go"), "Saturday Night")
@@ -133,6 +133,26 @@ tests["no EIU card mentions drink"] = function()
 			for _, word in WORDS do
 				assert(not string.find(text, word, 1, true), `{id} mentions "{word}"`)
 			end
+		end
+	end)
+end
+
+tests["EIU card text fits on a card: no longer than the longest classic card"] = function()
+	local longest = 0
+	for _, id in Cards.idsFor("Crazy") do
+		longest = math.max(longest, #Cards.byId[id].text)
+	end
+	for _, card in Cards.list do
+		longest = math.max(longest, #card.text)
+	end
+	MapTestHelper.onMap("EIU", function()
+		local ids = Cards.idsFor("Crazy")
+		for _, card in Cards.list do
+			table.insert(ids, card.id)
+		end
+		for _, id in ids do
+			local text = Cards.byId[id].text
+			assert(#text <= longest, `{id} is {#text} characters, the card fits {longest}`)
 		end
 	end)
 end

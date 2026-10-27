@@ -275,6 +275,88 @@ def card_go(stage):
 	return icon_go(stage)
 
 
+# The EIU map's pictures: handcuffs for the jail and bail cards, the Pemberton ghost, Old Main's
+# tower, the delivery pizza box, a care package, a paw print and a hangout's neon sign. No drinks.
+EIU_BLUE = lambda: mat("EiuBlue", srgb(0, 62, 140), rough=0.35)
+LIMESTONE = lambda: mat("Limestone", srgb(222, 210, 184), rough=0.7)
+SLATE = lambda: mat("Slate", srgb(70, 78, 92), rough=0.5)
+CARDBOARD = lambda: mat("Cardboard", srgb(186, 138, 88), rough=0.8)
+TAPE = lambda: mat("Tape", srgb(222, 204, 160), rough=0.4)
+
+
+def card_handcuffs(stage):
+	steel = SILVER()
+	obs = []
+	cuffs = Part("Cuffs")
+	cuffs.torus(0.62, 0.11, (-0.95, 0, 0.75), major_segs=36, minor_segs=10, rot=Matrix.Rotation(math.radians(70), 4, "X"))
+	cuffs.torus(0.62, 0.11, (0.95, 0, 0.75), major_segs=36, minor_segs=10, rot=Matrix.Rotation(math.radians(110), 4, "X"))
+	cuffs.box((0.36, 0.3, 0.42), (-0.95, 0, 1.4), bevel=0.05)
+	cuffs.box((0.36, 0.3, 0.42), (0.95, 0, 1.4), bevel=0.05)
+	obs.append(obj(cuffs, stage, steel))
+	chain = Part("Chain")
+	for i, x in enumerate((-0.7, -0.42, -0.14, 0.14, 0.42, 0.7)):
+		turn = Matrix.Rotation(math.pi / 2, 4, "Y") if i % 2 else Matrix.Rotation(math.pi / 2, 4, "X") @ Matrix.Rotation(math.pi / 2, 4, "Y")
+		chain.torus(0.15, 0.04, (x, 0, 1.45), major_segs=16, minor_segs=6, rot=turn)
+	obs.append(obj(chain, stage, PEWTER()))
+	return obs, {"yaw": -14, "pitch": 18}
+
+
+def card_ghost(stage):
+	return import_model(stage, "Pieces", "Ghost", {"*": mat("GhostWhite", srgb(240, 244, 255), rough=0.3, emit=0.15)}), {"yaw": 160, "pitch": 10}
+
+
+def card_old_main(stage):
+	# Old Main's front: a tall central tower between two turrets, all crenellated limestone with
+	# steep slate roofs.
+	obs = []
+	stone = Part("Stone")
+	stone.box((3.6, 1.2, 1.6), (0, 0, 0.8))  # the main block
+	stone.box((1.1, 1.3, 3.0), (0, -0.05, 1.5))  # the central tower
+	for x in (-1.8, 1.8):
+		stone.cylinder(0.42, 2.3, (x, -0.1, 1.15), segments=20)  # turrets
+	for i in range(5):
+		stone.box((0.16, 1.32, 0.18), (-0.44 + i * 0.22, -0.05, 3.09))  # tower battlements
+	obs.append(obj(stone, stage, LIMESTONE()))
+	roofs = Part("Roofs")
+	roofs.cylinder(0.5, 0.9, (0, -0.05, 3.6), segments=4, radius2=0.0, rot=Matrix.Rotation(math.pi / 4, 4, "Z"))
+	for x in (-1.8, 1.8):
+		roofs.cylinder(0.48, 0.8, (x, -0.1, 2.7), segments=20, radius2=0.0)
+	roofs.prism([(-0.6, 0), (0.6, 0), (0, 0.55)], 3.4, (0, 0, 1.6), axis="X")
+	obs.append(obj(roofs, stage, SLATE()))
+	windows = Part("Windows")
+	for x in (-1.2, -0.75, 0.75, 1.2):
+		windows.box((0.22, 0.05, 0.5), (x, -0.61, 0.95))
+	windows.box((0.3, 0.05, 0.6), (0, -0.71, 2.2))
+	windows.box((0.5, 0.05, 0.7), (0, -0.71, 0.35))  # the door
+	obs.append(obj(windows, stage, mat("Window", srgb(255, 214, 140), rough=0.3, emit=0.6)))
+	return obs, {"yaw": -18, "pitch": 10}
+
+
+def card_pizza_box(stage):
+	return import_model(stage, "Emblems", "Pizza", {"Body": CARDBOARD(), "Trim": RED(), "*": CARDBOARD()}), {"yaw": -24, "pitch": 34}
+
+
+def card_care_package(stage):
+	return import_model(stage, "Emblems", "CarePackage", {"Body": CARDBOARD(), "Trim": TAPE(), "*": CARDBOARD()}), {"yaw": 156, "pitch": 18}
+
+
+def card_paw_print(stage):
+	# A plain paw print (not the university's mark), lying flat and seen from above.
+	paw = Part("Paw")
+	paw.sphere(0.75, (0, 0, 0.12), segs=32, rings=10, scale=(1.15, 1.0, 0.18))
+	for x, y in ((-1.0, 0.75), (-0.38, 1.25), (0.38, 1.25), (1.0, 0.75)):
+		paw.sphere(0.34, (x, y, 0.1), segs=24, rings=8, scale=(0.9, 1.15, 0.28))
+	return [obj(paw, stage, EIU_BLUE())], {"yaw": 0, "pitch": 70}
+
+
+def card_neon_sign(stage):
+	return import_model(stage, "Emblems", "Hangout", {
+		"Body": INK(),
+		"Trim": GOLD(),
+		"Glow": mat("Neon", srgb(255, 70, 120), rough=0.2, emit=3.0),
+	}), {"yaw": 160, "pitch": 8}
+
+
 CARD_BUILDERS = {
 	"MoneyBag": card_money_bag,
 	"Bank": card_bank,
@@ -294,6 +376,14 @@ CARD_BUILDERS = {
 	"Briefcase": card_briefcase,
 	"Trophy": card_trophy,
 	"Go": card_go,
+	# The EIU map's cards.
+	"Handcuffs": card_handcuffs,
+	"Ghost": card_ghost,
+	"OldMain": card_old_main,
+	"PizzaBox": card_pizza_box,
+	"CarePackage": card_care_package,
+	"PawPrint": card_paw_print,
+	"NeonSign": card_neon_sign,
 }
 
 
