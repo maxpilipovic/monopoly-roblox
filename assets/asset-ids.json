@@ -15,18 +15,34 @@
                          "assetId":  "75265896671545",
                          "hash":  "042B804E7FE28824A9FAD3625FE83204C611A789BB897C2D414A7F1C91DB9129"
                      },
+    "Emblems/CarePackage":  {
+                                "assetId":  "117134847283682",
+                                "hash":  "7ED182CB7B525F6262023841DA7A9C3B82A36BA1AC3CCCA58010EB887C02C6BE"
+                            },
     "Emblems/Chest":  {
                           "assetId":  "80977579330484",
                           "hash":  "7CF0065F9D33D69D1CB8AD50D96B99AB666E3DFC00053AD38F07B34040FFFB9A"
                       },
+    "Emblems/Hangout":  {
+                            "assetId":  "82931878844429",
+                            "hash":  "5A2AA2A853D29F99FA21AD630B868ADBA5E10F25F1A6E09FF0CBB0E0CD8F0C61"
+                        },
     "Emblems/Locomotive":  {
                                "assetId":  "107491704721672",
                                "hash":  "063287E3E31335DCDC9A1714D7A8304B99D900D32CD5F34C0643C0FB2B84EB1E"
                            },
+    "Emblems/Pizza":  {
+                          "assetId":  "109797104747557",
+                          "hash":  "68270A689255E6CB05917DA3111A29324CF1ECD176952AC92529FB78C6DCDB63"
+                      },
     "Emblems/Question":  {
                              "assetId":  "87311930111033",
                              "hash":  "DC51795872B09AB5FD642683D840D39FAE61B1F66FFC615B99F75A0C1934EA0F"
                          },
+    "Emblems/Sub":  {
+                        "assetId":  "110508643805499",
+                        "hash":  "9C4620817CECF7DB00D3566F17CA8B840A7AEBEBAFACDB59309961EA6B6D5AE1"
+                    },
     "Emblems/Tap":  {
                         "assetId":  "109058835388508",
                         "hash":  "06CA47F72F242E40150C81040E15584A9E572CA59314567242A6EE2AA531A6E4"
@@ -94,5 +110,9 @@
     "Props/CashStack":  {
                             "assetId":  "126741987789808",
                             "hash":  "70BFE6B02667D004E3967F4EF54FFAE5650997201C94BFC660CD4A8C58B88E45"
+                        },
+    "Scenery/Panther":  {
+                            "assetId":  "138304150058075",
+                            "hash":  "656D61AB58FAA96DDA884AE47B340F8B72639A32C65BC002DE5049F9D313C23E"
                         }
 }

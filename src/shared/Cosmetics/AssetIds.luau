@@ -11,9 +11,13 @@ local AssetIds: { [string]: { [string]: number } } = {
 	},
 	Emblems = {
 		Bulb = 75265896671545,
+		CarePackage = 117134847283682,
 		Chest = 80977579330484,
+		Hangout = 82931878844429,
 		Locomotive = 107491704721672,
+		Pizza = 109797104747557,
 		Question = 87311930111033,
+		Sub = 110508643805499,
 		Tap = 109058835388508,
 	},
 	Pieces = {
@@ -35,6 +39,9 @@ local AssetIds: { [string]: { [string]: number } } = {
 	},
 	Props = {
 		CashStack = 126741987789808,
+	},
+	Scenery = {
+		Panther = 138304150058075,
 	},
 }
 

@@ -21,7 +21,7 @@ local IRON = Color3.fromRGB(30, 30, 36)
 local WARM = Color3.fromRGB(255, 206, 140)
 local EIU_BLUE = Color3.fromRGB(0, 62, 140)
 local EIU_GREY = Color3.fromRGB(170, 176, 186)
-local BRONZE = Color3.fromRGB(70, 58, 44)
+local BRONZE = Color3.fromRGB(128, 100, 66)
 local AUTUMN = {
 	Color3.fromRGB(214, 96, 34),
 	Color3.fromRGB(196, 54, 36),
@@ -181,7 +181,7 @@ end
 local function panther(model: Instance)
 	Kit.block("Plinth", Vector3.new(12, 6, 8), CFrame.new(PANTHER + Vector3.new(0, 3, 0)), LIMESTONE_DARK, Enum.Material.Limestone, model)
 	local top = PANTHER + Vector3.new(0, 6, 0)
-	if scenery("Panther", top, 9, math.rad(200), BRONZE, Enum.Material.Metal, model) then
+	if scenery("Panther", top, 9, math.rad(200), BRONZE, Enum.Material.Metal, model) then -- facing the table
 		return
 	end
 	local group = Kit.group("Panther", model)
