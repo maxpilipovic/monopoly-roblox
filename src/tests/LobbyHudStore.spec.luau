@@ -1,7 +1,9 @@
 --!strict
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local LobbyHud = require(StarterPlayer.StarterPlayerScripts.Client.Hud.LobbyHud)
 local Ui = require(StarterPlayer.StarterPlayerScripts.Client.Hud.Ui)
+local CoinPacks = require(ReplicatedStorage.Shared.Store.CoinPacks)
 local Expect = require(script.Parent.Expect)
 
 local tests = {}
@@ -52,7 +54,7 @@ tests["chests have no Robux button: coins or keys open them"] = function()
 	end)
 end
 
-tests["the coin shop lists every pack; in Studio a pack can be test-bought"] = function()
+tests["the coin shop lists every pack, and its button buys it (a test buy while the product id is unset)"] = function()
 	withLobby(function(hud, sent)
 		hud:openPanel("Coins")
 		local shown = texts(hud.panels.Coins)
@@ -68,7 +70,8 @@ tests["the coin shop lists every pack; in Studio a pack can be test-bought"] = f
 		end
 		assert(button, "no Buy button on the Pouch")
 		Ui.press(button :: TextButton)
-		Expect.equal(sent[1] and sent[1].type, "TestBuyCoins", "Studio test buy")
+		local live = CoinPacks.byId.Pouch.productId ~= 0
+		Expect.equal(sent[1] and sent[1].type, if live then "BuyCoins" else "TestBuyCoins", "buy request")
 		Expect.equal(sent[1] and sent[1].pack, "Pouch")
 	end)
 end

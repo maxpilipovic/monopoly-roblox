@@ -4,8 +4,8 @@
 -- its id here. While an id is 0 the pack can only be test-bought in Studio; live servers refuse it.
 
 return table.freeze({
-	Pouch = 0, -- 49 Robux: 1,000 coins
-	Bag = 0, -- 149 Robux: 3,500 coins
-	Pile = 0, -- 399 Robux: 10,000 coins
-	Vault = 0, -- 999 Robux: 30,000 coins
+	Pouch = 3723710085, -- 49 Robux: 1,000 coins
+	Bag = 3723710545, -- 149 Robux: 3,500 coins
+	Pile = 3723710912, -- 399 Robux: 10,000 coins
+	Vault = 3723711142, -- 999 Robux: 30,000 coins
 })
