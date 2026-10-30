@@ -16,7 +16,7 @@
 2. [ ] **Two-client multiplayer test** (never done): Studio → Test → Clients and Servers, 2 players. Start a game, trade, bankrupt, game over.
 3. [x] **Upload the pending Blender models** (done 2026-10-26).
 4. [x] **Coin pack products** (done 2026-10-29: ids in Products.luau, verified on Roblox): create the Pouch (49), Bag (149), Pile (399) and Vault (999) Developer Products in the Creator Dashboard and paste their ids into `src/shared/Store/Products.luau`. Until then the packs only test-buy in Studio. Doing this from a script needs the API key to have the *Developer Products* API system with write access; the current key only has Assets.
-5. [ ] **DataStores:** turn on Studio access to API services (Game Settings → Security) and test that coins, unlocks and Elo save and load.
+5. [x] **DataStores** (done 2026-10-29: coins, wins and a claimed reward survived leave and rejoin): turn on Studio access to API services (Game Settings → Security) and test that coins, unlocks and Elo save and load.
 6. [ ] **Dashboard settings:** server size 25 (Places → Configure → Server size; can't be set from code), and the content maturity questionnaire, answered honestly (no alcohol).
 7. [ ] **Phone layout.** On a portrait phone the trade window is clipped and the side panels collide. Most Roblox players are on phones.
 
