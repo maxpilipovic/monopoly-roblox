@@ -268,24 +268,56 @@ def sunburst(stage, cam, rgb, distance, count=16, strength=1.2):
 	return in_camera(cam, ob, 0, 0.1, distance)
 
 
+def felt_backdrop(stage, cam, distance=100.0):
+	"""Green card-table felt with a warm spotlight in the middle, darkening to the edges."""
+	hw, hh = half_frame(cam, distance)
+	m = bpy.data.materials.new("Felt")
+	m.use_nodes = True
+	nodes, links = m.node_tree.nodes, m.node_tree.links
+	for n in list(nodes):
+		nodes.remove(n)
+	coords = nodes.new("ShaderNodeTexCoord")
+	distance_node = nodes.new("ShaderNodeVectorMath")
+	distance_node.operation = "DISTANCE"
+	distance_node.inputs[1].default_value = (0.5, 0.55, 0.5)
+	noise = nodes.new("ShaderNodeTexNoise")
+	noise.inputs["Scale"].default_value = 900.0
+	ramp = nodes.new("ShaderNodeValToRGB")
+	mix = nodes.new("ShaderNodeMixRGB")
+	mix.blend_type = "MULTIPLY"
+	mix.inputs[0].default_value = 0.12
+	emit = nodes.new("ShaderNodeEmission")
+	out = nodes.new("ShaderNodeOutputMaterial")
+	links.new(coords.outputs["Generated"], distance_node.inputs[0])
+	links.new(distance_node.outputs["Value"], ramp.inputs[0])
+	links.new(ramp.outputs[0], mix.inputs[1])
+	links.new(noise.outputs[0], mix.inputs[2])
+	links.new(mix.outputs[0], emit.inputs[0])
+	links.new(emit.outputs[0], out.inputs[0])
+	ramp.color_ramp.elements[0].color = (*srgb(110, 230, 130), 1)  # the spotlight
+	ramp.color_ramp.elements[1].color = (*srgb(8, 46, 26), 1)  # the dark edges
+	ramp.color_ramp.elements[1].position = 0.7
+	wall = Part("Felt")
+	wall.box((hw * 2.2, hh * 2.2, 0.1), (0, 0, 0))
+	ob = obj(wall, stage, m)
+	return in_camera(cam, ob, 0, 0, distance)
+
+
 def shot_icon(scene, stage):
-	"""Square icon: a gold top hat on a pile of coins, two dice tumbling, a hotel behind, rays
-	bursting from the middle and the title in two big gold lines along the bottom."""
+	"""Square icon, no words: a gold top hat on a pile of coins, two dice tumbling, a hotel
+	behind, on green card-table felt under a warm spotlight."""
 	obs = []
-	cam = aim(scene, (0, -14, 2.0), (0, 0, 1.0), lens=50)
-	for i, (x, y, count) in enumerate([(0.3, 0.4, 5), (-0.5, 0.2, 3), (1.1, 0.1, 4), (0.2, -0.6, 2)]):
-		obs += stack(stage, f"Pile{i}", x, y, count, radius=0.55)
-	obs += piece(stage, "TopHat", (255, 196, 56), 2.6, (0.3, 0.4, 5 * 0.55 * 0.28 + 0.05), yaw=-20)
-	obs += building(stage, "Hotel", 2.2, (2.6, 2.5, 0), yaw=-30)
-	obs += tumbling_die(stage, 1.7, on_screen(cam, -0.55, 0.05, 11), (20, -25, 35))
-	obs += tumbling_die(stage, 1.5, on_screen(cam, -0.3, 0.5, 12), (-35, 15, 70))
-	for i, (fx, fy, t) in enumerate([(0.72, 0.62, 60), (-0.75, 0.75, 75), (0.82, 0.05, 40), (0.05, 0.85, 80)]):
+	cam = aim(scene, (0, -14, 3.6), (0.2, 0, 2.2), lens=50)
+	for i, (x, y, count) in enumerate([(0.4, 0.4, 5), (-0.4, 0.3, 3), (1.25, 0.15, 4), (0.3, -0.6, 2), (1.5, -0.7, 1)]):
+		obs += stack(stage, f"Pile{i}", x, y, count, radius=0.6)
+	obs += piece(stage, "TopHat", (255, 196, 56), 3.2, (0.4, 0.4, 5 * 0.6 * 0.28 + 0.05), yaw=-20)
+	obs += building(stage, "Hotel", 2.4, (2.9, 2.6, 0), yaw=-30)
+	obs += building(stage, "House", 1.3, (-2.6, 2.4, 0), yaw=25)
+	obs += tumbling_die(stage, 2.0, on_screen(cam, -0.58, -0.25, 11), (20, -25, 35))
+	obs += tumbling_die(stage, 1.8, on_screen(cam, -0.4, 0.42, 12), (-35, 15, 70))
+	for i, (fx, fy, t) in enumerate([(0.7, 0.68, 60), (-0.78, 0.8, 75), (0.82, -0.55, 40), (0.1, 0.86, 80), (-0.2, -0.82, 30)]):
 		obs.append(gold_coin(stage, f"Coin{i}", on_screen(cam, fx, fy, 11), radius=0.42, tilt=t, yaw=i * 30))
-	backdrop(stage, cam, (30, 90, 220), (10, 20, 90))
-	sunburst(stage, cam, (60, 140, 255), 100)
-	ribbon(stage, cam, 30.0, 5.0, 0, -0.73, (14, 18, 46))
-	words(stage, cam, "BOARD", 3.1, 0, -0.52)
-	words(stage, cam, "BARONS", 3.1, 0, -0.8)
+	felt_backdrop(stage, cam)
 	return obs
 
 
