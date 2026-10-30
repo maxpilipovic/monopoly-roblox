@@ -127,7 +127,7 @@ local function heading(text: string, parent: Instance, size: number?): TextLabel
 end
 
 local function panel(self: LobbyHud, name: string, size: Vector2): Frame
-	local frame = Ui.panel(name, UDim2.fromOffset(size.X, size.Y), UDim2.fromScale(0.5, 0.47), Vector2.new(0.5, 0.5), self.root)
+	local frame = Ui.panel(name, UDim2.fromOffset(size.X, size.Y), UDim2.fromScale(0.5, 0.45), Vector2.new(0.5, 0.5), self.root) -- clear of the dock
 	frame.Visible = false
 	frame.ZIndex = 5
 	local close = Instance.new("TextButton")
@@ -350,7 +350,7 @@ function LobbyHud.new(playerGui: Instance, callbacks: Callbacks): LobbyHud
 		self.dockButtons[info[1]] = button
 	end
 
-	panel(self, "Games", Vector2.new(560, 580))
+	panel(self, "Games", Vector2.new(560, 620)) -- tall enough for every setting row above the buttons at a table
 	panel(self, "Challenges", ChallengesPanel.SIZE)
 	panel(self, "Pieces", Vector2.new(660, 600))
 	panel(self, "Chests", Vector2.new(720, 540))

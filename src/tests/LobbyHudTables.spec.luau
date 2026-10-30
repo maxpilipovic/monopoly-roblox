@@ -99,4 +99,29 @@ tests["a ranked room's settings have no bots or game length rows; a casual one's
 	end)
 end
 
+tests["at the table, the last setting row ends above the Leave and Start game buttons"] = function()
+	withLobby(function(hud)
+		hud:setRooms({ rooms = { room(2) }, mine = 7, hostOf = 7 })
+		hud:openPanel("Games")
+		local panel = hud.panels.Games
+		local content = panel:FindFirstChild("Body") :: Frame
+		local holder = content:FindFirstChild("FormHolder") :: Frame
+		local form = holder:FindFirstChild("Settings") :: Frame
+		local footer = content:FindFirstChild("Footer") :: Frame
+		local rows, height = 0, 0
+		for _, row in form:GetChildren() do
+			if row:IsA("Frame") then
+				rows += 1
+				height += row.Size.Y.Offset
+			end
+		end
+		local gap = (form:FindFirstChildOfClass("UIListLayout") :: UIListLayout).Padding.Offset
+		local formBottom = holder.Position.Y.Offset + height + gap * (rows - 1)
+		local bodyHeight = panel.Size.Y.Offset + content.Size.Y.Offset -- body is (1, -top - 20) tall
+		local footerTop = bodyHeight - footer.Size.Y.Offset
+		Expect.equal(rows, 10, "every setting row shown for a casual host")
+		assert(formBottom <= footerTop - 8, `settings end at {formBottom}, the buttons start at {footerTop}`)
+	end)
+end
+
 return tests
