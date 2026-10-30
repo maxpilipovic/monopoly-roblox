@@ -11,6 +11,7 @@ exec(open(r"C:\dev\Monopoly\tools\blender\product_art.py").read())
 
 PROMO_OUT = os.path.join(ROOT, "promo")
 TITLE = "BOARD BARONS"
+SUPERSAMPLE = 2 # render at twice the size, then shrink
 
 PLAYER_COLOURS = {
 	"Red": (232, 64, 64),
@@ -52,6 +53,8 @@ def building(stage, kind, height, base, yaw=0.0):
 
 def tumbling_die(stage, size, centre, tilt):
 	obs = import_model(stage, "Dice", "Rounded", {"Body": IVORY(), "Pips": INK(), "*": IVORY()})
+	for ob in obs:
+		ob["no_outline"] = True  # the outline shell shows through the pip holes
 	fit(obs, size, (0, 0, 0))
 	m = Matrix.Translation(Vector(centre) - Vector((0, 0, size / 2))) @ Matrix.Translation((0, 0, size / 2)) @ rx(tilt[0]) @ ry(tilt[1]) @ rz(tilt[2]) @ Matrix.Translation((0, 0, -size / 2))
 	for ob in obs:
@@ -333,6 +336,8 @@ def render_promo(names=None):
 	scene, stage = studio()
 	transparent = scene.render.film_transparent
 	scene.render.film_transparent = False
+	samples = scene.eevee.taa_render_samples
+	scene.eevee.taa_render_samples = 256
 	done = []
 	try:
 		for name in names or list(SHOTS):
@@ -344,14 +349,28 @@ def render_promo(names=None):
 			lo, hi = bounds(objects)
 			thickness = (hi - lo).length * 0.004
 			for ob in objects:
-				add_outline(ob, thickness)
+				if not ob.get("no_outline"):
+					add_outline(ob, thickness)
 			os.makedirs(PROMO_OUT, exist_ok=True)
-			scene.render.filepath = os.path.join(PROMO_OUT, name + ".png")
+			path = os.path.join(PROMO_OUT, name + ".png")
+			# Supersampled: rendered at SUPERSAMPLE times the size with extra samples, then shrunk, for
+			# clean edges and smooth light at the size Roblox shows.
+			scene.render.resolution_percentage = 100 * SUPERSAMPLE
+			scene.render.filepath = path
 			bpy.ops.render.render(write_still=True, scene=scene.name)
+			scene.render.resolution_percentage = 100
+			big = bpy.data.images.load(path, check_existing=False)
+			big.scale(width, height)
+			big.filepath_raw = path
+			big.file_format = "PNG"
+			big.save()
+			bpy.data.images.remove(big)
 			done.append(name)
 	finally:
 		scene.render.film_transparent = transparent
 		scene.render.resolution_x = SIZE
 		scene.render.resolution_y = SIZE
 		scene.camera.data.lens = 85
+		scene.render.resolution_percentage = 100
+		scene.eevee.taa_render_samples = samples
 	return done
