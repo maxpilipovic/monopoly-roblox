@@ -158,7 +158,10 @@ def words(stage, cam, text, size, x, y, distance=6.0, material=None, depth=0.25)
 	size, depth = size * k, depth * k
 	ob = heavy_text(stage, text, size, depth, material or mat("TitleGold", srgb(255, 200, 40), metal=0.4, rough=0.25, emit=0.25))
 	in_camera(cam, ob, x, y, distance)
-	add_outline(ob, size * 0.035)
+	# A hard drop shadow rather than an outline shell: crisp at any size, no specks on the bevels.
+	shadow = heavy_text(stage, text, size, depth, mat("TitleShadow", srgb(20, 14, 30), rough=1.0))
+	hw, hh = half_frame(cam, distance + 0.02)
+	in_camera(cam, shadow, x + size * 0.05 / hw, y - size * 0.07 / hh, distance + 0.02)
 	return ob
 
 
@@ -247,15 +250,42 @@ def shot_collect(scene, stage):
 	return obs
 
 
+def sunburst(stage, cam, rgb, distance, count=16, strength=1.2):
+	"""Rays fanning out from the middle of the picture, between the backdrop and the scene."""
+	hw, hh = half_frame(cam, distance)
+	reach = max(hw, hh) * 2
+	mesh = bpy.data.meshes.new("Rays")
+	verts, faces = [(0, 0, 0)], []
+	for i in range(count):
+		a = 2 * math.pi * i / count
+		b = a + math.pi / count
+		verts += [(reach * math.cos(a), reach * math.sin(a), 0), (reach * math.cos(b), reach * math.sin(b), 0)]
+		faces.append((0, len(verts) - 2, len(verts) - 1))
+	mesh.from_pydata(verts, [], faces)
+	ob = bpy.data.objects.new("Rays", mesh)
+	stage.objects.link(ob)
+	ob.data.materials.append(mat("Rays", srgb(*rgb), rough=1.0, emit=strength))
+	return in_camera(cam, ob, 0, 0.1, distance)
+
+
 def shot_icon(scene, stage):
-	"""Square icon: a big die, a gold top hat and flying coins on a bright burst. No words."""
+	"""Square icon: a gold top hat on a pile of coins, two dice tumbling, a hotel behind, rays
+	bursting from the middle and the title in two big gold lines along the bottom."""
 	obs = []
-	obs += tumbling_die(stage, 3.0, (-1.3, 0, 1.2), (18, -22, 30))
-	obs += piece(stage, "TopHat", (255, 196, 56), 2.8, (1.5, 0.6, 0.6), yaw=-25)
-	for i, (x, z, t) in enumerate([(2.9, 3.6, 60), (-2.6, 3.9, 75), (0.4, 4.3, 40), (3.3, 0.6, 80)]):
-		obs.append(gold_coin(stage, f"Coin{i}", (x, -1.2, z), radius=0.5, tilt=t, yaw=i * 30))
-	cam = aim(scene, (0, -13, 3.6), (0.2, 0, 2.0), lens=50)
-	backdrop(stage, cam, (40, 110, 230), (20, 40, 120))
+	cam = aim(scene, (0, -14, 2.0), (0, 0, 1.0), lens=50)
+	for i, (x, y, count) in enumerate([(0.3, 0.4, 5), (-0.5, 0.2, 3), (1.1, 0.1, 4), (0.2, -0.6, 2)]):
+		obs += stack(stage, f"Pile{i}", x, y, count, radius=0.55)
+	obs += piece(stage, "TopHat", (255, 196, 56), 2.6, (0.3, 0.4, 5 * 0.55 * 0.28 + 0.05), yaw=-20)
+	obs += building(stage, "Hotel", 2.2, (2.6, 2.5, 0), yaw=-30)
+	obs += tumbling_die(stage, 1.7, on_screen(cam, -0.55, 0.05, 11), (20, -25, 35))
+	obs += tumbling_die(stage, 1.5, on_screen(cam, -0.3, 0.5, 12), (-35, 15, 70))
+	for i, (fx, fy, t) in enumerate([(0.72, 0.62, 60), (-0.75, 0.75, 75), (0.82, 0.05, 40), (0.05, 0.85, 80)]):
+		obs.append(gold_coin(stage, f"Coin{i}", on_screen(cam, fx, fy, 11), radius=0.42, tilt=t, yaw=i * 30))
+	backdrop(stage, cam, (30, 90, 220), (10, 20, 90))
+	sunburst(stage, cam, (60, 140, 255), 100)
+	ribbon(stage, cam, 30.0, 5.0, 0, -0.73, (14, 18, 46))
+	words(stage, cam, "BOARD", 3.1, 0, -0.52)
+	words(stage, cam, "BARONS", 3.1, 0, -0.8)
 	return obs
 
 
